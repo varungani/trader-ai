@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+*.db
+.vscode/
+.idea/
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+portfolio/portfolio.json
+portfolio/paper_week.json

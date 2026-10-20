@@ -1,0 +1,37 @@
+# TraderAI - Open-source Investment Recommender
+# Core
+pandas>=2.0.0
+numpy>=1.24.0
+python-dotenv>=1.0.0
+
+# Market Data (open wrappers over public Yahoo data)
+yfinance>=0.2.30
+
+# Mutual funds (AMFI via public mfapi.in HTTP — mftool optional)
+requests>=2.31.0
+
+# Technical Analysis
+ta>=0.11.0
+
+# Sentiment (open-source)
+vaderSentiment>=3.3.2
+
+# Kotak Neo TOTP helper (open-source)
+pyotp>=2.9.0
+
+# Optional: Finnhub free-tier news enrichment
+finnhub-python>=2.4.19
+
+# Database: sqlite3 is builtin
+
+# Dashboard
+streamlit>=1.30.0
+plotly>=5.18.0
+
+# Broker (Kotak Neo) — install one of:
+#   pip install kotakneoapi
+#   pip install git+https://github.com/kotak-neo/kotak-neo-api-v2
+
+# LLMs: install Ollama separately (https://ollama.com), then:
+#   ollama pull llama3.2
+#   ollama pull mistral

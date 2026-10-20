@@ -1,0 +1,4 @@
+# Optional extra tickers (one per line). Merged into every universe scan.
+# Examples:
+# PAYTM.NS
+# IRFC.NS
