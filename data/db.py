@@ -288,6 +288,66 @@ def update_paper_trade_stop(conn: sqlite3.Connection, trade_id: int, new_stop: f
     conn.commit()
 
 
+def partial_close_paper_trade(
+    conn: sqlite3.Connection,
+    trade_id: int,
+    exit_price: float,
+    closed_qty: int,
+    exit_reason: str = "PARTIAL_PROFIT_T1 (+7%)",
+) -> int:
+    """
+    Book partial profit:
+    1. Reduces the open trade's quantity by closed_qty.
+    2. Inserts a separate CLOSED trade row for the booked portion with its realized P&L.
+    """
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM paper_trades WHERE id = ?", (trade_id,))
+    row = cursor.fetchone()
+    if not row:
+        return 0
+    t = dict(row)
+    remaining_qty = t["quantity"] - closed_qty
+    if remaining_qty <= 0:
+        close_paper_trade(conn, trade_id, exit_price, exit_reason)
+        return trade_id
+
+    # Update original trade with remaining quantity
+    cursor.execute(
+        "UPDATE paper_trades SET quantity = ? WHERE id = ?",
+        (remaining_qty, trade_id),
+    )
+
+    # Insert a closed row for the realized portion
+    entry_price = t["entry_price"]
+    pnl = (exit_price - entry_price) * closed_qty
+    pnl_pct = ((exit_price - entry_price) / entry_price) * 100.0
+
+    cursor.execute("""
+        INSERT INTO paper_trades
+        (ticker, timeframe, action, entry_price, entry_date, quantity,
+         stop_loss, target_price, exit_price, exit_date, exit_reason, pnl, pnl_percent, status, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'CLOSED', ?)
+    """, (
+        t["ticker"],
+        t["timeframe"],
+        t["action"],
+        entry_price,
+        t["entry_date"],
+        closed_qty,
+        t["stop_loss"],
+        t["target_price"],
+        exit_price,
+        datetime.now().strftime("%Y-%m-%d"),
+        exit_reason,
+        round(pnl, 2),
+        round(pnl_pct, 2),
+        f"Partial booking from trade #{trade_id}",
+    ))
+    conn.commit()
+    return cursor.lastrowid
+
+
+
 
 def get_paper_trade_history(conn: sqlite3.Connection, limit: int = 50) -> list[dict]:
     """Fetch paper trade history (closed trades)."""

@@ -22,6 +22,7 @@ from config import (
     DEFAULT_UNIVERSE_PRESET,
     MONTHLY_MF_BUDGET,
     MONTHLY_STOCK_BUDGET,
+    SMALL_CAPITAL_CONFIG,
     TIMEFRAMES,
 )
 from portfolio.manager import (
@@ -93,6 +94,16 @@ with st.sidebar:
         value=0.0,
         step=10000.0,
     )
+    active_cap = float(capital_override or swing_capital)
+    max_positions = st.slider(
+        "Max Open Swing Positions",
+        min_value=3,
+        max_value=6,
+        value=3 if active_cap <= 25000 else 5,
+        help="3 positions recommended for capital <= ₹25,000 to maximize shares per stock and cut fixed DP exit fees by 40%."
+    )
+    SMALL_CAPITAL_CONFIG["max_concurrent_positions"] = max_positions
+    SMALL_CAPITAL_CONFIG["max_new_stock_names_per_month"] = max_positions
     sync_broker = st.checkbox("Sync Kotak Neo before run", value=False)
     totp = ""
     if sync_broker:
@@ -261,7 +272,7 @@ def _rec_table(rows, prefix: str = "rec", show_filters: bool = False):
         st.write("None")
         return
 
-    slot_cap = (float(capital_override or swing_capital) / 5) if (capital_override or swing_capital) else 2000.0
+    slot_cap = (float(capital_override or swing_capital) / max_positions) if (capital_override or swing_capital) else 2000.0
 
     afford_only = False
     max_px_filter = 0.0
@@ -622,6 +633,7 @@ with tabs[2]:
     val_mode = st.radio(
         "Validation View:",
         [
+            "🎯 Multi-Strategy Tournament & All-BUY Forward Tracker (₹20k Combinations & Diversification Test)",
             "🔬 Institutional Scorecards & Alpha Audit (Expectancy, Nifty Alpha, Factor Power)",
             "🛡️ Weekly Paper Portfolio Tracker (Trade Log & MTM)",
         ],
@@ -638,7 +650,160 @@ with tabs[2]:
         get_paper_trade_stats,
     )
 
-    if "Institutional Scorecards" in val_mode:
+    if "Multi-Strategy Tournament" in val_mode:
+        from engine.strategy_tournament import simulate_tournament
+        from datetime import datetime
+
+        with st.expander("💡 Quant Tournament Framework: Testing Corpus Allocation & Diversification", expanded=True):
+            st.markdown("""
+- **The Diversification vs. Friction Dilemma:** In Indian equity delivery trading, every distinct stock sold incurs a flat ₹15.93 CDSL DP fee + STT + GST. On a ₹20,000 corpus, spreading money into 15 stocks incurs over ₹280 in statutory friction (1.4%+ of your capital), severely penalizing over-diversification!
+- **Strategy A (Top 3 Concentrated):** Allocates ~33% per stock into the top 3 highest-conviction picks. Minimizes fixed DP friction and concentrates capital into the strongest signals.
+- **Strategy B (Top 5 Core Balanced):** Allocates 20% per stock into the top 5 picks across sectors. Balances risk while keeping DP friction manageable (~0.7%).
+- **Strategy C (All Recommended BUYs):** Simulates buying every single stock recommended in the scored universe. Evaluates gross universe accuracy vs net friction drag.
+""")
+
+        tcol1, tcol2, tcol3 = st.columns([2, 1, 1])
+        with tcol1:
+            tourney_corpus = st.number_input(
+                "Simulated Portfolio Corpus (₹)",
+                min_value=5000.0,
+                max_value=1000000.0,
+                value=20000.0,
+                step=5000.0,
+                format="%.0f",
+                key="tourney_corpus_input",
+                help="Virtual capital to allocate across different stock diversification combinations"
+            )
+        with tcol2:
+            tourney_limit = st.slider(
+                "Max BUY Candidates to Track",
+                min_value=5,
+                max_value=30,
+                value=15,
+                step=5,
+                key="tourney_cands_input"
+            )
+        with tcol3:
+            st.write("")
+            st.write("")
+            st.button("🔄 Recalculate Live", type="primary", use_container_width=True, key="btn_refresh_tourney")
+
+        with st.spinner("Simulating multi-strategy forward tournament across universe BUY recommendations..."):
+            tourney = simulate_tournament(corpus=float(tourney_corpus), top_n_candidates=int(tourney_limit))
+
+        if "error" in tourney:
+            st.warning(tourney["error"])
+        else:
+            best_strat_name = tourney.get("best_strategy", "")
+            st.success(f"🏆 **Winning Strategy: {best_strat_name}** — Generated the highest net return after Indian statutory friction!")
+
+            strats = tourney.get("strategies", {})
+            st_top3 = strats.get("top3", {})
+            st_top5 = strats.get("top5", {})
+            st_all = strats.get("all_buys", {})
+
+            scol_a, scol_b, scol_c = st.columns(3)
+
+            def _render_strategy_card(col, strat, title_badge, is_winner):
+                with col:
+                    winner_crown = "👑 " if is_winner else ""
+                    st.markdown(f"#### {winner_crown}{title_badge}")
+                    net_pnl = strat.get("net_pnl", 0.0)
+                    net_ret = strat.get("net_return_pct", 0.0)
+                    win_rate = strat.get("win_rate", 0.0)
+                    inv = strat.get("invested", 0.0)
+                    friction = strat.get("friction", 0.0)
+                    n_pos = strat.get("positions_count", 0)
+
+                    d_col = "normal" if net_pnl > 0 else ("off" if net_pnl == 0 else "inverse")
+                    st.metric(
+                        "Net P&L (Post-Friction)",
+                        f"₹{net_pnl:+,.2f}",
+                        f"{net_ret:+.2f}%",
+                        delta_color=d_col,
+                    )
+                    c_sub1, c_sub2 = st.columns(2)
+                    c_sub1.metric("Win Rate", f"{win_rate:.1f}%")
+                    c_sub2.metric("Positions", f"{n_pos} stocks")
+
+                    st.caption(f"Invested: **₹{inv:,.0f}** | Statutory Drag: **₹{friction:,.2f}**")
+
+                    positions = strat.get("positions", [])
+                    if positions:
+                        with st.expander(f"🔍 View {len(positions)} Allocations", expanded=False):
+                            df_pos = []
+                            for p in positions:
+                                df_pos.append({
+                                    "Ticker": p["ticker"],
+                                    "Shares": p["shares"],
+                                    "Entry": f"₹{p['buy_price']:,.2f}",
+                                    "LTP": f"₹{p['current_price']:,.2f}",
+                                    "Gain %": f"{p['gain_pct']:+.2f}%",
+                                    "Net ₹": f"₹{p['net_pnl']:+,.2f}",
+                                })
+                            st.dataframe(pd.DataFrame(df_pos), use_container_width=True)
+
+            is_top3_winner = "Top 3" in best_strat_name
+            is_top5_winner = "Top 5" in best_strat_name
+            is_all_winner = "All Recommended" in best_strat_name
+
+            _render_strategy_card(scol_a, st_top3, "Strategy A: Top 3 Concentrated", is_top3_winner)
+            _render_strategy_card(scol_b, st_top5, "Strategy B: Top 5 Core Balanced", is_top5_winner)
+            _render_strategy_card(scol_c, st_all, f"Strategy C: All Universe BUYs ({len(tourney.get('all_candidates', []))})", is_all_winner)
+
+            st.divider()
+
+            # All BUY candidates forward tracker table
+            all_cands = tourney.get("all_candidates", [])
+            st.markdown(f"#### 📡 All-BUY Recommendations Tracker ({len(all_cands)} Scored Candidates)")
+            st.caption("Live forward tracking for every stock flagged as BUY or STRONG_BUY across the entire scanned universe. Tracks performance from snapshot entry price to live market LTP.")
+
+            if all_cands:
+                tbl_rows = []
+                for c in all_cands:
+                    entry = c["entry_price"]
+                    cur = c["current_price"]
+                    gain = c["raw_gain_pct"]
+                    sl = c["stop_loss"]
+                    tp = c["target_price"]
+
+                    if cur >= tp:
+                        status_str = "🎯 Target Hit (+15%)"
+                    elif cur <= sl:
+                        status_str = "🛑 Stop Hit (-7%)"
+                    elif gain > 0:
+                        status_str = "🟢 In Profit (Holding)"
+                    else:
+                        status_str = "🟡 Consolidating"
+
+                    tbl_rows.append({
+                        "Ticker": c["ticker"],
+                        "Signal Date": c["date"],
+                        "Action": c["action"],
+                        "AI Score": f"{c['final_score']:.1f}",
+                        "Entry Price": f"₹{entry:,.2f}",
+                        "Live LTP": f"₹{cur:,.2f}",
+                        "Gain / Loss %": f"{gain:+.2f}%",
+                        "Stop Loss": f"₹{sl:,.2f}",
+                        "Target": f"₹{tp:,.2f}",
+                        "Live Status": status_str,
+                    })
+
+                df_cands = pd.DataFrame(tbl_rows)
+                st.dataframe(df_cands, use_container_width=True)
+
+                # Export CSV button
+                csv_export = pd.DataFrame(all_cands).to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Export All-BUY Tracking Ledger (CSV)",
+                    data=csv_export,
+                    file_name=f"trader_ai_all_buy_recommendations_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="btn_download_tourney_csv"
+                )
+
+    elif "Institutional Scorecards" in val_mode:
         with st.expander("💡 Institutional Quant Framework: Why Forward-Testing Proves Real Edge", expanded=False):
             st.markdown("""
 - **Look-Ahead Bias Elimination:** Every recommendation is snapshotted at 09:30 AM before market hours progress, locking in the live entry price and the benchmark Nifty 50 price (`NIFTYBEES.NS`).

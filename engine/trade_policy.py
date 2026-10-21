@@ -207,14 +207,29 @@ def evaluate_trade_exit(
             is_runner=False,
         )
 
-    # Priority 3: Time Expiry (20 trading sessions max hold, unless actively running in substantial profit)
+    gain_pct = round(((cur_px - entry_px) / entry_px) * 100.0, 2)
+
+    # Priority 3: Momentum Stagnation Exit (Session 10 exit if trade is stagnant between -2.0% and +2.0%)
+    # Frees up capital 2x faster to recycle into fresh breakout runners instead of sitting in dead money
+    if days_held >= 10 and -2.0 <= gain_pct <= 2.0 and not active_runner:
+        return TradeResolution(
+            is_closed=True,
+            exit_reason=f"MOMENTUM_STAGNATION_EXIT (10 Sessions, {gain_pct:+.2f}%)",
+            exit_price=cur_px,
+            pnl_pct=gain_pct,
+            days_held=days_held,
+            is_partial_booked=partial_booked,
+            effective_stop=effective_stop,
+            is_runner=False,
+        )
+
+    # Priority 4: Max Time Expiry (20 trading sessions max hold, unless actively running in substantial profit)
     if days_held >= MAX_HOLDING_DAYS_SWING and not (active_runner and cur_px > entry_px * 1.10):
-        pnl = round(((cur_px - entry_px) / entry_px) * 100.0, 2)
         return TradeResolution(
             is_closed=True,
             exit_reason=f"SWING_TIME_EXPIRED ({MAX_HOLDING_DAYS_SWING} Sessions)",
             exit_price=cur_px,
-            pnl_pct=pnl,
+            pnl_pct=gain_pct,
             days_held=days_held,
             is_partial_booked=partial_booked,
             effective_stop=effective_stop,

@@ -138,6 +138,39 @@ def get_portfolio_alerts() -> list[str]:
             except Exception:
                 pass
 
+    # Check Active Paper Trades for real-time swing alerts
+    try:
+        from data.db import get_connection, get_open_paper_trades
+        conn = get_connection()
+        try:
+            open_paper = get_open_paper_trades(conn)
+        finally:
+            conn.close()
+
+        for p in open_paper:
+            sym = p.get("ticker", "")
+            entry = float(p.get("entry_price") or 0)
+            stop = float(p.get("stop_loss") or 0)
+            target = float(p.get("target_price") or 0)
+            qty = int(p.get("quantity") or 1)
+            if not sym or entry <= 0:
+                continue
+            q = fetch_live_quote(sym)
+            cur = float(q.get("price") or entry)
+            gain_pct = ((cur - entry) / entry * 100.0) if entry else 0.0
+            pnl = (cur - entry) * qty
+
+            if cur >= target:
+                alerts.append(f"🎯 <b>PAPER TARGET HIT: {sym}</b>\nGain: <b>+{gain_pct:.2f}%</b> (+₹{pnl:,.2f})\nTarget: ₹{target:,.2f} | LTP: ₹{cur:,.2f}")
+            elif gain_pct >= 7.0:
+                alerts.append(f"💰 <b>PARTIAL PROFIT (+7%): {sym}</b>\nGain: <b>+{gain_pct:.2f}%</b> (+₹{pnl:,.2f})\n<i>Tiered take-profit active: Lock 50% & trail stop!</i>")
+            elif cur <= stop:
+                alerts.append(f"🛑 <b>PAPER STOP HIT: {sym}</b>\nLoss: <b>{gain_pct:.2f}%</b> (-₹{abs(pnl):,.2f})\nStop: ₹{stop:,.2f} | LTP: ₹{cur:,.2f}")
+            elif cur <= stop * 1.015:
+                alerts.append(f"⚠️ <b>NEAR STOP LOSS: {sym}</b>\nLTP: ₹{cur:,.2f} is within 1.5% of stop ₹{stop:,.2f} ({gain_pct:+.2f}%)")
+    except Exception as e:
+        logger.error(f"Error checking paper trade alerts: {e}")
+
     return alerts
 
 
@@ -246,6 +279,91 @@ def format_single_scan(ticker: str) -> str:
         return f"❌ Failed scanning {ticker}: {e}"
 
 
+def format_paper_trades_status() -> str:
+    """Format open paper trades and live mark-to-market P&L for Telegram."""
+    from engine.paper_week import mark_to_market
+    from data.db import get_connection, get_open_paper_trades
+
+    mtm_data = mark_to_market()
+    marks_map = {m["trade_id"]: m for m in (mtm_data.get("marks") or [])}
+
+    conn = get_connection()
+    try:
+        open_trades = get_open_paper_trades(conn)
+    finally:
+        conn.close()
+
+    if not open_trades:
+        return "📁 <b>No open paper trades currently active.</b>"
+
+    tot_unrealized = sum(float(marks_map.get(t["id"], {}).get("unrealized_pnl", 0)) for t in open_trades)
+    tot_invested = sum(float(t.get("entry_price", 0)) * int(t.get("quantity", 1)) for t in open_trades)
+    tot_pct = (tot_unrealized / tot_invested * 100.0) if tot_invested > 0 else 0.0
+    pnl_emoji = "🟢" if tot_unrealized >= 0 else "🔴"
+
+    lines = [
+        "🛡️ <b>ACTIVE PAPER TRADES SCORECARD</b>",
+        f"Open Positions: <b>{len(open_trades)} stocks</b>",
+        f"Total Floating P&L: {pnl_emoji} <b>₹{tot_unrealized:+,.2f} ({tot_pct:+.2f}%)</b>",
+        "",
+        "<b>Current Positions:</b>",
+    ]
+
+    for t in open_trades:
+        m = marks_map.get(t["id"]) or {}
+        entry_px = float(t.get("entry_price") or 0)
+        cur_px = float(m.get("last") or entry_px)
+        qty = int(t.get("quantity") or 1)
+        pnl_val = float(m.get("unrealized_pnl") or ((cur_px - entry_px) * qty))
+        pnl_pct = ((cur_px - entry_px) / entry_px * 100) if entry_px else 0.0
+        stop_px = float(t.get("stop_loss") or 0)
+        tp_px = float(t.get("target_price") or 0)
+        sym = t.get("ticker", "").replace(".NS", "")
+
+        sym_emoji = "🟢" if pnl_pct >= 0 else "🔴"
+        trailing_tag = " 🛡️(Breakeven)" if abs(stop_px - entry_px) < 1.0 and stop_px >= entry_px else ""
+
+        lines.append(
+            f"{sym_emoji} <b>{sym}</b> ({qty} shs)\n"
+            f"• Entry: ₹{entry_px:,.2f} | LTP: ₹{cur_px:,.2f}\n"
+            f"• P&L: <b>₹{pnl_val:+,.2f} ({pnl_pct:+.2f}%)</b>\n"
+            f"• Stop: ₹{stop_px:,.2f}{trailing_tag} | Target: ₹{tp_px:,.2f}\n"
+        )
+
+    return "\n".join(lines)
+
+
+def format_tournament_status() -> str:
+    """Format strategy tournament summary for Telegram."""
+    from engine.strategy_tournament import simulate_tournament
+
+    tourney = simulate_tournament(corpus=20000.0, top_n_candidates=15)
+    if "error" in tourney:
+        return f"⚠️ {tourney['error']}"
+
+    strats = tourney.get("strategies", {})
+    st_top3 = strats.get("top3", {})
+    st_top5 = strats.get("top5", {})
+    st_all = strats.get("all_buys", {})
+    winner = tourney.get("best_strategy", "")
+
+    lines = [
+        "🏆 <b>MULTI-STRATEGY TOURNAMENT (₹20k)</b>",
+        f"Winning Style: <b>{winner}</b>",
+        "",
+        f"👑 <b>Strategy A (Top 3 Concentrated)</b>:\n"
+        f"• Net P&L: <b>₹{st_top3.get('net_pnl', 0):+,.2f} ({st_top3.get('net_return_pct', 0):+.2f}%)</b>\n"
+        f"• Win Rate: {st_top3.get('win_rate', 0)}% | Drag: ₹{st_top3.get('friction', 0):,.2f}\n",
+        f"⚖️ <b>Strategy B (Top 5 Balanced)</b>:\n"
+        f"• Net P&L: <b>₹{st_top5.get('net_pnl', 0):+,.2f} ({st_top5.get('net_return_pct', 0):+.2f}%)</b>\n"
+        f"• Win Rate: {st_top5.get('win_rate', 0)}% | Drag: ₹{st_top5.get('friction', 0):,.2f}\n",
+        f"🌐 <b>Strategy C (All BUYs Basket)</b>:\n"
+        f"• Net P&L: <b>₹{st_all.get('net_pnl', 0):+,.2f} ({st_all.get('net_return_pct', 0):+.2f}%)</b>\n"
+        f"• Win Rate: {st_all.get('win_rate', 0)}% | Drag: ₹{st_all.get('friction', 0):,.2f}\n",
+    ]
+    return "\n".join(lines)
+
+
 def handle_command(text: str, chat_id: str):
     """Process incoming commands from Telegram."""
     cmd = text.strip()
@@ -253,13 +371,20 @@ def handle_command(text: str, chat_id: str):
         help_msg = (
             "🤖 <b>TraderAI Active Portfolio Bot</b>\n\n"
             "Commands:\n"
-            "• /portfolio - View live portfolio, P&L & 3-bucket breakdown\n"
-            "• /alerts - Check trailing stop, profit & loss warnings\n"
+            "• /paper - Live Open Paper Trades & MTM P&L\n"
+            "• /tourney - Multi-Strategy Tournament Results (₹20k)\n"
             "• /picks - Top BUY recommendations clearing gates\n"
+            "• /alerts - Check trailing stop, profit & loss warnings\n"
             "• /scan TICKER - Deep analysis of any stock (e.g. <code>/scan RELIANCE</code>)\n"
-            "• /market - Current regime, Nifty trend, and commodities"
+            "• /portfolio - View Demat portfolio & P&L\n"
+            "• /market - Current regime, Nifty trend, and holidays"
         )
         send_message(help_msg, chat_id=chat_id)
+    elif cmd in ("/paper", "/trades"):
+        send_message(format_paper_trades_status(), chat_id=chat_id)
+    elif cmd in ("/tourney", "/tournament"):
+        send_message("🏆 Calculating multi-strategy tournament across all BUYs...", chat_id=chat_id)
+        send_message(format_tournament_status(), chat_id=chat_id)
     elif cmd in ("/portfolio", "/status"):
         send_message(format_portfolio_status(), chat_id=chat_id)
     elif cmd in ("/alerts", "/warnings"):

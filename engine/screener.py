@@ -124,14 +124,36 @@ def pre_screen(
             if avg_value_cr < min_avg_value_cr:
                 continue
 
-            # Score 0-100
+            # Calculate RVOL (Relative Volume Surge: Latest Session Volume / 20-Day Average)
+            latest_vol = float(vol.iloc[-1]) if len(vol) else 0.0
+            rvol = round(latest_vol / avg_vol, 2) if avg_vol > 0 else 1.0
+
+            # RVOL Score: Institutional accumulation check
+            if rvol >= 2.0:
+                rvol_score = 100.0  # Heavy institutional volume breakout
+            elif rvol >= 1.5:
+                rvol_score = 85.0   # Strong volume surge
+            elif rvol >= 1.0:
+                rvol_score = 65.0   # Normal volume
+            elif rvol >= 0.7:
+                rvol_score = 45.0   # Subdued volume
+            else:
+                rvol_score = 30.0   # Dry volume / lack of conviction
+
+            # Score 0-100: Momentum (30%), RVOL Volume Expansion (25%), Range (20%), Liquidity (15%), Volatility (10%)
             mom = 50 + ret_1m * 80 + ret_3m * 40
             # Prefer not blown-off top (>0.95) or broken bottom (<0.15)
             range_score = 70 if 0.35 <= pos <= 0.85 else (45 if pos < 0.35 else 40)
             liq_score = min(100, 40 + avg_value_cr * 2)
             vol_score = 75 if vol_ann < 0.25 else (55 if vol_ann < 0.4 else 35)
 
-            screen_score = 0.35 * max(0, min(100, mom)) + 0.25 * range_score + 0.25 * liq_score + 0.15 * vol_score
+            screen_score = (
+                0.30 * max(0, min(100, mom))
+                + 0.25 * rvol_score
+                + 0.20 * range_score
+                + 0.15 * liq_score
+                + 0.10 * vol_score
+            )
 
             rows.append(
                 {
@@ -140,6 +162,7 @@ def pre_screen(
                     "price": round(price, 2),
                     "ret_1m_pct": round(ret_1m * 100, 2),
                     "ret_3m_pct": round(ret_3m * 100, 2),
+                    "rvol": rvol,
                     "range_position": round(pos, 2),
                     "volatility_ann": round(vol_ann * 100, 1),
                     "avg_value_cr": round(avg_value_cr, 2),

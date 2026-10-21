@@ -19,6 +19,7 @@ from config import (
     PAPER_WEEK_MIN_TRUST,
     PAPER_WEEK_PATH,
     REAL_MONEY_ENABLED,
+    SMALL_CAPITAL_CONFIG,
 )
 from data.db import (
     close_paper_trade,
@@ -27,6 +28,7 @@ from data.db import (
     get_open_paper_trades,
     get_paper_trade_stats,
     update_paper_trade_stop,
+    partial_close_paper_trade,
 )
 from data.market_data import fetch_live_quote
 
@@ -115,7 +117,8 @@ def open_paper_from_deploys(
             ticker = d.get("ticker")
             if ticker in existing_opens:
                 continue
-            if len(existing_opens) >= 5:
+            max_cap_pos = int(SMALL_CAPITAL_CONFIG.get("max_concurrent_positions", 5))
+            if len(existing_opens) >= max_cap_pos:
                 break
             verdict = allow_map.get(ticker)
             if not verdict:
@@ -189,10 +192,26 @@ def mark_to_market() -> dict:
             stop = float(t.get("stop_loss") or 0)
             target = float(t.get("target_price") or 0)
             entry = float(t.get("entry_price") or 0)
+            qty = int(t.get("quantity") or 1)
+            notes_str = str(t.get("notes") or "")
 
             # --- Trailing Stop-Loss Protection (Profit Never Turns To Loss) ---
             if t.get("action") == "BUY" and entry > 0:
                 gain_pct = ((px - entry) / entry) * 100.0
+
+                # Lever 2: Tiered Take-Profit (The "Half-Off at +7%" Rule)
+                # When position hits >= +7.0%, book 50% profit into realized cash if qty >= 2
+                if gain_pct >= 7.0 and qty >= 2 and "PARTIAL_BOOKED" not in notes_str:
+                    half_qty = qty // 2
+                    if half_qty > 0:
+                        partial_close_paper_trade(conn, t["id"], px, half_qty, exit_reason="PARTIAL_PROFIT_T1 (+7%)")
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE paper_trades SET notes = ? WHERE id = ?", (notes_str + " [PARTIAL_BOOKED]", t["id"]))
+                        conn.commit()
+                        stop = round(entry, 2)
+                        update_paper_trade_stop(conn, t["id"], stop)
+                        logger.info(f"Booked 50% partial profit on {ticker} ({half_qty} shares @ Rs. {px:.2f})!")
+
                 # If gain >= +5.0%, elevate stop to Breakeven so capital is protected
                 if gain_pct >= 5.0 and stop < entry:
                     stop = round(entry, 2)
@@ -205,6 +224,18 @@ def mark_to_market() -> dict:
                         stop = profit_lock
                         update_paper_trade_stop(conn, t["id"], stop)
                         logger.info(f"Trailing Stop updated for {ticker}: locked at +5% (Rs. {stop})")
+
+                # Lever 4: 10-Session Momentum Stagnation Exit
+                try:
+                    entry_dt = datetime.strptime(t.get("entry_date", ""), "%Y-%m-%d")
+                    days_held = (datetime.now() - entry_dt).days
+                except Exception:
+                    days_held = 0
+
+                if days_held >= 10 and -1.5 <= gain_pct <= 1.5:
+                    close_paper_trade(conn, t["id"], px, exit_reason="MOMENTUM_STAGNATION_EXIT (10 Days)")
+                    closed.append({"ticker": ticker, "reason": "MOMENTUM_STAGNATION_EXIT", "price": px})
+                    continue
 
             if stop and px <= float(stop):
                 exit_reason = "BREAKEVEN_STOP" if abs(px - entry) <= (entry * 0.005) else ("TRAILING_STOP" if px > entry else "STOP_LOSS")

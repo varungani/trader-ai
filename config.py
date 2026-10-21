@@ -156,11 +156,12 @@ DEFAULT_ALLOCATION_PROFILE = "balanced"
 MONTHLY_STOCK_BUDGET = float(os.getenv("MONTHLY_STOCK_BUDGET", "10000"))
 MONTHLY_MF_BUDGET = float(os.getenv("MONTHLY_MF_BUDGET", "10000"))
 
-# Small-capital aware defaults (₹10k/mo stocks)
+# Small-capital aware defaults (₹10k/mo stocks -> 3 concentrated high-conviction positions)
 SMALL_CAPITAL_CONFIG = {
-    "max_new_stock_names_per_month": int(os.getenv("MAX_NEW_STOCKS_PER_MONTH", "4")),
-    "min_stock_ticket": float(os.getenv("MIN_STOCK_TICKET", "1500")),
+    "max_new_stock_names_per_month": int(os.getenv("MAX_NEW_STOCKS_PER_MONTH", "3")),
+    "min_stock_ticket": float(os.getenv("MIN_STOCK_TICKET", "2000")),
     "max_pct_per_name": float(os.getenv("MAX_PCT_PER_NAME_MONTHLY", "0.35")),
+    "max_concurrent_positions": int(os.getenv("MAX_CONCURRENT_POSITIONS", "3")),
 }
 
 # Screener defaults
