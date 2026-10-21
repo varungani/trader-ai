@@ -92,6 +92,13 @@ def score_stock(
             used_w += w
     final_score = final / used_w if used_w else 50.0
 
+    # Sector Relative Strength (RS) Bonus / Penalty
+    from analysis.sector_rs import compute_sector_rs
+    effective_sector = sector or info.get("sector", "")
+    sector_rs_data = compute_sector_rs(effective_sector)
+    sector_rs_bonus = float(sector_rs_data.get("bonus_points") or 0.0)
+    final_score = max(0.0, min(100.0, final_score + sector_rs_bonus))
+
     # Levels
     levels = compute_support_resistance(history) if not history.empty else {}
     price = float(
@@ -137,7 +144,8 @@ def score_stock(
         "date": datetime.now().strftime("%Y-%m-%d"),
         "ticker": ticker,
         "name": company_name,
-        "sector": sector or info.get("sector", ""),
+        "sector": effective_sector,
+        "sector_relative_strength": sector_rs_data,
         "timeframe": timeframe,
         "technical_score": round(components["technical"], 1),
         "fundamental_score": round(components["fundamental"], 1),

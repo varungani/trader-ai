@@ -39,9 +39,32 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
         confidence = "HIGH"
         rationale = "Multi-factor score well above buy threshold."
     elif final >= buy_min:
-        action = "BUY"
-        confidence = "MEDIUM" if risk != "HIGH" else "LOW"
-        rationale = "Score clears buy threshold."
+        # Smart Dynamic Gate for 66-70 scores:
+        sector_rs = score_result.get("sector_relative_strength") or {}
+        sector_status = sector_rs.get("status", "NEUTRAL")
+        sector_bonus = float(sector_rs.get("bonus_points", 0.0))
+        tech_indicators = (score_result.get("technical") or {}).get("indicators") or {}
+        ema_info = tech_indicators.get("ema_20") or {}
+        dev_pct = float(ema_info.get("deviation_pct") or 0.0)
+
+        if final < 70 and not holding:
+            # If stock is in the 66-70 tier, verify Sector RS is supportive and price is near dynamic support
+            if sector_status in ("LAGGING", "SEVERE_DRAG") or sector_bonus < 0:
+                action = "HOLD"
+                confidence = "LOW"
+                rationale = f"SECTOR_DRAG: Score is {final:.1f}, but sector {sector_rs.get('sector', 'N/A')} is lagging Nifty ({sector_rs.get('relative_strength_pct', 0.0):+.2f}% RS). Avoid buying into sector distribution."
+            elif dev_pct > 4.5:
+                action = "HOLD"
+                confidence = "LOW"
+                rationale = f"WAIT_FOR_SUPPORT: Mid-tier score ({final:.1f}) is +{dev_pct:.1f}% above 20 EMA. Requires tighter entry near support."
+            else:
+                action = "BUY"
+                confidence = "MEDIUM" if risk != "HIGH" else "LOW"
+                rationale = f"Smart Opportunity BUY: Score ({final:.1f}) clears threshold with supportive sector tailwind ({sector_rs.get('sector', 'General')}) near dynamic support."
+        else:
+            action = "BUY"
+            confidence = "HIGH" if final >= 75 else "MEDIUM"
+            rationale = "High-conviction multi-factor score clears buy threshold."
     elif final <= sell_max - 10:
         action = "STRONG_SELL"
         confidence = "HIGH"
@@ -54,6 +77,15 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
         action = "HOLD"
         confidence = "MEDIUM"
         rationale = "Score inside hold band — no edge."
+
+    # Over-extension Guard: Do not open fresh BUYs when stock is > 6% above 20 EMA (prevents chasing tops)
+    tech_indicators = (score_result.get("technical") or {}).get("indicators") or {}
+    ema_info = tech_indicators.get("ema_20") or {}
+    dev_pct = float(ema_info.get("deviation_pct") or 0.0)
+    if action in ("BUY", "STRONG_BUY") and not holding and dev_pct > 6.0:
+        action = "HOLD"
+        confidence = "LOW"
+        rationale = f"WAIT_FOR_PULLBACK: Stock is +{dev_pct:.1f}% stretched above its 20 EMA (over-extended). High risk of intraday mean-reversion. Wait for consolidation retest near support."
 
     # Portfolio-aware adjustments
     portfolio_note = ""

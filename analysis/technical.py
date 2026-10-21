@@ -77,11 +77,34 @@ def compute_technical_score(df: pd.DataFrame, ticker: str = "") -> dict:
         signals["macd"] = {"signal": macd_signal, "macd": round(macd_line.iloc[-1], 2), "histogram_pct": round(hist_pct, 3)}
         scores.append(("MACD", max(0, min(100, macd_score)), 0.15))
 
-        # EMA trend (price above/below 20 EMA)
+        # EMA trend & Over-Extension Guard (Avoid buying stretched rubber bands > 6% above 20 EMA)
         ema_20 = ta.trend.ema_indicator(close, window=20)
         price_vs_ema = (close.iloc[-1] - ema_20.iloc[-1]) / ema_20.iloc[-1] * 100
-        ema_score = 50 + price_vs_ema * 8
-        signals["ema_20"] = {"signal": "BULLISH" if price_vs_ema > 0 else "BEARISH", "deviation_pct": round(price_vs_ema, 2)}
+
+        if 0.5 <= price_vs_ema <= 4.5:
+            ema_signal = "SWEET_SPOT_VALUE"
+            ema_score = 90  # Ideal low-risk swing entry near dynamic 20 EMA support
+        elif -2.0 <= price_vs_ema < 0.5:
+            ema_signal = "EMA_SUPPORT_TEST"
+            ema_score = 75  # Retesting support in healthy trend
+        elif 4.5 < price_vs_ema <= 6.0:
+            ema_signal = "MODERATE_EXTENSION"
+            ema_score = 65  # Momentum continuation; caution on gap-ups
+        elif price_vs_ema > 6.0:
+            ema_signal = "OVER_EXTENDED"
+            ema_score = 35  # Stretched rubber band (>6% above 20 EMA); high risk of intraday fade
+        elif -5.0 <= price_vs_ema < -2.0:
+            ema_signal = "PULLBACK_BELOW_EMA"
+            ema_score = 45
+        else:
+            ema_signal = "BREAKDOWN_BELOW_EMA"
+            ema_score = 25  # Deep breakdown below moving average
+
+        signals["ema_20"] = {
+            "signal": ema_signal,
+            "deviation_pct": round(price_vs_ema, 2),
+            "is_overextended": price_vs_ema > 6.0,
+        }
         scores.append(("EMA 20", max(0, min(100, ema_score)), 0.10))
 
         # ─── MOMENTUM & BREAKOUT FACTORS ─────────────────────

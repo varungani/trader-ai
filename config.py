@@ -92,10 +92,10 @@ RISK_CONFIG = {
     "default_target_pct": 0.12,    # Default +12% target for swing trades
     "risk_per_trade_pct": 0.02,
     "max_open_positions": 5,       # Focus on top 3-5 swing picks at a time
-    "min_score_to_buy": 65,
+    "min_score_to_buy": 66,        # Smart Dynamic Threshold (66-70 requires Sector RS tailwind; 70+ is A+)
     "max_score_to_sell": 40,
     "hold_band_low": 40,
-    "hold_band_high": 65,
+    "hold_band_high": 66,
     "min_reward_risk": 2.0,        # target upside must be ≥ 2x stop distance
     "max_portfolio_heat": 0.08,    # sum of open risk ≤ 8% of capital
 }
@@ -264,16 +264,33 @@ INDICES = {
 
 # ─── Sector Mapping ──────────────────────────────────────────
 SECTOR_MAP = {
-    "IT": ["TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "TECHM.NS"],
-    "Banking": ["HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "KOTAKBANK.NS", "AXISBANK.NS", "INDUSINDBK.NS"],
-    "Pharma": ["SUNPHARMA.NS", "DRREDDY.NS", "DIVISLAB.NS", "CIPLA.NS", "APOLLOHOSP.NS"],
-    "Auto": ["MARUTI.NS", "TATAMOTORS.NS", "M&M.NS", "BAJAJ-AUTO.NS", "EICHERMOT.NS", "HEROMOTOCO.NS"],
-    "Energy": ["RELIANCE.NS", "ONGC.NS", "BPCL.NS", "NTPC.NS", "POWERGRID.NS", "COALINDIA.NS"],
-    "FMCG": ["HINDUNILVR.NS", "ITC.NS", "NESTLEIND.NS", "BRITANNIA.NS", "TATACONSUM.NS"],
-    "Metals": ["TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS"],
-    "Infra": ["LT.NS", "ADANIENT.NS", "ADANIPORTS.NS", "GRASIM.NS", "ULTRACEMCO.NS", "BEL.NS"],
-    "Finance": ["BAJFINANCE.NS", "BAJAJFINSV.NS", "SBILIFE.NS", "HDFCLIFE.NS"],
-    "Consumer": ["TITAN.NS", "ASIANPAINT.NS"],
+    "IT": [
+        "TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "TECHM.NS",
+        "COFORGE.NS", "MPHASIS.NS", "PERSISTENT.NS", "LTIM.NS", "TATAELXSI.NS",
+        "KPITTECH.NS", "OFSS.NS", "BBOX.NS"
+    ],
+    "Banking": [
+        "HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "KOTAKBANK.NS", "AXISBANK.NS", "INDUSINDBK.NS",
+        "FEDERALBNK.NS", "KARURVYSYA.NS", "AUBANK.NS", "BANDHANBNK.NS", "IDFCFIRSTB.NS",
+        "PNB.NS", "BANKBARODA.NS", "CANBK.NS", "UNIONBANK.NS"
+    ],
+    "Pharma": [
+        "SUNPHARMA.NS", "DRREDDY.NS", "DIVISLAB.NS", "CIPLA.NS", "APOLLOHOSP.NS",
+        "LUPIN.NS", "AUROPHARMA.NS", "GLENMARK.NS", "TORNTPHARM.NS", "ZYDUSLIFE.NS", "BIOCON.NS"
+    ],
+    "Auto": [
+        "MARUTI.NS", "TATAMOTORS.NS", "M&M.NS", "BAJAJ-AUTO.NS", "EICHERMOT.NS", "HEROMOTOCO.NS",
+        "TVSMOTOR.NS", "ASHOKLEY.NS", "BHARATFORG.NS", "BALKRISIND.NS", "MOTHERSON.NS", "SONACOMS.NS"
+    ],
+    "Energy": [
+        "RELIANCE.NS", "ONGC.NS", "BPCL.NS", "NTPC.NS", "POWERGRID.NS", "COALINDIA.NS",
+        "PETRONET.NS", "PTCIL.NS", "TATAPOWER.NS", "JSWENERGY.NS", "GAIL.NS", "IOC.NS", "SUZLON.NS"
+    ],
+    "FMCG": ["HINDUNILVR.NS", "ITC.NS", "NESTLEIND.NS", "BRITANNIA.NS", "TATACONSUM.NS", "DABUR.NS", "COLPAL.NS", "VBL.NS", "GODREJCP.NS"],
+    "Metals": ["TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "JINDALSTEL.NS", "SAIL.NS", "NMDC.NS", "VEDL.NS"],
+    "Infra": ["LT.NS", "ADANIENT.NS", "ADANIPORTS.NS", "GRASIM.NS", "ULTRACEMCO.NS", "BEL.NS", "HAL.NS", "DLF.NS", "OBEROIRLTY.NS", "PRESTIGE.NS"],
+    "Finance": ["BAJFINANCE.NS", "BAJAJFINSV.NS", "SBILIFE.NS", "HDFCLIFE.NS", "PNBHOUSING.NS", "CHOLAFIN.NS", "MUTHOOTFIN.NS", "RECLTD.NS", "PFC.NS"],
+    "Consumer": ["TITAN.NS", "ASIANPAINT.NS", "CUPID.NS", "CPPLUS.NS", "HAVELLS.NS", "POLYCAB.NS", "DIXON.NS", "VOLTAS.NS"],
 }
 
 # Reverse lookup: ticker -> sector
