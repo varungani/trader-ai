@@ -347,19 +347,32 @@ def format_tournament_status() -> str:
     st_all = strats.get("all_buys", {})
     winner = tourney.get("best_strategy", "")
 
+    def _format_strat_card(s: dict, title: str, emoji: str) -> str:
+        net_pnl = s.get("net_pnl", 0.0)
+        net_ret = s.get("net_return_pct", 0.0)
+        wr = s.get("win_rate", 0.0)
+        drag = s.get("friction", 0.0)
+        positions = s.get("positions", [])
+        stocks_str = ", ".join([f"{p['ticker']} ({p.get('target_weight_pct', 0)}%)" for p in positions]) or "None"
+        sec_bd = s.get("sector_breakdown", {})
+        sec_str = " • ".join([f"{sec} ({info.get('rs_pct', 0):+.1f}%)" for sec, info in sec_bd.items()])
+        warn = f"• ⚠️ <i>{s['min_ticket_warnings']} positions < ₹3,500 ticket (friction drag)</i>\n" if s.get("min_ticket_warnings", 0) > 0 else ""
+        return (
+            f"{emoji} <b>{title}</b>:\n"
+            f"• Net P&L: <b>₹{net_pnl:+,.2f} ({net_ret:+.2f}%)</b>\n"
+            f"• Win Rate: {wr:.1f}% | Statutory Drag: ₹{drag:,.2f}\n"
+            f"• Sector Mix: {sec_str}\n"
+            f"• Allocations: {stocks_str}\n"
+            f"{warn}"
+        )
+
     lines = [
-        "🏆 <b>MULTI-STRATEGY TOURNAMENT (₹20k)</b>",
-        f"Winning Style: <b>{winner}</b>",
+        "🏆 <b>MULTI-STRATEGY TOURNAMENT (₹20,000 CORPUS)</b>",
+        f"Leader: <b>{winner}</b>",
         "",
-        f"👑 <b>Strategy A (Top 3 Concentrated)</b>:\n"
-        f"• Net P&L: <b>₹{st_top3.get('net_pnl', 0):+,.2f} ({st_top3.get('net_return_pct', 0):+.2f}%)</b>\n"
-        f"• Win Rate: {st_top3.get('win_rate', 0)}% | Drag: ₹{st_top3.get('friction', 0):,.2f}\n",
-        f"⚖️ <b>Strategy B (Top 5 Balanced)</b>:\n"
-        f"• Net P&L: <b>₹{st_top5.get('net_pnl', 0):+,.2f} ({st_top5.get('net_return_pct', 0):+.2f}%)</b>\n"
-        f"• Win Rate: {st_top5.get('win_rate', 0)}% | Drag: ₹{st_top5.get('friction', 0):,.2f}\n",
-        f"🌐 <b>Strategy C (All BUYs Basket)</b>:\n"
-        f"• Net P&L: <b>₹{st_all.get('net_pnl', 0):+,.2f} ({st_all.get('net_return_pct', 0):+.2f}%)</b>\n"
-        f"• Win Rate: {st_all.get('win_rate', 0)}% | Drag: ₹{st_all.get('friction', 0):,.2f}\n",
+        _format_strat_card(st_top3, "Strategy A (Top 3 Concentrated, Sector-Diversified)", "👑"),
+        _format_strat_card(st_top5, "Strategy B (Top 5 Core Balanced, Sector-Diversified)", "⚖️"),
+        _format_strat_card(st_all, f"Strategy C (All BUYs Basket, {len(tourney.get('all_candidates', []))} Stocks)", "🌐"),
     ]
     return "\n".join(lines)
 

@@ -728,6 +728,19 @@ with tabs[2]:
 
                     st.caption(f"Invested: **₹{inv:,.0f}** | Statutory Drag: **₹{friction:,.2f}**")
 
+                    # Sector Breakdown & Leading Boost Status
+                    sec_bd = strat.get("sector_breakdown", {})
+                    if sec_bd:
+                        badges = []
+                        for sec, s_info in sec_bd.items():
+                            st_tag = "🔥" if s_info.get("status") == "LEADING" else ("⚡" if s_info.get("status") == "OUTPERFORMING" else "⚖️")
+                            badges.append(f"{st_tag} {sec} ({s_info['rs_pct']:+.1f}% RS)")
+                        st.caption("Sector Mix: " + " • ".join(badges))
+
+                    min_warn = strat.get("min_ticket_warnings", 0)
+                    if min_warn > 0:
+                        st.warning(f"⚠️ {min_warn} positions < ₹3,500 ticket! Fixed CDSL DP friction severely drags small-lot gains.")
+
                     positions = strat.get("positions", [])
                     if positions:
                         with st.expander(f"🔍 View {len(positions)} Allocations", expanded=False):
@@ -735,6 +748,9 @@ with tabs[2]:
                             for p in positions:
                                 df_pos.append({
                                     "Ticker": p["ticker"],
+                                    "Sector": f"{p.get('sector', 'General')} ({p.get('sector_status', 'NEUTRAL')})",
+                                    "Weight %": f"{p.get('target_weight_pct', 0.0)}%",
+                                    "Invested": f"₹{p['invested']:,.2f}",
                                     "Shares": p["shares"],
                                     "Entry": f"₹{p['buy_price']:,.2f}",
                                     "LTP": f"₹{p['current_price']:,.2f}",
@@ -747,8 +763,8 @@ with tabs[2]:
             is_top5_winner = "Top 5" in best_strat_name
             is_all_winner = "All Recommended" in best_strat_name
 
-            _render_strategy_card(scol_a, st_top3, "Strategy A: Top 3 Concentrated", is_top3_winner)
-            _render_strategy_card(scol_b, st_top5, "Strategy B: Top 5 Core Balanced", is_top5_winner)
+            _render_strategy_card(scol_a, st_top3, "Strategy A: Top 3 Concentrated (Sector-Diversified)", is_top3_winner)
+            _render_strategy_card(scol_b, st_top5, "Strategy B: Top 5 Core Balanced (Sector-Diversified)", is_top5_winner)
             _render_strategy_card(scol_c, st_all, f"Strategy C: All Universe BUYs ({len(tourney.get('all_candidates', []))})", is_all_winner)
 
             st.divider()
@@ -776,8 +792,14 @@ with tabs[2]:
                     else:
                         status_str = "🟡 Consolidating"
 
+                    sec_name = c.get("sector", "General")
+                    sec_st = c.get("sector_status", "NEUTRAL")
+                    sec_rs = c.get("sector_rs_pct", 0.0)
+
                     tbl_rows.append({
                         "Ticker": c["ticker"],
+                        "Sector": f"{sec_name} ({sec_rs:+.1f}%)",
+                        "Sector Status": sec_st,
                         "Signal Date": c["date"],
                         "Action": c["action"],
                         "AI Score": f"{c['final_score']:.1f}",

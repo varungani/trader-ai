@@ -96,9 +96,19 @@ RISK_CONFIG = {
     "max_score_to_sell": 40,
     "hold_band_low": 40,
     "hold_band_high": 66,
-    "min_reward_risk": 2.0,        # target upside must be ≥ 2x stop distance
     "max_portfolio_heat": 0.08,    # sum of open risk ≤ 8% of capital
 }
+
+# ─── Sector Relative Strength Dynamic Capital Allocation Multipliers ─────────
+# Deploys more capital into stocks belonging to sectors leading Nifty 50.
+SECTOR_ALLOCATION_MULTIPLIERS = {
+    "LEADING": 1.35,        # +35% capital boost for sectors leading Nifty (> +2.0% RS)
+    "OUTPERFORMING": 1.15, # +15% boost for outperforming sectors (+0.75% to +2.0% RS)
+    "NEUTRAL": 1.00,        # Standard baseline equal weight (-0.75% to +0.75% RS)
+    "LAGGING": 0.75,        # -25% reduced capital allocation (-1.75% to -0.75% RS)
+    "SEVERE_DRAG": 0.50,    # -50% defensive allocation for severe drag (< -1.75% RS)
+}
+MIN_DELIVERY_TICKET_RUPEES = 3500.0  # Floor to keep flat ₹15.93 CDSL DP fee <= 0.45% of position
 
 # ─── Portfolio balance targets (Pure Swing Trading Focus) ─────
 ALLOCATION_PROFILES = {
