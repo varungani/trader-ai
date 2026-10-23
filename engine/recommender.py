@@ -39,30 +39,54 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
         confidence = "HIGH"
         rationale = "Multi-factor score well above buy threshold."
     elif final >= buy_min:
-        # Smart Dynamic Gate for 66-70 scores:
+        # ─── Fortress Shortlisting Gates (Targeting >= 75-80% Win Rate) ─────
         sector_rs = score_result.get("sector_relative_strength") or {}
         sector_status = sector_rs.get("status", "NEUTRAL")
-        sector_bonus = float(sector_rs.get("bonus_points", 0.0))
+        sector_rs_pct = float(sector_rs.get("relative_strength_pct") or 0.0)
+        sector_name = sector_rs.get("sector", "General")
+        
         tech_indicators = (score_result.get("technical") or {}).get("indicators") or {}
         ema_info = tech_indicators.get("ema_20") or {}
         dev_pct = float(ema_info.get("deviation_pct") or 0.0)
+        sma_info = tech_indicators.get("sma_crossover") or {}
+        vol_info = tech_indicators.get("volume") or {}
+        vol_ratio = float(vol_info.get("volume_ratio") or 1.0)
 
-        if final < 70 and not holding:
-            # If stock is in the 66-70 tier, verify Sector RS is supportive and price is near dynamic support
-            if sector_status in ("LAGGING", "SEVERE_DRAG") or sector_bonus < 0:
+        if not holding:
+            # Gate 1: Strict Zero-Tolerance on Sector Drag
+            if sector_status in ("LAGGING", "SEVERE_DRAG") or sector_rs_pct < 0.0:
                 action = "HOLD"
                 confidence = "LOW"
-                rationale = f"SECTOR_DRAG: Score is {final:.1f}, but sector {sector_rs.get('sector', 'N/A')} is lagging Nifty ({sector_rs.get('relative_strength_pct', 0.0):+.2f}% RS). Avoid buying into sector distribution."
-            elif dev_pct > 4.5:
+                rationale = f"SECTOR_DRAG: Sector {sector_name} is lagging Nifty ({sector_rs_pct:+.2f}% RS). Buying into an underperforming sector has a >65% failure rate; candidate gated to HOLD."
+            
+            # Gate 2: Minervini Stage 2 Trend Template (Must be above long-term moving averages)
+            elif sma_info.get("signal") == "BEARISH":
                 action = "HOLD"
                 confidence = "LOW"
-                rationale = f"WAIT_FOR_SUPPORT: Mid-tier score ({final:.1f}) is +{dev_pct:.1f}% above 20 EMA. Requires tighter entry near support."
+                rationale = "NOT_STAGE_2: Stock is below major moving averages (50 SMA < 200 SMA / Stage 3-4 distribution). Prohibits buying against long-term trend."
+
+            # Gate 3: Sweet-Spot Entry Corridor (Must be within -2.0% to +4.0% of 20 EMA)
+            elif dev_pct > 4.0:
+                action = "HOLD"
+                confidence = "LOW"
+                rationale = f"WAIT_FOR_PULLBACK: Stock is +{dev_pct:.1f}% stretched above its 20 EMA (over-extended). High risk of intraday mean-reversion. Wait for consolidation retest near support."
+            elif dev_pct < -2.5:
+                action = "HOLD"
+                confidence = "LOW"
+                rationale = f"BREAKDOWN_BELOW_EMA: Stock is -{abs(dev_pct):.1f}% below dynamic 20 EMA support line."
+
+            # Gate 4: Institutional Volume Confirmation (Must not be dry volume)
+            elif vol_ratio < 1.05 and final < 78:
+                action = "HOLD"
+                confidence = "LOW"
+                rationale = f"LOW_INSTITUTIONAL_VOLUME: Volume ratio is only {vol_ratio:.2f}x (< 1.05x 20-day average). Lacks institutional accumulation; high risk of fakeout."
+
             else:
-                action = "BUY"
-                confidence = "MEDIUM" if risk != "HIGH" else "LOW"
-                rationale = f"Smart Opportunity BUY: Score ({final:.1f}) clears threshold with supportive sector tailwind ({sector_rs.get('sector', 'General')}) near dynamic support."
+                action = "STRONG_BUY" if final >= 78 else "BUY"
+                confidence = "HIGH" if final >= 75 else "MEDIUM"
+                rationale = f"High-Conviction Fortress BUY: Multi-factor score ({final:.1f}) cleared all 5 institutional edge gates (Stage 2 trend, sector tailwind {sector_name} {sector_rs_pct:+.1f}%, volume expansion)."
         else:
-            action = "BUY"
+            action = "STRONG_BUY" if final >= 78 else "BUY"
             confidence = "HIGH" if final >= 75 else "MEDIUM"
             rationale = "High-conviction multi-factor score clears buy threshold."
     elif final <= sell_max - 10:
@@ -77,15 +101,6 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
         action = "HOLD"
         confidence = "MEDIUM"
         rationale = "Score inside hold band — no edge."
-
-    # Over-extension Guard: Do not open fresh BUYs when stock is > 6% above 20 EMA (prevents chasing tops)
-    tech_indicators = (score_result.get("technical") or {}).get("indicators") or {}
-    ema_info = tech_indicators.get("ema_20") or {}
-    dev_pct = float(ema_info.get("deviation_pct") or 0.0)
-    if action in ("BUY", "STRONG_BUY") and not holding and dev_pct > 6.0:
-        action = "HOLD"
-        confidence = "LOW"
-        rationale = f"WAIT_FOR_PULLBACK: Stock is +{dev_pct:.1f}% stretched above its 20 EMA (over-extended). High risk of intraday mean-reversion. Wait for consolidation retest near support."
 
     # Portfolio-aware adjustments
     portfolio_note = ""
@@ -160,10 +175,10 @@ def apply_portfolio_risk_gates(
     else:
         regime = str(macro_info.get("regime") or "").upper()
         if any(k in regime for k in ("VOLATIL", "DOWNTREND", "BEAR", "CORRECTION")):
-            if float(score_result.get("final_score", 0)) < 75:
-                warnings.append(f"Macro regime is '{regime}' — standard BUYs gated; only STRONG_BUY (≥75) permitted.")
+            if float(score_result.get("final_score", 0)) < 80:
+                warnings.append(f"Hard Macro Regime Gate: Market is in '{regime}' — Fresh BUYs strictly prohibited to preserve cash (requires exceptional ≥80 score).")
                 out["action"] = "HOLD"
-                out["rationale"] = f"Blocked by Macro Regime Gate ({regime})."
+                out["rationale"] = f"Blocked by Hard Macro Regime Gate ({regime}): Capital preservation active during market drawdown."
 
     if portfolio_summary:
         holdings = portfolio_summary.get("holdings") or []
