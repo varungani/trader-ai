@@ -725,7 +725,56 @@ The live production engine implements a composite rule set that combines multipl
 
 ---
 
-## 15. Regulatory & Legal Disclaimer
+## 15. Crypto Alpha Engine (Satellite Barbell Architecture)
+
+### 15.1 Philosophy & Risk Segregation
+To enable explosive convexity without jeopardizing life savings, TraderAI implements Nassim Taleb's **Barbell Portfolio Architecture**:
+* **90% Institutional Core (₹30,000+ Scaled Capital):** NSE Cash Equities compounding via Minervini VCP, Mansfield RS, strict -4.5% stops, and zero leverage.
+* **10% Convexity Satellite (Isolated ₹3,000 Capital):** Liquid cryptocurrency momentum breakouts, strictly segregated into a separate wallet to eliminate any contagion risk.
+
+```mermaid
+graph TD
+    UserCapital["User Total Capital"] --> Core["90% Core: NSE Cash Equities (Rs 30,000+)"]
+    UserCapital --> Satellite["10% Satellite: Crypto Alpha Bucket (Rs 3,000)"]
+    
+    Core --> NSE_Gates["5 Fortress Gates + Nifty Macro Veto"]
+    Core --> KotakDemat["Demat Account (CNC Only)"]
+    
+    Satellite --> BTC_Gate["Bitcoin Macro Regime Gate (50 EMA)"]
+    BTC_Gate -->|BTC > 50 EMA| Crypto_Breakout["Top-12 Liquid Breakouts (2 Slots @ Rs 1,500)"]
+    BTC_Gate -->|BTC < 50 EMA| Crypto_Cash["100% Cash Preservation Locked"]
+    Crypto_Breakout --> CoinDCX["FIU-IND Exchange (CoinDCX / CoinSwitch PRO)"]
+```
+
+### 15.2 Empirical 5-Year Backtest Validation (2021–2026 | 1,827 Days)
+* **Dataset:** 12 liquid pairs (BTC, ETH, SOL, BNB, XRP, ADA, AVAX, LINK, DOGE, DOT, NEAR, LTC) covering the 2021 peak, the 2022 crypto winter (-75% crash), 2023 accumulation, and 2024–2026 ETF bull waves.
+* **Friction Model:** Full Indian statutory drag: **1.00% Section 194S TDS** deducted on every sell, **0.20% exchange taker fee**, and **0.10% slippage**.
+* **Starting Capital:** ₹3,000.00.
+
+| Strategy / Setup | Final Equity | Net Return | Profit Factor | Win Rate | Max Drawdown | Verdict |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Donchian 20D Breakout + BTC Macro Gate** | **₹7,598.88** | **+153.3%** | **1.70** | **28.8%** | **-38.7%** | **Proven Edge. Multiplied capital 2.5x even after 1% TDS on every exit.** |
+| **20D Breakout + 5% Stop + 15% Target** | **₹6,097.92** | **+103.3%** | **1.43** | **22.9%** | **-38.9%** | **Doubled capital. High payoff ratio.** |
+| **Control: 20D Breakout WITHOUT BTC Gate** | **₹2,513.54** | **-16.2% (Loss)** | **0.94** | **26.7%** | **-67.4%** | **FAILS. Severe -67% crash without macro filter.** |
+| *Benchmark: Buy & Hold Solana (SOL)* | ₹1,487.68 | -50.4% | — | — | **-96.3%** | Catastrophic crash from $250 to $8. |
+| *Benchmark: Buy & Hold Ethereum (ETH)* | ₹1,702.86 | -43.2% | — | — | **-79.4%** | Severe multi-year bear drag. |
+| *Benchmark: Buy & Hold Bitcoin (BTC)* | ₹3,947.20 | +31.6% | — | — | **-76.6%** | High volatility, 76% drawdown. |
+
+### 15.3 Sizing & Capital Constraints
+* **Seed Capital:** ₹3,000 (October 2026), scaling to ₹6,000 in February 2027.
+* **Slot Allocation:** 2 slots (50% each = ₹1,500 per position).
+* **Micro-Risk Management:** Hard stop loss at -6.0%. On a ₹1,500 position, **maximum loss is strictly capped at ₹90 per trade**.
+* **Uncapped Trailing Runner:** Partial profit (35%) booked at +18% target (raising stop to breakeven +1.5%), with the remaining 65% trailing behind the daily 10 EMA.
+
+### 15.4 Indian Statutory Crypto Tax Rules (Sec 115BBH & 194S)
+1. **Flat 30% Tax (+ 4% Cess = 31.2%):** Deducted on net crypto gains.
+2. **Zero Loss Set-Off:** Losses in one token cannot offset gains in another. Low-frequency swing trading is strictly enforced to minimize transaction drag.
+3. **1% TDS on Every Sell (Section 194S):** Automatically tracked and deducted by FIU-registered exchanges (CoinDCX, CoinSwitch PRO) and credited to the trader's Form 26AS.
+4. **Security Warnings:** All users are strictly warned against using WazirX (following their July 2024 $230M breach) and unverified P2P merchants on offshore exchanges to avoid bank account cyber-cell freezes.
+
+---
+
+## 16. Regulatory & Legal Disclaimer
 
 ```
 ⚖️ FORMAL SEBI DISCLAIMER (Research Analysts Regulations, 2014):
@@ -735,7 +784,8 @@ is NOT registered with the Securities and Exchange Board of India (SEBI) as a Re
 or Investment Adviser.
 
 No algorithm score, model output, trade thesis, or simulated execution constitutes financial
-advice, investment recommendation, or solicitation of securities. Equity trading involves
-substantial risk of capital loss. Users must consult an independent SEBI-registered financial
-adviser before committing real capital to the financial markets.
+advice, investment recommendation, or solicitation of securities. Equity and digital asset trading
+involves substantial risk of capital loss. Users must consult an independent SEBI-registered
+financial adviser before committing real capital to the financial markets.
+```
 ```

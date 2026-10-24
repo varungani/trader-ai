@@ -11,3 +11,4 @@ venv/
 .venv/
 portfolio/portfolio.json
 portfolio/paper_week.json
+data/cache/*.pkl

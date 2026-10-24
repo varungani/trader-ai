@@ -33,14 +33,15 @@ from portfolio.manager import (
 from engine.pipeline import run_pipeline
 from data.broker import is_configured
 from ui.glossary import render_glossary_section
+from ui.crypto_view import render_crypto_section
 from data.market_calendar import get_market_status, get_upcoming_holidays
 
 logging.basicConfig(level=logging.INFO)
 st.set_page_config(page_title="TraderAI", page_icon="📈", layout="wide")
 
-st.title("TraderAI ⚡ Swing Trader")
+st.title("TraderAI ⚡ Quantitative Engine")
 st.caption(
-    "Pure Short-Term Swing Trading (1 to 15 Days) • Cash 'n Carry (CNC) Only • Zero F&O • Read-Only Broker Integration"
+    "Short-Term Swing Trading • CNC Equities Core • Isolated Crypto Satellite Bucket • Read-Only Broker Integration"
 )
 
 # Live Indian Market Status & Trading Clock
@@ -57,85 +58,103 @@ with mcol2:
     st.markdown(f"🕒 **Current IST:** `{m_status['current_time_str']}`")
 
 with st.sidebar:
-    st.header("⚡ Swing Trading Controls")
-    st.success("⚡ **Strategy: Pure Swing Trading**\n\nOptimized for 1–15 day breakout momentum, volume surges, and 2:1 Reward-to-Risk profit targets.")
-    timeframe = "short_term"
-
-    profile = st.selectbox(
-        "Risk Profile",
-        options=list(ALLOCATION_PROFILES.keys()),
-        format_func=lambda k: ALLOCATION_PROFILES[k]["label"],
-        index=list(ALLOCATION_PROFILES.keys()).index(DEFAULT_ALLOCATION_PROFILE),
+    st.header("⚡ TraderAI Engine")
+    active_module = st.radio(
+        "Active Engine",
+        ["📈 NSE Equities Swing (Core)", "🪙 Crypto Alpha (Satellite ₹3k)"],
+        index=0,
+        help="Core NSE Equities for main wealth compounding vs Isolated ₹3,000 Crypto Satellite Bucket."
     )
-    st.caption(ALLOCATION_PROFILES[profile]["description"])
-    use_llm = st.checkbox("Analyst + Judge LLMs", value=True)
-    paper_week = st.checkbox("Paper Testing (No Real Money)", value=True)
-    if paper_week:
-        st.caption("Live forward tracking active. Test recommendations safely before investing.")
-    universe = st.selectbox(
-        "Universe to scan",
-        options=["nifty500", "extended", "nifty100", "nifty50", "midcap", "etfs", "all"],
-        index=["nifty500", "extended", "nifty100", "nifty50", "midcap", "etfs", "all"].index(
-            DEFAULT_UNIVERSE_PRESET if DEFAULT_UNIVERSE_PRESET in ["nifty500", "extended", "nifty100", "nifty50", "midcap", "etfs", "all"] else "nifty500"
-        ),
-        help="Screen 500+ NSE stocks for momentum breakouts, liquidity (ADTV >= 5 Cr), then deep-score top candidates",
-    )
-    screen_top = st.slider("Deep-score top N after screen", 8, 40, 20)
-    swing_capital = st.number_input(
-        "Swing Trading Capital (INR)",
-        min_value=5000.0,
-        value=float(MONTHLY_STOCK_BUDGET if MONTHLY_STOCK_BUDGET >= 10000 else 50000.0),
-        step=5000.0,
-        help="Total cash capital dedicated to swing trading"
-    )
-    capital_override = st.number_input(
-        "Capital override (INR, 0 = use above capital)",
-        min_value=0.0,
-        value=0.0,
-        step=10000.0,
-    )
-    active_cap = float(capital_override or swing_capital)
-    max_positions = st.slider(
-        "Max Open Swing Positions",
-        min_value=3,
-        max_value=6,
-        value=3 if active_cap <= 25000 else 5,
-        help="3 positions recommended for capital <= ₹25,000 to maximize shares per stock and cut fixed DP exit fees by 40%."
-    )
-    SMALL_CAPITAL_CONFIG["max_concurrent_positions"] = max_positions
-    SMALL_CAPITAL_CONFIG["max_new_stock_names_per_month"] = max_positions
-    sync_broker = st.checkbox("Sync Kotak Neo before run", value=False)
-    totp = ""
-    if sync_broker:
-        st.info("Needs .env Kotak keys. Prefer KOTAK_TOTP_SECRET, or enter TOTP below.")
-        totp = st.text_input("TOTP (if no secret in .env)", type="password")
-        if not is_configured():
-            st.error("Kotak credentials missing in .env")
-
-    run_btn = st.button("⚡ Run Swing Analysis", type="primary", use_container_width=True)
-
     st.divider()
-    st.subheader("Manual Demat Holding")
-    m_ticker = st.text_input("Ticker", value="MPHASIS.NS")
-    m_qty = st.number_input("Qty", min_value=1, value=1)
-    m_avg = st.number_input("Avg buy price", min_value=0.0, value=2450.0)
-    m_tf = "short_term"
-    if st.button("Save Swing Holding"):
-        upsert_holding(m_ticker.strip().upper(), int(m_qty), float(m_avg), timeframe=m_tf)
-        st.success(f"Saved {m_ticker} in Swing Portfolio")
 
-    st.divider()
-    with st.expander("📅 NSE Timings & Upcoming Holidays", expanded=False):
-        st.markdown("""
+    if active_module == "🪙 Crypto Alpha (Satellite ₹3k)":
+        st.subheader("🪙 Crypto Satellite Settings")
+        st.info("Operating in Satellite Convexity Mode.\n\n• Initial Capital: **₹3,000**\n• Feb Capital: **₹6,000**\n• Spot Only (Zero Margin)\n• Main NSE Portfolio: **100% Isolated**")
+        run_btn = False
+    else:
+        st.header("⚡ Swing Trading Controls")
+        st.success("⚡ **Strategy: Pure Swing Trading**\n\nOptimized for 1–15 day breakout momentum, volume surges, and 2:1 Reward-to-Risk profit targets.")
+        timeframe = "short_term"
+
+        profile = st.selectbox(
+            "Risk Profile",
+            options=list(ALLOCATION_PROFILES.keys()),
+            format_func=lambda k: ALLOCATION_PROFILES[k]["label"],
+            index=list(ALLOCATION_PROFILES.keys()).index(DEFAULT_ALLOCATION_PROFILE),
+        )
+        st.caption(ALLOCATION_PROFILES[profile]["description"])
+        use_llm = st.checkbox("Analyst + Judge LLMs", value=True)
+        paper_week = st.checkbox("Paper Testing (No Real Money)", value=True)
+        if paper_week:
+            st.caption("Live forward tracking active. Test recommendations safely before investing.")
+        universe = st.selectbox(
+            "Universe to scan",
+            options=["nifty500", "extended", "nifty100", "nifty50", "midcap", "etfs", "all"],
+            index=["nifty500", "extended", "nifty100", "nifty50", "midcap", "etfs", "all"].index(
+                DEFAULT_UNIVERSE_PRESET if DEFAULT_UNIVERSE_PRESET in ["nifty500", "extended", "nifty100", "nifty50", "midcap", "etfs", "all"] else "nifty500"
+            ),
+            help="Screen 500+ NSE stocks for momentum breakouts, liquidity (ADTV >= 5 Cr), then deep-score top candidates",
+        )
+        screen_top = st.slider("Deep-score top N after screen", 8, 40, 20)
+        swing_capital = st.number_input(
+            "Swing Trading Capital (INR)",
+            min_value=5000.0,
+            value=float(MONTHLY_STOCK_BUDGET if MONTHLY_STOCK_BUDGET >= 10000 else 50000.0),
+            step=5000.0,
+            help="Total cash capital dedicated to swing trading"
+        )
+        capital_override = st.number_input(
+            "Capital override (INR, 0 = use above capital)",
+            min_value=0.0,
+            value=0.0,
+            step=10000.0,
+        )
+        active_cap = float(capital_override or swing_capital)
+        max_positions = st.slider(
+            "Max Open Swing Positions",
+            min_value=3,
+            max_value=6,
+            value=3 if active_cap <= 25000 else 5,
+            help="3 positions recommended for capital <= ₹25,000 to maximize shares per stock and cut fixed DP exit fees by 40%."
+        )
+        SMALL_CAPITAL_CONFIG["max_concurrent_positions"] = max_positions
+        SMALL_CAPITAL_CONFIG["max_new_stock_names_per_month"] = max_positions
+        sync_broker = st.checkbox("Sync Kotak Neo before run", value=False)
+        totp = ""
+        if sync_broker:
+            st.info("Needs .env Kotak keys. Prefer KOTAK_TOTP_SECRET, or enter TOTP below.")
+            totp = st.text_input("TOTP (if no secret in .env)", type="password")
+            if not is_configured():
+                st.error("Kotak credentials missing in .env")
+
+        run_btn = st.button("⚡ Run Swing Analysis", type="primary", use_container_width=True)
+
+        st.divider()
+        st.subheader("Manual Demat Holding")
+        m_ticker = st.text_input("Ticker", value="MPHASIS.NS")
+        m_qty = st.number_input("Qty", min_value=1, value=1)
+        m_avg = st.number_input("Avg buy price", min_value=0.0, value=2450.0)
+        m_tf = "short_term"
+        if st.button("Save Swing Holding"):
+            upsert_holding(m_ticker.strip().upper(), int(m_qty), float(m_avg), timeframe=m_tf)
+            st.success(f"Saved {m_ticker} in Swing Portfolio")
+
+        st.divider()
+        with st.expander("📅 NSE Timings & Upcoming Holidays", expanded=False):
+            st.markdown("""
 - **Pre-Open Session:** 09:00 AM – 09:15 AM IST
 - **Normal Trading:** 09:15 AM – 03:30 PM IST (Mon–Fri)
 - **Post-Closing:** 03:40 PM – 04:00 PM IST
 - **Weekends:** Saturday & Sunday (Closed)
 """)
-        st.markdown("**Upcoming NSE Holidays:**")
-        upcoming_hols = get_upcoming_holidays(limit=4)
-        for h in upcoming_hols:
-            st.write(f"• **{h['formatted']}** ({h['day_name']}): {h['name']} *({h['countdown']})*")
+            st.markdown("**Upcoming NSE Holidays:**")
+            upcoming_hols = get_upcoming_holidays(limit=4)
+            for h in upcoming_hols:
+                st.write(f"• **{h['formatted']}** ({h['day_name']}): {h['name']} *({h['countdown']})*")
+
+if active_module == "🪙 Crypto Alpha (Satellite ₹3k)":
+    render_crypto_section()
+    st.stop()
 
 # Portfolio panel
 port = portfolio_summary()
