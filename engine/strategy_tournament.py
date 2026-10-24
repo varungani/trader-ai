@@ -19,6 +19,7 @@ from config import (
     TICKER_TO_SECTOR,
     SECTOR_ALLOCATION_MULTIPLIERS,
     MIN_DELIVERY_TICKET_RUPEES,
+    RISK_CONFIG,
 )
 
 logger = logging.getLogger(__name__)
@@ -206,14 +207,20 @@ def simulate_tournament(
                 "positions": [],
             }
 
-        # Calculate capital weights: dynamic sector boost vs flat equal
+        # Calculate capital weights: dynamic sector boost vs flat equal, strictly clamped to risk caps
+        max_pos_cap = float(RISK_CONFIG.get("max_position_pct", 0.20))
+        if target_slots <= 3:
+            max_pos_cap = max(max_pos_cap, 1.0 / target_slots)
+
         if dynamic_sector_weighting and selected_stocks:
             tot_mult = sum(s.get("weight_mult", 1.0) for s in selected_stocks)
-            weights = [
+            raw_weights = [
                 s.get("weight_mult", 1.0) / tot_mult for s in selected_stocks
             ] if tot_mult > 0 else [1.0 / len(selected_stocks)] * len(selected_stocks)
+            # Immutable single-position cap: never exceed 20% on 5 slots or 33.3% on 3 slots
+            weights = [min(w, max_pos_cap) for w in raw_weights]
         else:
-            weights = [1.0 / target_slots] * len(selected_stocks)
+            weights = [min(1.0 / target_slots, max_pos_cap)] * len(selected_stocks)
 
         positions = []
         tot_invested = 0.0

@@ -58,28 +58,28 @@ To achieve high win rates and eliminate low-probability churn, TraderAI subjects
 4. **Gate 4: Institutional Volume Confirmation**:
    - Relative Volume (RVOL) must be $\ge 1.05\times$ to $1.4\times$ the 20-day average. Dry-liquidity fakeouts are rejected.
 5. **Gate 5: Macro Regime Circuit Breaker**:
-   - When NIFTY 50 breaks below its 50-day SMA, all fresh BUY entries are frozen (`100% CASH PRESERVATION`), unless an individual scrip scores an exceptional $\ge 80$.
+   - When NIFTY 50 breaks below its 50-day SMA, all fresh BUY entries are strictly vetoed with zero exceptions (`100% CASH PRESERVATION`).
 
 ---
 
-## 🎯 The Two Verified Monster Patterns (5-Year Empirical Proof)
+## 🎯 In-Sample Pattern Mining Simulation Results (Not Forward Guidance)
 
-Extensive quantitative simulation across **136 NSE equities over 5 years (1,236 trading sessions)** under exact Indian statutory delivery friction (STT, GST, flat ₹15.93 CDSL DP fee, slippage) identified the two distinct patterns that generate true mathematical alpha:
+Simulation across **136 NSE equities over 5 years (1,236 trading sessions)** under exact Indian statutory delivery friction (STT, GST, flat ₹15.93 CDSL DP fee, slippage) on ₹30,000 initial capital. These represent **in-sample hypotheses requiring forward paper validation**, not guaranteed statistical certainty:
 
-| Pattern Strategy | 5Y Trades | Win Rate | Net Rupee Profit (₹30k cap) | Profit Factor | Payoff Ratio | Max Drawdown | Best Month |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1. Blind 50D Breakout** (Retail Standard) | 177 | 40.1% | **-₹2,792** | 0.93 | 1.39 : 1 | -22.9% ❌ | +₹2,262 |
-| **2. Minervini VCP Contraction** 🏆 | 150 | **45.3%** | **+₹18,854 (+62.8%)** | **1.56** | **1.88 : 1** | **-11.3%** 🛡️ | **+₹5,849** |
-| **3. Raw RS High Leader** (No Base) | 180 | 36.1% | **-₹5,193** | 0.89 | 1.57 : 1 | -32.8% ❌ | +₹1,950 |
-| **4. 20 EMA Sweet-Spot Rebound** 🏆 | 177 | **44.6%** | **+₹30,756 (+102.5%)** | **1.55** | **1.92 : 1** | **-10.5%** 🛡️ | **+₹7,013 (+23.4%)** |
+| Pattern Strategy | 5Y Trades | Win Rate | Total Net P&L (₹30k cap) | Profit Factor | Payoff Ratio | Max Drawdown | Best Month | Worst Month | Status |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **1. Blind 50D Breakout** (No Base) | 177 | 40.1% | **-₹2,792.1** | 0.93 | 1.39 : 1 | -22.9% | +₹2,262.5 | -₹3,565.7 | Failed |
+| **2. Minervini VCP Contraction** ($VCP \le 0.65$) | 150 | 45.3% | **+₹18,854.0 (+62.8%)** | **1.56** | **1.88 : 1** | **-11.3%** 🛡️ | +₹3,806.7 | -₹2,306.9 | In-Sample Candidate |
+| **3. Raw RS High Leader** (No Base) | 180 | 36.1% | **-₹5,193.0** | 0.89 | 1.57 : 1 | -32.8% | +₹1,950.0 | -₹3,210.0 | Failed |
+| **4. 20 EMA Sweet-Spot Pullback** ($0\text{-}2.2\%$) | 177 | 44.6% | **+₹20,153.1 (+67.2%)** | **1.55** | **1.92 : 1** | **-10.5%** 🛡️ | +₹3,447.1 | -₹2,091.1 | In-Sample Candidate |
+| **5. Volume Dry-Up (VDU) Breakout** | 121 | 37.2% | **+₹1,489.0** | 1.05 | 1.77 : 1 | -23.3% | +₹2,100.0 | -₹2,840.0 | Marginal / Inconclusive |
+| **6. Master Confluence (Stage 2+VCP+RS+SweetSpot)** | 41 | 24.4% | **-₹5,118.5** | 0.42 | 1.30 : 1 | -18.7% | +₹562.6 | -₹713.5 | Failed (Over-Filtered) |
+| **7. Master Confluence + Uncapped Runner** | 40 | 32.5% | **-₹3,087.8** | 0.65 | 1.35 : 1 | -16.3% | +₹1,275.4 | -₹785.3 | Failed (Over-Filtered) |
 
-### Why They Work:
-* **Pattern A: Minervini Volatility Contraction Pattern (VCP)**:
-  Measures the ratio of the 5-day trading range to the 20-day trading range:
-  $$\text{VCP Ratio} = \frac{\text{High}_{5D} - \text{Low}_{5D}}{\text{High}_{20D} - \text{Low}_{20D}} \le 0.65$$
-  When volatility contracts $\le 0.65$ with subdued volume, floating supply has dried up. When volume explodes ($\ge 1.4\times$ RVOL), the stock breaks out with minimal resistance.
-* **Pattern B: 20 EMA Sweet-Spot Rebound**:
-  In Stage 2 ($Close > 50\text{ SMA} > 200\text{ SMA}$), enters when price pulls back within $0.0\% \le \text{dist} \le 2.2\%$ of the rising 20 EMA and prints a green reversal candle ($Close > Open$). Stop-loss is tightly placed at 3.5%–4.5%, producing an elite **1.92 : 1 Payoff Ratio**.
+> ⚠️ **Severe Caveats**: 
+> 1. **Survivorship Bias**: The 136-stock universe beat NIFTYBEES by 3.2x (+104.6% vs +32.7%), confirming substantial survivorship tilt.
+> 2. **Regime Concentration**: Option 1B generated ~85% of its profits during 2023–2024; the trailing 21 months (2025 to Oct 2026) were practically flat (+₹2,233).
+> 3. **Rule Fragility**: Shifting target from 12% to 15% flipped 50D Breakout from +₹62k to -₹2.8k, demonstrating parameter sensitivity.
 
 ---
 
@@ -101,16 +101,19 @@ Rather than treating all BUY recommendations equally, TraderAI runs an automated
 
 ---
 
-## ⏱️ Pure Short-Term Swing Horizon: What to Expect on ₹30,000
+## ⏱️ Pure Short-Term Swing Horizon: In-Sample Simulation Metrics
 
-TraderAI is **NOT** a multi-year buy-and-hold investing system. It is an active short-term swing trading engine:
+TraderAI is an active short-term swing trading engine:
 * **Average Holding Period**: **9.6 trading days** (3 to 10 sessions average; 15-day maximum hard stop).
-* **10-Session Stagnation Exit**: If a stock stays stagnant between $-2.0\%$ and $+2.0\%$ for 10 sessions, it is automatically exited at market to free up capital for fresh runners.
+* **10-Session Stagnation Exit**: If a stock stays stagnant between $-2.0\%$ and $+2.0\%$ for 10 sessions, it is automatically exited at market to free up capital.
 
-### Realistic Monthly Return Distribution (₹30,000 Portfolio):
-* **Average Month**: **+₹600 to +₹1,200 (+2.0% to +4.0%)** — Slow, steady compounding.
-* **Best Month (Peak Momentum)**: **+₹3,500 to +₹5,210 (+12.0% to +17.4%)** — When multiple VCP breakouts fire together during strong sector tailwinds.
-* **Worst Month (Crash Protection)**: **-₹1,500 to -₹2,370 (-3.6% to -5.0%)** — Strict -4.5% stops and the 100% Cash Gate prevent catastrophic drawdown.
+### In-Sample Historical Monthly Distribution (₹30,000 Portfolio):
+* **Historical Average Month**: **+₹420 to +₹600 (+1.4% per month average across 51 months)**.
+* **Best Historical Month**: **+₹3,500 to +₹5,210 (+11.9% to +17.4% on ₹30k)** (e.g. Feb 2024 momentum wave).
+* **Worst Historical Month**: **-₹1,800 to -₹2,370 (-6.0% to -7.9% on ₹30k)**. Note: Overnight gap-downs through stops and multiple correlated stop-outs can exceed theoretical individual stops.
+
+> [!WARNING]
+> **Not Forward Guidance**: Past in-sample performance during bull markets (such as 2023) is not indicative of future results. Real forward deployment remains locked until 50–100 closed trades pass the statistical graduation bar.
 
 ## 📰 3-Tier News & Catalyst Architecture
 

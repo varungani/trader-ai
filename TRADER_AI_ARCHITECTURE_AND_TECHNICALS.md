@@ -1,6 +1,6 @@
 # TraderAI ⚡ System Architecture & In-Depth Technical Specification
 
-> **Document Version:** 2.3.0-fortress-patterns  
+> **Document Version:** 2.3.0-empirical-audit  
 > **Status:** Experimental Simulator & Quantitative Research Specification  
 > **Focus:** Short-Term Indian Equity Swing Trading Engine (1 to 15 Sessions)  
 > **Instrument:** NSE Cash Delivery (CNC — Cash 'n Carry Only)  
@@ -175,12 +175,11 @@ $$\text{Final Score} = 0.40 \times S_{\text{Technical}} + 0.20 \times S_{\text{S
 +--------------------------+--------+-----------------------------------------------+
 ```
 
-### Action Mapping Thresholds
+### Action Mapping Thresholds (Harmonized with config.py & recommender.py)
 
-* **Score $\ge 75$**: `STRONG_BUY` (High conviction, clears macro regime filter).
-* **Score $65 \text{ to } 74$**: `BUY` (Subject to 2:1 R:R and portfolio heat gates).
-* **Score $40 \text{ to } 64$**: `HOLD` (No clear statistical edge; preserve capital).
-* **Score $\le 40$**: `SELL` (If held) or `AVOID` (If looking to enter).
+* **Score $\ge 72.0$**: `BUY` / `STRONG_BUY` (Requires clearing all 5 Fortress Institutional Gates, sector tailwind, and R:R $\ge 2.0$).
+* **Score $40.0 \text{ to } 71.9$**: `HOLD` (No clear statistical edge; active risk monitoring and capital preservation).
+* **Score $\le 40.0$**: `SELL` (If held) or `AVOID` (If looking to enter).
 * **Severe Event Override**: Any stock exhibiting binary disaster risk (SEBI probe, sanction, fraud, insolvency) is immediately forced to `SELL` / `AVOID`, regardless of high technical momentum.
 
 ---
@@ -637,6 +636,8 @@ graph TD
    The **lower 95% block bootstrap confidence bound** on expectancy must be strictly positive ($E_{\text{lower}} > 0$) after deducting all statutory fees (Rs 15.93 flat DP charges, STT, 5 bps slippage).
 3. **True Outperformance**: Total return over the trial period must beat **both** the exposure-matched benchmark and a concurrent **Zero-Skill Random Control** run over the exact same period.
 4. **Controlled Drawdown**: Maximum peak-to-trough paper equity drawdown must stay **$< 15.0\%$**.
+5. **Immutable Risk Disciplines**: 100% compliance with the 20% single-position cap, 8% total portfolio heat cap, zero averaging down, and hard stop loss execution with zero discretionary overrides.
+
 ---
 
 ### 14.5 Option 1: 5-Year Widened Universe (136 Stocks) Swing Momentum Empirical Test
@@ -647,77 +648,80 @@ The backtest was executed via [`backtesting/swing_midcap_backtest.py`](file:///c
 
 #### 5-Year Comparative Performance Matrix:
 
-| Strategy / Benchmark | Total Trades | Win Rate | Total Net Return | Avg Win | Avg Loss | Payoff (W/L) | Profit Factor | Expectancy / Trade | t-Stat (p-val) | Max DD | Sharpe |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Benchmark: NIFTYBEES** | — | — | **+32.7%** | — | — | — | — | — | — | -17.5% | 0.88 |
-| **Benchmark: MID150BEES** | — | — | **+81.6%** | — | — | — | — | — | — | -22.1% | 1.15 |
-| **Benchmark: Equal-Weight 136 Universe** | — | — | **+104.6%** | — | — | — | — | — | — | -24.8% | 1.02 |
-| **Option 1A: 20 EMA Pullback Swing (20D hold)** | 359 | 34.0% | **+11.1%** | ₹1,709 | ₹833 | 2.05 : 1 | 1.06 | +₹31.0 | +0.45 (0.326) | -28.3% | 0.27 |
-| **Option 1B: Volume 50D Breakout Swing (20D hold)** | 331 | 43.2% | **+62.2%** | ₹1,596 | ₹883 | 1.81 : 1 | 1.37 | **+₹187.8** | **+2.54 (0.0056)** | **-9.91%** | **1.11** |
-| **Option 1C: Dual-Engine Swing (Pullback+Breakout)** | 374 | 39.0% | **+36.6%** | ₹1,644 | ₹892 | 1.84 : 1 | 1.18 | +₹97.9 | +1.39 (0.082) | -14.44% | 0.68 |
+| Strategy / Benchmark | Total Trades | Win Rate | Total Net Return | Avg % Invested | Matched Benchmark | Matched Alpha | Avg Win | Avg Loss | Payoff (W/L) | Profit Factor | Expectancy / Trade (95% Block CI) | Two-Sided p-Val | Max DD | Sharpe |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Benchmark: NIFTYBEES** | — | — | **+32.7%** | 100.0% | — | — | — | — | — | — | — | — | -17.5% | 0.88 |
+| **Benchmark: MID150BEES** | — | — | **+81.6%** | 100.0% | — | — | — | — | — | — | — | — | -22.1% | **1.15** |
+| **Benchmark: Equal-Weight 136 Universe** | — | — | **+104.6%** | 100.0% | — | — | — | — | — | — | — | — | -24.8% | 1.02 |
+| **Option 1A: 20 EMA Pullback Swing (20D hold)** | 359 | 34.0% | **+11.1%** | 46.1% | +48.2% | **-37.1%** | ₹1,709 | ₹833 | 2.05 : 1 | 1.06 | +₹31.0 [-₹112, +₹174] | 0.652 | -28.3% | 0.27 |
+| **Option 1B: Volume 50D Breakout Swing (20D hold)** | 331 | 43.2% | **+62.2%** | **42.3%** | +47.7% | **+14.5%** | ₹1,596 | ₹883 | 1.81 : 1 | 1.37 | **+₹187.8** [+₹16.8, +₹352.4] | **0.0284** | **-9.91%** | 1.11 |
+| **Option 1C: Dual-Engine Swing (Pullback+Breakout)** | 374 | 39.0% | **+36.6%** | 48.5% | +50.7% | **-14.1%** | ₹1,644 | ₹892 | 1.84 : 1 | 1.18 | +₹97.9 [-₹35, +₹231] | 0.164 | -14.4% | 0.68 |
 
-#### Key Empirical Insights:
-1. **Option 1B Delivers Verified Statistical Edge**:
-   Option 1B (50-day breakout with volume expansion $\ge 1.2\times$, RSI $> 60$, 4.5% risk stop, 12% target, 20-day time exit) generated **+₹62,158.55 net profit (+62.2%)** after paying **₹25,785.78 in statutory friction**.
-   - Net Expectancy: **+₹187.79 per trade** ($t = +2.54, p = 0.00562$, statistically significant at $99\%$ confidence).
-   - Capital Preservation: Maximum drawdown was held to **only 9.91%** (vs -17.5% for NIFTYBEES and -22.1% for Midcaps).
-2. **The Exit Choking Lesson**:
-   Premature breakeven ratcheting (moving stop to entry +0.5% after +6% gain) choked 73 trades for an average net gain of only +₹39.75, flipping the strategy from positive to -2.9% net loss. Letting swing trades breathe to their 12% target or 20-day hold unlocked +₹62,159 in net profit.
-3. **Year-by-Year Robustness**:
-   - 2022 (Bear/Rate hike chop): **+₹6,604.6** (37.0% WR)
-   - 2023 (Broad market expansion): **+₹33,366.6** (51.8% WR)
-   - 2024 (Momentum continuation): **+₹19,954.4** (43.9% WR)
-   - 2025 (Consolidation/chop): **-₹398.0** (capital preserved, 40.0% WR)
-   - 2026 (YTD): **+₹2,631.0** (36.4% WR)
-
----
-
-### 14.6 Empirical Pattern Mining: VCP Contraction vs 20 EMA Sweet Spot vs Baseline Breakouts
-
-To isolate true technical alpha from noise, we subjected **7 distinct price action and volume patterns** to rigorous simulation across the **136-stock universe over 5 years (1,236 trading sessions)** under exact Indian statutory delivery friction (STT, GST, flat ₹15.93 CDSL DP fee, slippage).
-
-#### Empirical Pattern Benchmark Matrix (5-Year / 136 Stocks / Real Costs):
-
-| Pattern Strategy | Trades | Win Rate | Total Net P&L (₹30k cap) | Profit Factor | Payoff (W/L) | Max DD | Best Month |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1. Blind 50D Breakout** (No Base) | 177 | 40.1% | **-₹2,792.1** | 0.93 | 1.39 : 1 | -22.9% | +₹2,262 |
-| **2. Minervini VCP Contraction** 🏆 | 150 | **45.3%** | **+₹18,854.0 (+62.8%)** | **1.56** | **1.88 : 1** | **-11.3%** 🛡️ | **+₹5,849** |
-| **3. Raw RS High Leader** (No Base) | 180 | 36.1% | **-₹5,193.0** | 0.89 | 1.57 : 1 | -32.8% | +₹1,950 |
-| **4. 20 EMA Sweet-Spot Rebound** 🏆 | 177 | **44.6%** | **+₹30,756.2 (+102.5%)** | **1.55** | **1.92 : 1** | **-10.5%** 🛡️ | **+₹7,013 (+23.4%)** |
-| **5. Volume Dry-Up (VDU) Breakout** | 121 | 37.2% | **+₹1,489.0** | 1.05 | 1.77 : 1 | -23.3% | +₹2,100 |
-
-#### Quantitative Findings & Architectural Principles:
-1. **The VCP Edge ($Range_{5D} / Range_{20D} \le 0.65$)**:
-   When volatility contracts tightly before a breakout, institutional absorption is complete. Buying breakouts with $VCP \le 0.65$ and $RVOL \ge 1.4\times$ delivered a **1.56 Profit Factor** and reduced maximum portfolio drawdown to **only -11.3%** over 5 years.
-2. **The 20 EMA Sweet-Spot Edge ($0.0 \le \text{dist} \le 2.2\%$)**:
-   Entering healthy Stage 2 uptrends on low-risk pullbacks to dynamic 20 EMA support with a bullish candle confirmation ($Close > Open$) produced **+₹30,756.20 net profit (+102.5%)** on a ₹30,000 account, with **64.7% of all months ending positive**.
-3. **The False Breakout Trap**:
-   Blind 50-day breakouts without volatility contraction or sweet-spot support lost money (-₹2,792) and suffered severe -22.9% drawdowns due to morning fakeouts and intraday mean-reversion.
+#### Critical Quantitative Audit & Methodological Caveats:
+1. **Unmatched Gross Return Did NOT Beat Buy-and-Hold**:
+   Option 1B returned **+62.2%**, trailing both the Equal-Weight Universe (+104.6%) and MID150BEES (+81.6%). Its Sharpe ratio (**1.11**) is below MID150BEES (**1.15**).
+   The lower drawdown (-9.91% vs -22.1%) is primarily a mechanical artifact of holding **57.7% cash on average** (average exposure was only 42.3%). On an exposure-matched basis, alpha vs the universe is **+14.5%**, but zero vs raw buy-and-hold.
+2. **Survivorship Bias Warning**:
+   The 136-stock universe was constructed from liquid Nifty 100 and midcap constituents as of 2026. The equal-weight basket gained +104.6% vs +32.7% for NIFTYBEES (over 3.2x the index), indicating severe survivorship tilt (delisted, bankrupt, or severely impaired companies from 2021–2026 are excluded).
+3. **Severe Regime Concentration**:
+   Option 1B profits were concentrated in the 2023–2024 bull run:
+   - 2023 contributed **+₹33,366.6** (~54% of all profits).
+   - 2023–2024 combined contributed **+₹53,321.0** (~85% of all profits).
+   - Trailing 21 Months (Jan 2025 – Oct 2026): **+₹2,233.0 net profit** (2025: -₹398; 2026 YTD: +₹2,631). Performance over the last two years has been effectively flat. Forward expectations should be anchored on flat periods, not the 2023 anomaly.
+4. **Multiple Testing Failure under Family-Wise Error Correction**:
+   Option 1B’s $t = +2.54$ yields a two-sided $p = 0.011$. Under a stationary block bootstrap (block size 10 trades, 5,000 resamples), the two-sided p-value is **$p = 0.0284$** (95% CI $[+₹16.77, +₹352.38]$). When adjusted for family-wise error across multiple parameter sweeps (Bonferroni threshold $lpha \le 0.005$), Option 1B **fails** the multiple-testing hurdle. It represents an in-sample hypothesis, not a proven statistical certainty.
 
 ---
 
-### 14.7 Fortress Shortlisting Gates & Strategy Tournament Architecture
+### 14.6 Empirical Pattern Mining: Full 7-Pattern In-Sample Disclosure
 
-To protect capital and guarantee that only highest-conviction setups receive allocation, TraderAI codifies **5 Institutional Gating Filters** and an automated **Dynamic Sector Momentum Tournament**:
+To test individual technical claims, we simulated **all 7 price-action and volume patterns** across the 136-stock universe over 5 years (1,236 sessions) with exact statutory Indian delivery friction (STT, GST, ₹15.93 CDSL DP fee, slippage) on an initial capital of ₹30,000.
 
-#### The 5 Fortress Gating Filters (`engine/recommender.py`):
-1. **Gate 1: Zero-Tolerance Sector Drag**: Candidates in sectors with negative Relative Strength vs Nifty ($Sector\ RS < 0.0\%$) are forced to `HOLD (SECTOR_DRAG)`.
-2. **Gate 2: Minervini Stage 2 Trend Template**: Price must satisfy $Close > EMA_{50} > SMA_{200}$, filtering out Stage 3 (distribution) and Stage 4 (markdown) value traps.
-3. **Gate 3: Sweet-Spot Entry Corridor**: Distance to the 20 EMA must be within $-2.0\% \le \text{deviation} \le +4.0\%$. Stretched candidates are locked to `HOLD (WAIT_FOR_PULLBACK)`.
-4. **Gate 4: Volume Confirmation**: Relative Volume ($RVOL$) must be $\ge 1.05\times$ to $1.4\times$ 20-day average.
-5. **Gate 5: Macro Regime Circuit Breaker**: If Nifty is below its 50 SMA, fresh BUYs are vetoed (`100% CASH PRESERVATION`) unless score $\ge 80$.
+#### Complete 7-Pattern In-Sample Benchmark Matrix (No Omissions):
 
-#### Dynamic Sector Momentum Allocation Multipliers (`config.py` & `engine/strategy_tournament.py`):
-* `LEADING` ($\ge +2.0\%$ RS vs Nifty): **1.35x Capital Boost**
-* `OUTPERFORMING` ($0.0\%$ to $+2.0\%$ RS): **1.15x Capital Boost**
-* `NEUTRAL` ($-1.0\%$ to $0.0\%$ RS): **1.00x Base Capital**
-* `LAGGING` ($-3.0\%$ to $-1.0\%$ RS): **0.75x Capital Reduction**
-* `SEVERE_DRAG` ($< -3.0\%$ RS): **0.50x Capital Reduction**
+| Pattern Strategy | 5Y Trades | Win Rate | Total Net P&L (₹30k cap) | Profit Factor | Payoff Ratio | Max Drawdown | Best Month | Worst Month | Status |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **1. Baseline 50D Breakout** (No Base) | 177 | 40.1% | **-₹2,792.1** | 0.93 | 1.39 : 1 | -22.9% | +₹2,262.5 | -₹3,565.7 | Failed |
+| **2. Minervini VCP Contraction** ($VCP \le 0.65$) | 150 | 45.3% | **+₹18,854.0** | 1.56 | 1.88 : 1 | -11.3% | +₹3,806.7 | -₹2,306.9 | In-Sample Candidate |
+| **3. Raw RS High Leader** (No Base) | 180 | 36.1% | **-₹5,193.0** | 0.89 | 1.57 : 1 | -32.8% | +₹1,950.0 | -₹3,210.0 | Failed |
+| **4. 20 EMA Sweet-Spot Pullback** ($0	ext{-}2.2\%$) | 177 | 44.6% | **+₹20,153.1** | 1.55 | 1.92 : 1 | -10.5% | +₹3,447.1 | -₹2,091.1 | In-Sample Candidate |
+| **5. Volume Dry-Up (VDU) Breakout** | 121 | 37.2% | **+₹1,489.0** | 1.05 | 1.77 : 1 | -23.3% | +₹2,100.0 | -₹2,840.0 | Marginal / Inconclusive |
+| **6. Master Confluence (Stage 2+VCP+RS+SweetSpot)** | 41 | 24.4% | **-₹5,118.5** | 0.42 | 1.30 : 1 | -18.7% | +₹562.6 | -₹713.5 | Failed (Over-Filtered) |
+| **7. Master Confluence + Uncapped Runner** | 40 | 32.5% | **-₹3,087.8** | 0.65 | 1.35 : 1 | -16.3% | +₹1,275.4 | -₹785.3 | Failed (Over-Filtered) |
 
-#### Strategy Tournament Constraints:
-* **Strategy A (Top 3 Concentrated)**: Enforces **Max 1 stock per sector**; candidates ranked by $Score_{\text{boosted}} = Score_{\text{final}} + (RS_{\text{pct}} \times 1.5)$.
-* **Strategy B (Top 5 Diversified)**: Enforces **Max 2 stocks per sector**.
-* **Floor Ticket Sizing**: `MIN_DELIVERY_TICKET_RUPEES = ₹3,500` to cap flat CDSL DP charges $\le 0.45\%$.
+#### Critical Takeaways:
+1. **Extreme Parameter Fragility (Symptom of In-Sample Noise Fitting)**:
+   - 50-day breakout varied from **+₹62,159** (Option 1B: 12% target, 5 positions of ₹20k) to **-₹2,792** (Pattern 1: 15% target, 3 positions of ₹10k).
+   - 20 EMA pullback varied from **+11.1%** (Option 1A: 20D hold, 5 positions) to **+67.2%** (Pattern 4: Sweet Spot rebound).
+   - When minor rule adjustments cause strategies to flip from strong profits to net losses, it signals high sensitivity to parameter tuning rather than structural market robustness.
+2. **Look-Ahead Execution Timing Warning**:
+   All patterns utilizing `Close > Open`, `Close >= high20`, daily RVOL, or VCP ratios require the daily close to compute. Simulating entry at the exact same close is a look-ahead flaw. In live trading, orders must be executed at the **next trading session Open**, absorbing overnight gap risk and slippage.
+3. **Over-Filtering Penalty (Patterns 6 & 7)**:
+   Demanding simultaneous confluence across 5 indicators reduced trade sample size to ~40 over 5 years (<8 trades/year), resulting in negative returns (-₹5,118) because entries occurred after the bulk of the momentum move had already passed.
+
+---
+
+### 14.7 Live Gating Architecture vs Backtest Reconciliation
+
+The live production engine implements a composite rule set that combines multiple filters:
+
+#### 1. The 5 Fortress Gating Filters (`engine/recommender.py`):
+* **Gate 1: Zero-Tolerance Sector Drag**: Candidates in sectors with negative Relative Strength vs Nifty ($Sector\ RS < 0.0\%$) are forced to `HOLD (SECTOR_DRAG)`.
+* **Gate 2: Minervini Stage 2 Trend Template**: Price must satisfy $Close > EMA_{50} > SMA_{200}$ (Stage 3/4 distribution prohibited).
+* **Gate 3: Sweet-Spot Entry Corridor**: Distance to the 20 EMA must be within $-2.0\% \le 	ext{deviation} \le +4.0\%$.
+* **Gate 4: Volume Confirmation**: Relative Volume ($RVOL$) must be $\ge 1.05	imes$ to $1.4	imes$ 20-day average.
+* **Gate 5: Absolute Macro Regime Circuit Breaker**: If Nifty is below its 50 SMA, fresh BUYs are **strictly vetoed with zero exceptions** (`100% CASH PRESERVATION`).
+
+#### 2. Sector Allocation Multipliers & Hard Position Caps:
+* Multipliers (`LEADING` = 1.35x, `SEVERE_DRAG` = 0.50x) adjust relative weighting among candidates, but **must never breach the immutable 20.0% single-position cap** (`RISK_CONFIG['max_position_pct'] = 0.20`) on 5-position portfolios, or 33.3% on 3-position small-capital portfolios. Any unallocated balance remains in cash.
+
+#### 3. Unification of Exit Policies:
+* **Session 10 Stagnation Exit**: If an open trade remains bounded within $\pm 2.0\%$ at session 10, it is exited at market price to prevent dead money.
+* **Session 15–20 Hard Time Expiry**: Positions hitting neither stop nor target exit by session 15 (live rule) / session 20 (backtest benchmark).
+
+> [!WARNING]
+> **Live Rules Have Not Been Backtested End-to-End**:
+> The composite combination of the 5 Fortress Gates, Sector Tournament Multipliers, 10-session Stagnation Exit, and Score $\ge 72$ has **NOT been simulated as a unified end-to-end backtest across 5 years**. It represents a synthesis of standalone heuristics and **must be validated via the forward paper graduation protocol before deploying real capital**.
 
 ---
 

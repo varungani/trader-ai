@@ -190,10 +190,9 @@ def apply_portfolio_risk_gates(
     else:
         regime = str(macro_info.get("regime") or "").upper()
         if any(k in regime for k in ("VOLATIL", "DOWNTREND", "BEAR", "CORRECTION")):
-            if float(score_result.get("final_score", 0)) < 80:
-                warnings.append(f"Hard Macro Regime Gate: Market is in '{regime}' — Fresh BUYs strictly prohibited to preserve cash (requires exceptional ≥80 score).")
-                out["action"] = "HOLD"
-                out["rationale"] = f"Blocked by Hard Macro Regime Gate ({regime}): Capital preservation active during market drawdown."
+            warnings.append(f"Hard Macro Regime Gate: Market is in '{regime}' — Fresh BUYs strictly prohibited to preserve cash (100% Cash Preservation; zero exceptions).")
+            out["action"] = "HOLD"
+            out["rationale"] = f"Blocked by Hard Macro Regime Gate ({regime}): Capital preservation active during market drawdown."
 
     if portfolio_summary:
         holdings = portfolio_summary.get("holdings") or []
