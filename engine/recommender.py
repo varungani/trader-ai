@@ -51,6 +51,17 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
         sma_info = tech_indicators.get("sma_crossover") or {}
         vol_info = tech_indicators.get("volume") or {}
         vol_ratio = float(vol_info.get("volume_ratio") or 1.0)
+        vcp_info = tech_indicators.get("vcp") or {}
+        vcp_ratio = float(vcp_info.get("vcp_ratio") or 1.0)
+        sweet_info = tech_indicators.get("sweet_spot_rebound") or {}
+        is_sweet_spot = bool(sweet_info.get("is_sweet_spot"))
+
+        # Determine Winning Pattern
+        setup_pattern = "NONE"
+        if vcp_info.get("is_contracted") and vol_ratio >= 1.2:
+            setup_pattern = "VCP_BREAKOUT"
+        elif is_sweet_spot:
+            setup_pattern = "20EMA_SWEET_SPOT"
 
         if not holding:
             # Gate 1: Strict Zero-Tolerance on Sector Drag
@@ -84,11 +95,13 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
             else:
                 action = "STRONG_BUY" if final >= 78 else "BUY"
                 confidence = "HIGH" if final >= 75 else "MEDIUM"
-                rationale = f"High-Conviction Fortress BUY: Multi-factor score ({final:.1f}) cleared all 5 institutional edge gates (Stage 2 trend, sector tailwind {sector_name} {sector_rs_pct:+.1f}%, volume expansion)."
+                pattern_prefix = f"[{setup_pattern}] " if setup_pattern != "NONE" else ""
+                rationale = f"{pattern_prefix}High-Conviction Fortress BUY: Multi-factor score ({final:.1f}) cleared all 5 institutional edge gates (Stage 2 trend, sector tailwind {sector_name} {sector_rs_pct:+.1f}%, volume expansion)."
         else:
             action = "STRONG_BUY" if final >= 78 else "BUY"
             confidence = "HIGH" if final >= 75 else "MEDIUM"
-            rationale = "High-conviction multi-factor score clears buy threshold."
+            pattern_prefix = f"[{setup_pattern}] " if setup_pattern != "NONE" else ""
+            rationale = f"{pattern_prefix}High-conviction multi-factor score clears buy threshold."
     elif final <= sell_max - 10:
         action = "STRONG_SELL"
         confidence = "HIGH"
@@ -138,6 +151,8 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
         "portfolio_note": portfolio_note,
         "final_score": final,
         "is_held": holding is not None,
+        "setup_pattern": setup_pattern,
+        "vcp_ratio": round(vcp_ratio, 2),
     }
 
 
@@ -266,6 +281,8 @@ def build_recommendation(
         "time_stop_days": levels.time_stop_days,
         "action": decision["action"],
         "confidence": decision["confidence"],
+        "setup_pattern": decision.get("setup_pattern", "NONE"),
+        "vcp_ratio": decision.get("vcp_ratio", 1.0),
         "action_rationale": decision["rationale"],
         "portfolio_note": decision.get("portfolio_note", ""),
         "warnings": decision.get("warnings", []),

@@ -140,7 +140,35 @@ def pre_screen(
             else:
                 rvol_score = 30.0   # Dry volume / lack of conviction
 
-            # Score 0-100: Momentum (30%), RVOL Volume Expansion (25%), Range (20%), Liquidity (15%), Volatility (10%)
+            # Pattern Detection: Minervini VCP & 20 EMA Sweet Spot
+            high = df["High"].dropna() if "High" in df.columns else close
+            low = df["Low"].dropna() if "Low" in df.columns else close
+            high_5d = float(high.tail(5).max()) if len(high) >= 5 else float(high.max())
+            low_5d = float(low.tail(5).min()) if len(low) >= 5 else float(low.min())
+            high_20d = float(high.tail(20).max()) if len(high) >= 20 else float(high.max())
+            low_20d = float(low.tail(20).min()) if len(low) >= 20 else float(low.min())
+            range_20d = high_20d - low_20d
+            vcp_ratio = (high_5d - low_5d) / range_20d if range_20d > 0 else 1.0
+
+            ema20 = float(close.ewm(span=20, adjust=False).mean().iloc[-1])
+            dist_ema20 = ((price - ema20) / ema20 * 100.0) if ema20 > 0 else 0.0
+
+            cur_open = float(df["Open"].iloc[-1]) if "Open" in df.columns else price
+            is_bullish_bar = bool(price >= cur_open)
+
+            is_vcp = bool(vcp_ratio <= 0.65 and rvol >= 1.3 and price >= high_20d * 0.98)
+            is_sweet_spot = bool(0.0 <= dist_ema20 <= 2.5 and is_bullish_bar)
+
+            pattern_tag = "NONE"
+            pattern_bonus = 0.0
+            if is_vcp:
+                pattern_tag = "VCP_BREAKOUT"
+                pattern_bonus = 8.0
+            elif is_sweet_spot:
+                pattern_tag = "20EMA_SWEET_SPOT"
+                pattern_bonus = 6.0
+
+            # Score 0-100: Momentum (30%), RVOL Volume Expansion (25%), Range (20%), Liquidity (15%), Volatility (10%) + Pattern Bonus
             mom = 50 + ret_1m * 80 + ret_3m * 40
             # Prefer not blown-off top (>0.95) or broken bottom (<0.15)
             range_score = 70 if 0.35 <= pos <= 0.85 else (45 if pos < 0.35 else 40)
@@ -153,6 +181,7 @@ def pre_screen(
                 + 0.20 * range_score
                 + 0.15 * liq_score
                 + 0.10 * vol_score
+                + pattern_bonus
             )
 
             rows.append(
@@ -163,6 +192,8 @@ def pre_screen(
                     "ret_1m_pct": round(ret_1m * 100, 2),
                     "ret_3m_pct": round(ret_3m * 100, 2),
                     "rvol": rvol,
+                    "vcp_ratio": round(vcp_ratio, 2),
+                    "setup_pattern": pattern_tag,
                     "range_position": round(pos, 2),
                     "volatility_ann": round(vol_ann * 100, 1),
                     "avg_value_cr": round(avg_value_cr, 2),

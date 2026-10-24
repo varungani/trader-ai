@@ -203,6 +203,30 @@ def compute_technical_score(df: pd.DataFrame, ticker: str = "") -> dict:
         atr_pct = atr.iloc[-1] / cur_close * 100
         signals["atr"] = {"value": round(atr.iloc[-1], 2), "atr_percent": round(atr_pct, 2)}
 
+        # ─── MINERVINI VCP (VOLATILITY CONTRACTION PATTERN) ──
+        high_5d = float(high.tail(5).max()) if len(high) >= 5 else float(high.max())
+        low_5d = float(low.tail(5).min()) if len(low) >= 5 else float(low.min())
+        high_20d = float(high.tail(20).max()) if len(high) >= 20 else float(high.max())
+        low_20d = float(low.tail(20).min()) if len(low) >= 20 else float(low.min())
+        range_20d = high_20d - low_20d
+        vcp_ratio = (high_5d - low_5d) / range_20d if range_20d > 0 else 1.0
+        is_vcp_tight = (vcp_ratio <= 0.65)
+        
+        cur_open = float(df["Open"].iloc[-1]) if "Open" in df.columns else cur_close
+        is_bullish_candle = bool(cur_close > cur_open)
+        is_sweet_spot_rebound = bool(0.0 <= price_vs_ema <= 2.5 and is_bullish_candle)
+
+        signals["vcp"] = {
+            "vcp_ratio": round(vcp_ratio, 2),
+            "is_contracted": is_vcp_tight,
+            "signal": "TIGHT_CONTRACTION" if is_vcp_tight else "NORMAL_RANGE"
+        }
+        signals["sweet_spot_rebound"] = {
+            "is_sweet_spot": is_sweet_spot_rebound,
+            "is_bullish_candle": is_bullish_candle,
+            "deviation_pct": round(price_vs_ema, 2)
+        }
+
         # ─── VOLUME INDICATORS ───────────────────────────────
         vol_sma = volume.rolling(window=min(len(volume), 20)).mean().iloc[-1]
         vol_ratio = float(volume.iloc[-1] / vol_sma) if vol_sma > 0 else 1.0
