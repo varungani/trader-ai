@@ -1,6 +1,6 @@
 # TraderAI ⚡ System Architecture & In-Depth Technical Specification
 
-> **Document Version:** 2.2.0-pure-swing  
+> **Document Version:** 2.3.0-fortress-patterns  
 > **Status:** Experimental Simulator & Quantitative Research Specification  
 > **Focus:** Short-Term Indian Equity Swing Trading Engine (1 to 15 Sessions)  
 > **Instrument:** NSE Cash Delivery (CNC — Cash 'n Carry Only)  
@@ -669,6 +669,55 @@ The backtest was executed via [`backtesting/swing_midcap_backtest.py`](file:///c
    - 2024 (Momentum continuation): **+₹19,954.4** (43.9% WR)
    - 2025 (Consolidation/chop): **-₹398.0** (capital preserved, 40.0% WR)
    - 2026 (YTD): **+₹2,631.0** (36.4% WR)
+
+---
+
+### 14.6 Empirical Pattern Mining: VCP Contraction vs 20 EMA Sweet Spot vs Baseline Breakouts
+
+To isolate true technical alpha from noise, we subjected **7 distinct price action and volume patterns** to rigorous simulation across the **136-stock universe over 5 years (1,236 trading sessions)** under exact Indian statutory delivery friction (STT, GST, flat ₹15.93 CDSL DP fee, slippage).
+
+#### Empirical Pattern Benchmark Matrix (5-Year / 136 Stocks / Real Costs):
+
+| Pattern Strategy | Trades | Win Rate | Total Net P&L (₹30k cap) | Profit Factor | Payoff (W/L) | Max DD | Best Month |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1. Blind 50D Breakout** (No Base) | 177 | 40.1% | **-₹2,792.1** | 0.93 | 1.39 : 1 | -22.9% | +₹2,262 |
+| **2. Minervini VCP Contraction** 🏆 | 150 | **45.3%** | **+₹18,854.0 (+62.8%)** | **1.56** | **1.88 : 1** | **-11.3%** 🛡️ | **+₹5,849** |
+| **3. Raw RS High Leader** (No Base) | 180 | 36.1% | **-₹5,193.0** | 0.89 | 1.57 : 1 | -32.8% | +₹1,950 |
+| **4. 20 EMA Sweet-Spot Rebound** 🏆 | 177 | **44.6%** | **+₹30,756.2 (+102.5%)** | **1.55** | **1.92 : 1** | **-10.5%** 🛡️ | **+₹7,013 (+23.4%)** |
+| **5. Volume Dry-Up (VDU) Breakout** | 121 | 37.2% | **+₹1,489.0** | 1.05 | 1.77 : 1 | -23.3% | +₹2,100 |
+
+#### Quantitative Findings & Architectural Principles:
+1. **The VCP Edge ($Range_{5D} / Range_{20D} \le 0.65$)**:
+   When volatility contracts tightly before a breakout, institutional absorption is complete. Buying breakouts with $VCP \le 0.65$ and $RVOL \ge 1.4\times$ delivered a **1.56 Profit Factor** and reduced maximum portfolio drawdown to **only -11.3%** over 5 years.
+2. **The 20 EMA Sweet-Spot Edge ($0.0 \le \text{dist} \le 2.2\%$)**:
+   Entering healthy Stage 2 uptrends on low-risk pullbacks to dynamic 20 EMA support with a bullish candle confirmation ($Close > Open$) produced **+₹30,756.20 net profit (+102.5%)** on a ₹30,000 account, with **64.7% of all months ending positive**.
+3. **The False Breakout Trap**:
+   Blind 50-day breakouts without volatility contraction or sweet-spot support lost money (-₹2,792) and suffered severe -22.9% drawdowns due to morning fakeouts and intraday mean-reversion.
+
+---
+
+### 14.7 Fortress Shortlisting Gates & Strategy Tournament Architecture
+
+To protect capital and guarantee that only highest-conviction setups receive allocation, TraderAI codifies **5 Institutional Gating Filters** and an automated **Dynamic Sector Momentum Tournament**:
+
+#### The 5 Fortress Gating Filters (`engine/recommender.py`):
+1. **Gate 1: Zero-Tolerance Sector Drag**: Candidates in sectors with negative Relative Strength vs Nifty ($Sector\ RS < 0.0\%$) are forced to `HOLD (SECTOR_DRAG)`.
+2. **Gate 2: Minervini Stage 2 Trend Template**: Price must satisfy $Close > EMA_{50} > SMA_{200}$, filtering out Stage 3 (distribution) and Stage 4 (markdown) value traps.
+3. **Gate 3: Sweet-Spot Entry Corridor**: Distance to the 20 EMA must be within $-2.0\% \le \text{deviation} \le +4.0\%$. Stretched candidates are locked to `HOLD (WAIT_FOR_PULLBACK)`.
+4. **Gate 4: Volume Confirmation**: Relative Volume ($RVOL$) must be $\ge 1.05\times$ to $1.4\times$ 20-day average.
+5. **Gate 5: Macro Regime Circuit Breaker**: If Nifty is below its 50 SMA, fresh BUYs are vetoed (`100% CASH PRESERVATION`) unless score $\ge 80$.
+
+#### Dynamic Sector Momentum Allocation Multipliers (`config.py` & `engine/strategy_tournament.py`):
+* `LEADING` ($\ge +2.0\%$ RS vs Nifty): **1.35x Capital Boost**
+* `OUTPERFORMING` ($0.0\%$ to $+2.0\%$ RS): **1.15x Capital Boost**
+* `NEUTRAL` ($-1.0\%$ to $0.0\%$ RS): **1.00x Base Capital**
+* `LAGGING` ($-3.0\%$ to $-1.0\%$ RS): **0.75x Capital Reduction**
+* `SEVERE_DRAG` ($< -3.0\%$ RS): **0.50x Capital Reduction**
+
+#### Strategy Tournament Constraints:
+* **Strategy A (Top 3 Concentrated)**: Enforces **Max 1 stock per sector**; candidates ranked by $Score_{\text{boosted}} = Score_{\text{final}} + (RS_{\text{pct}} \times 1.5)$.
+* **Strategy B (Top 5 Diversified)**: Enforces **Max 2 stocks per sector**.
+* **Floor Ticket Sizing**: `MIN_DELIVERY_TICKET_RUPEES = ₹3,500` to cap flat CDSL DP charges $\le 0.45\%$.
 
 ---
 
