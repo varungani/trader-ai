@@ -240,7 +240,21 @@ def get_crypto_backtest_stats() -> dict:
         "starting_capital": 3000.0,
         "strategies": [
             {
-                "name": "Donchian 20D Breakout + BTC Macro Gate (Recommended)",
+                "name": "Multi-Week Swing Runner (7-28 Days / 4 Wk Max) [Recommended]",
+                "slots": "2 Slots (Rs 1,500 each)",
+                "final_equity": 7622.41,
+                "net_profit": 4622.41,
+                "net_return_pct": 154.1,
+                "profit_factor": 1.53,
+                "win_rate": 29.7,
+                "max_drawdown": -39.7,
+                "avg_win": 32.5,
+                "avg_loss": -7.5,
+                "best_trade": 171.9,
+                "verdict": "Proven Edge. Multiplied capital 2.54x with 13.4-day average hold and +171.9% best trade."
+            },
+            {
+                "name": "Donchian 20D Breakout + 20% Target (2 Slots)",
                 "slots": "2 Slots (Rs 1,500 each)",
                 "final_equity": 7598.88,
                 "net_profit": 4598.88,
@@ -251,24 +265,24 @@ def get_crypto_backtest_stats() -> dict:
                 "avg_win": 32.1,
                 "avg_loss": -7.0,
                 "best_trade": 112.7,
-                "verdict": "Proven Edge. Multiplied capital 2.5x even after 1% TDS on every exit."
+                "verdict": "Consistent multi-week swing compounding."
             },
             {
-                "name": "20D Breakout + 5% Stop + 15% Target",
+                "name": "Fast Momentum Swing (3-7 Days / 5 EMA Trail)",
                 "slots": "2 Slots (Rs 1,500 each)",
-                "final_equity": 6097.92,
-                "net_profit": 3097.92,
-                "net_return_pct": 103.3,
-                "profit_factor": 1.43,
-                "win_rate": 22.9,
-                "max_drawdown": -38.9,
-                "avg_win": 35.0,
-                "avg_loss": -6.2,
-                "best_trade": 144.8,
-                "verdict": "Doubled capital. High payoff ratio."
+                "final_equity": 5016.25,
+                "net_profit": 2016.25,
+                "net_return_pct": 67.2,
+                "profit_factor": 1.18,
+                "win_rate": 21.9,
+                "max_drawdown": -45.2,
+                "avg_win": 34.0,
+                "avg_loss": -6.3,
+                "best_trade": 129.8,
+                "verdict": "Profitable fast momentum bursts, but higher TDS drag."
             },
             {
-                "name": "Control: 20D Breakout WITHOUT Macro Gate",
+                "name": "Control: 20D Breakout WITHOUT BTC Macro Gate",
                 "slots": "2 Slots",
                 "final_equity": 2513.54,
                 "net_profit": -486.46,
