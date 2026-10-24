@@ -26,7 +26,7 @@ def render_crypto_section():
 """)
 
     # Interactive Controls
-    c_ctrl1, c_ctrl2, c_ctrl3 = st.columns([2, 2, 2])
+    c_ctrl1, c_ctrl2, c_ctrl3, c_ctrl4 = st.columns([2, 2, 2, 2])
     with c_ctrl1:
         crypto_cap = st.selectbox(
             "Crypto Dedicated Capital",
@@ -44,7 +44,16 @@ def render_crypto_section():
             help="2 slots cut portfolio volatility by 50% compared to all-in 1 slot."
         )
     with c_ctrl3:
-        refresh_btn = st.button("🔄 Refresh Live Crypto Data", use_container_width=True)
+        style_mode = st.selectbox(
+            "Horizon & Trading Style",
+            options=["⚡ Fast Momentum (3–7 Days)", "🌊 Trend Compounding (7–15 Days)"],
+            index=0,
+            help="Fast Momentum: 10D breakout, -5% stop, +12% target, 5 EMA trail. Trend Compounding: 20D breakout, -6% stop, +18% target, 10 EMA trail."
+        )
+    with c_ctrl4:
+        refresh_btn = st.button("🔄 Refresh Live Data", use_container_width=True)
+
+    is_fast_mode = "Fast" in style_mode
 
     with st.spinner("Fetching live 24/7 crypto market data and calculating Mansfield RS vs BTC..."):
         data = fetch_crypto_realtime_data()
@@ -76,25 +85,47 @@ def render_crypto_section():
 
     # 2. LIVE CANDIDATES & BREAKOUT SCANNER
     st.markdown("### 2. Live Top-12 Liquid Crypto Scanner (CoinDCX / CoinSwitch Traded)")
+    if is_fast_mode:
+        st.info("⚡ **Fast Momentum Mode Active:** Optimized for quick 3–7 day velocity bursts. Triggers on 10-day breakouts with RVOL ≥ 1.3x, -5.0% hard stop, +12.0% target, and dynamic daily 5 EMA trailing exit.")
+    else:
+        st.info("🌊 **Trend Compounding Mode Active:** Optimized for multi-week 7–15 day monster trends. Triggers on 20-day Donchian breakouts, -6.0% hard stop, +18.0% partial profit target, and daily 10 EMA trailing runner.")
+
     candidates = analysis.get("candidates", [])
     
     table_rows = []
     for c in candidates:
-        table_rows.append({
-            "Asset": f"{c['name']} ({c['symbol'].replace('-USD', '')})",
-            "Category": c["type"],
-            "Price (USD)": f"${c['price_usd']:,.2f}" if c['price_usd'] >= 1 else f"${c['price_usd']:.4f}",
-            "Price (INR)": f"₹{c['price_inr']:,.1f}" if c['price_inr'] >= 10 else f"₹{c['price_inr']:.3f}",
-            "24h %": f"{c['change_24h']:+.2f}%",
-            "Action": c["action"],
-            "Score": c["score"],
-            "Mansfield RS vs BTC": f"{c['mansfield_rs']:+.1f}%",
-            "RVOL": f"{c['rvol']:.2f}x",
-            "20D Breakout": "YES 🚀" if c["is_breakout"] else "No",
-            "Stop Loss (-6%)": f"${c['stop_loss_usd']:,.2f}" if c['stop_loss_usd'] >= 1 else f"${c['stop_loss_usd']:.4f}",
-            "Target 1 (+18%)": f"${c['target1_usd']:,.2f}" if c['target1_usd'] >= 1 else f"${c['target1_usd']:.4f}",
-            "Trail 10 EMA": f"${c['trailing_10ema_usd']:,.2f}" if c['trailing_10ema_usd'] >= 1 else f"${c['trailing_10ema_usd']:.4f}"
-        })
+        if is_fast_mode:
+            table_rows.append({
+                "Asset": f"{c['name']} ({c['symbol'].replace('-USD', '')})",
+                "Category": c["type"],
+                "Price (USD)": f"${c['price_usd']:,.2f}" if c['price_usd'] >= 1 else f"${c['price_usd']:.4f}",
+                "Price (INR)": f"₹{c['price_inr']:,.1f}" if c['price_inr'] >= 10 else f"₹{c['price_inr']:.3f}",
+                "24h %": f"{c['change_24h']:+.2f}%",
+                "Action": c["action"],
+                "Score": c["score"],
+                "RS vs BTC": f"{c['mansfield_rs']:+.1f}%",
+                "RVOL": f"{c['rvol']:.2f}x",
+                "10D Breakout": "YES ⚡" if c.get("is_fast_breakout") else "No",
+                "Fast Stop (-5%)": f"${c.get('fast_stop_usd', 0):,.2f}" if c.get('fast_stop_usd', 0) >= 1 else f"${c.get('fast_stop_usd', 0):.4f}",
+                "Fast Target (+12%)": f"${c.get('fast_target_usd', 0):,.2f}" if c.get('fast_target_usd', 0) >= 1 else f"${c.get('fast_target_usd', 0):.4f}",
+                "Trail 5 EMA": f"${c.get('trailing_5ema_usd', 0):,.2f}" if c.get('trailing_5ema_usd', 0) >= 1 else f"${c.get('trailing_5ema_usd', 0):.4f}"
+            })
+        else:
+            table_rows.append({
+                "Asset": f"{c['name']} ({c['symbol'].replace('-USD', '')})",
+                "Category": c["type"],
+                "Price (USD)": f"${c['price_usd']:,.2f}" if c['price_usd'] >= 1 else f"${c['price_usd']:.4f}",
+                "Price (INR)": f"₹{c['price_inr']:,.1f}" if c['price_inr'] >= 10 else f"₹{c['price_inr']:.3f}",
+                "24h %": f"{c['change_24h']:+.2f}%",
+                "Action": c["action"],
+                "Score": c["score"],
+                "RS vs BTC": f"{c['mansfield_rs']:+.1f}%",
+                "RVOL": f"{c['rvol']:.2f}x",
+                "20D Breakout": "YES 🚀" if c["is_breakout"] else "No",
+                "Stop Loss (-6%)": f"${c['stop_loss_usd']:,.2f}" if c['stop_loss_usd'] >= 1 else f"${c['stop_loss_usd']:.4f}",
+                "Target 1 (+18%)": f"${c['target1_usd']:,.2f}" if c['target1_usd'] >= 1 else f"${c['target1_usd']:.4f}",
+                "Trail 10 EMA": f"${c['trailing_10ema_usd']:,.2f}" if c['trailing_10ema_usd'] >= 1 else f"${c['trailing_10ema_usd']:.4f}"
+            })
     
     cand_df = pd.DataFrame(table_rows)
     st.dataframe(cand_df, use_container_width=True, hide_index=True)
@@ -102,12 +133,13 @@ def render_crypto_section():
     # 3. POSITION SIZING & INDIAN TAX BREAKDOWN
     st.markdown("### 3. Position Sizing & Indian Tax Simulator")
     slot_amount = crypto_cap / max_slots
-    max_risk_amount = slot_amount * 0.06
+    stop_risk_pct = 0.05 if is_fast_mode else 0.06
+    max_risk_amount = slot_amount * stop_risk_pct
 
     p1, p2, p3 = st.columns(3)
     p1.metric("Dedicated Capital", f"₹{crypto_cap:,.0f}")
     p2.metric(f"Allocation Per Slot ({max_slots} slots)", f"₹{slot_amount:,.0f}")
-    p3.metric("Max Risk Per Trade (-6% Stop)", f"₹{max_risk_amount:,.1f}", help="If the trade hits stop loss, you lose only ₹90!")
+    p3.metric(f"Max Risk Per Trade (-{int(stop_risk_pct*100)}% Stop)", f"₹{max_risk_amount:,.1f}", help=f"If the trade hits stop loss, you lose only ₹{max_risk_amount:,.0f}!")
 
     with st.expander("🧾 Exact Indian Crypto Statutory Tax Breakdown (Sec 115BBH & 194S)", expanded=False):
         st.markdown(f"""

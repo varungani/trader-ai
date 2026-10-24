@@ -107,12 +107,14 @@ def analyze_crypto_market(data: dict[str, pd.DataFrame]) -> dict:
             continue
             
         close = df['close']
+        df['ema5'] = close.ewm(span=5, adjust=False).mean()
         df['ema10'] = close.ewm(span=10, adjust=False).mean()
         df['ema20'] = close.ewm(span=20, adjust=False).mean()
         df['ema50'] = close.ewm(span=50, adjust=False).mean()
         df['sma20_vol'] = df['volume'].rolling(20).mean()
         df['rvol'] = df['volume'] / (df['sma20_vol'] + 1e-8)
         df['high20'] = df['high'].rolling(20).max().shift(1)
+        df['high10'] = df['high'].rolling(10).max().shift(1)
         
         # ATR & VCP
         tr1 = df['high'] - df['low']
@@ -140,12 +142,15 @@ def analyze_crypto_market(data: dict[str, pd.DataFrame]) -> dict:
         vcp = float(last['vcp_ratio'])
         m_rs = float(last['mansfield_rs'])
         h20 = float(last['high20'])
+        h10 = float(last['high10'])
+        ema5 = float(last['ema5'])
         ema10 = float(last['ema10'])
         ema20 = float(last['ema20'])
         ema50 = float(last['ema50'])
         
-        # Signal check
-        is_breakout = curr_p > h20
+        # Signal checks
+        is_breakout_20d = curr_p > h20
+        is_breakout_10d = curr_p > h10
         is_stage2 = curr_p > ema20 and (ema20 > ema50 if not pd.isna(ema50) else True)
         is_rs_leader = m_rs > 0.0 or sym == "BTC-USD"
         has_volume = rvol >= 1.3
@@ -154,23 +159,33 @@ def analyze_crypto_market(data: dict[str, pd.DataFrame]) -> dict:
         score = 50.0
         
         if entries_allowed:
-            if is_breakout and has_volume and is_rs_leader:
-                action = "STRONG BUY"
-                score = 85.0 + min(15.0, (rvol - 1.0) * 5)
+            if is_breakout_20d and has_volume and is_rs_leader:
+                action = "STRONG BUY (SWING)"
+                score = 88.0 + min(12.0, (rvol - 1.0) * 5)
+            elif is_breakout_10d and has_volume and is_rs_leader:
+                action = "BUY (FAST BREAKOUT)"
+                score = 80.0 + min(15.0, (rvol - 1.0) * 5)
             elif is_stage2 and is_rs_leader and (curr_p >= ema20 * 0.99 and curr_p <= ema20 * 1.04):
                 action = "BUY (PULLBACK)"
                 score = 75.0 + min(10.0, m_rs)
-            elif is_breakout:
+            elif is_breakout_10d:
                 action = "WATCHLIST (BREAKOUT)"
                 score = 65.0
         else:
             action = "CASH (MACRO VETO)"
             score = 30.0
             
+        # Swing Levels (7-15 Days)
         stop_loss_usd = curr_p * 0.94  # -6% Stop Loss
         stop_loss_inr = stop_loss_usd * USD_TO_INR_APPROX
         target1_usd = curr_p * 1.18    # +18% Target (Scale out 35%)
         target1_inr = target1_usd * USD_TO_INR_APPROX
+        
+        # Fast Momentum Levels (3-7 Days)
+        fast_stop_usd = curr_p * 0.95  # -5% Fast Stop Loss
+        fast_stop_inr = fast_stop_usd * USD_TO_INR_APPROX
+        fast_target_usd = curr_p * 1.12 # +12% Fast Target
+        fast_target_inr = fast_target_usd * USD_TO_INR_APPROX
         
         candidates.append({
             "symbol": sym,
@@ -184,12 +199,19 @@ def analyze_crypto_market(data: dict[str, pd.DataFrame]) -> dict:
             "rvol": round(rvol, 2),
             "vcp": round(vcp, 2),
             "mansfield_rs": round(m_rs, 2),
-            "is_breakout": is_breakout,
+            "is_breakout": is_breakout_20d,
+            "is_fast_breakout": is_breakout_10d,
             "is_stage2": is_stage2,
             "stop_loss_usd": stop_loss_usd,
             "stop_loss_inr": stop_loss_inr,
             "target1_usd": target1_usd,
             "target1_inr": target1_inr,
+            "fast_stop_usd": fast_stop_usd,
+            "fast_stop_inr": fast_stop_inr,
+            "fast_target_usd": fast_target_usd,
+            "fast_target_inr": fast_target_inr,
+            "trailing_5ema_usd": ema5,
+            "trailing_5ema_inr": ema5 * USD_TO_INR_APPROX,
             "trailing_10ema_usd": ema10,
             "trailing_10ema_inr": ema10 * USD_TO_INR_APPROX,
         })
