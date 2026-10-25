@@ -53,10 +53,10 @@ def render_us_section():
     with u_ctrl1:
         us_cap_usd = st.selectbox(
             "US Trading Capital",
-            options=[104.0, 500.0, 1000.0, 2500.0, 5000.0, 10000.0],
-            format_func=lambda x: f"${x:,.0f} (≈ ₹{x * USD_TO_INR_APPROX:,.0f}) {'[Your $104/mo Plan]' if x == 104.0 else ''}",
+            options=[116.0, 104.0, 500.0, 1000.0, 2500.0, 5000.0, 10000.0],
+            format_func=lambda x: f"${x:,.0f} (≈ ₹{x * USD_TO_INR_APPROX:,.0f}) {'[Your ₹10k/mo Plan]' if x == 116.0 else '[Previous $104 Plan]' if x == 104.0 else ''}",
             index=0,
-            help="Capital allocated to US Equities via INDmoney. Starting with $104/month (≈ ₹9,000) using fractional shares."
+            help="Capital allocated to US Equities via INDmoney. Starting with $116/month (≈ ₹10,000) using fractional shares."
         )
     with u_ctrl2:
         us_slots = st.selectbox(
