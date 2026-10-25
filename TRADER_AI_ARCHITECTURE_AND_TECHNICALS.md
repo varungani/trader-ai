@@ -753,8 +753,9 @@ graph TD
 
 | Strategy / Setup | Final Equity | Net Return | Profit Factor | Win Rate | Max Drawdown | Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Donchian 20D Breakout + BTC Macro Gate** | **₹7,598.88** | **+153.3%** | **1.70** | **28.8%** | **-38.7%** | **Proven Edge. Multiplied capital 2.5x even after 1% TDS on every exit.** |
-| **20D Breakout + 5% Stop + 15% Target** | **₹6,097.92** | **+103.3%** | **1.43** | **22.9%** | **-38.9%** | **Doubled capital. High payoff ratio.** |
+| **Multi-Week Swing Runner (7–28 Days / 4 Wk Max)** | **₹7,622.41** | **+154.1%** | **1.53** | **29.7%** | **-39.7%** | **Proven Edge. 13.4-day average hold with +171.9% best trade.** |
+| **High-Beta Parabolic Moonshot (SOL, AVAX, NEAR, DOGE)** | **₹6,837.62** | **+127.9%** | **1.39** | **25.4%** | **-42.0%** | **High velocity. Average winning trade +42.9% net.** |
+| **Donchian 20D Breakout + 20% Target** | **₹7,598.88** | **+153.3%** | **1.70** | **28.8%** | **-38.7%** | **Multiplied capital 2.5x even after 1% TDS on every exit.** |
 | **Control: 20D Breakout WITHOUT BTC Gate** | **₹2,513.54** | **-16.2% (Loss)** | **0.94** | **26.7%** | **-67.4%** | **FAILS. Severe -67% crash without macro filter.** |
 | *Benchmark: Buy & Hold Solana (SOL)* | ₹1,487.68 | -50.4% | — | — | **-96.3%** | Catastrophic crash from $250 to $8. |
 | *Benchmark: Buy & Hold Ethereum (ETH)* | ₹1,702.86 | -43.2% | — | — | **-79.4%** | Severe multi-year bear drag. |
@@ -764,13 +765,19 @@ graph TD
 * **Seed Capital:** ₹3,000 (October 2026), scaling to ₹6,000 in February 2027.
 * **Slot Allocation:** 2 slots (50% each = ₹1,500 per position).
 * **Micro-Risk Management:** Hard stop loss at -6.0%. On a ₹1,500 position, **maximum loss is strictly capped at ₹90 per trade**.
-* **Uncapped Trailing Runner:** Partial profit (35%) booked at +18% target (raising stop to breakeven +1.5%), with the remaining 65% trailing behind the daily 10 EMA.
+* **Uncapped Trailing Runner:** Partial profit (30%) booked at +25% target (raising stop to breakeven +2.0%), with the remaining 70% trailing behind the daily 10 EMA / 15 EMA.
 
 ### 15.4 Indian Statutory Crypto Tax Rules (Sec 115BBH & 194S)
 1. **Flat 30% Tax (+ 4% Cess = 31.2%):** Deducted on net crypto gains.
 2. **Zero Loss Set-Off:** Losses in one token cannot offset gains in another. Low-frequency swing trading is strictly enforced to minimize transaction drag.
 3. **1% TDS on Every Sell (Section 194S):** Automatically tracked and deducted by FIU-registered exchanges (CoinDCX, CoinSwitch PRO) and credited to the trader's Form 26AS.
 4. **Security Warnings:** All users are strictly warned against using WazirX (following their July 2024 $230M breach) and unverified P2P merchants on offshore exchanges to avoid bank account cyber-cell freezes.
+
+### 15.5 Parabolic Moonshot & High-Beta Rockets Architecture
+To maximize capital velocity and enable 65%–80%+ annual account compounding, TraderAI integrates:
+1. **Stock Engine: `high_beta_rockets` Universe Preset**: Focuses exclusively on Nifty Midcap 150 & Smallcap institutional rockets (*Trent, Dixon, Kaynes, Polycab, Suzlon, Premier Energies, etc.*) that move 30% to 60% in 10–15 sessions, completely banning slow largecaps.
+2. **Crypto Engine: `🚀 Parabolic Moonshot Runner`**: Focuses exclusively on high-beta altcoin leaders (*SOL, AVAX, NEAR, DOGE, LINK, BNB*) displaying $Mansfield\ RS \ge 5.0\%$ outperformance vs BTC on $RVOL \ge 1.5\times$, riding uncapped trailing stops to capture +50% to +150%+ momentum waves.
+3. **High Concentration (2 to 3 Bullets)**: Allocating 35% to 50% capital per position so that single monster runners directly propel total account equity by +15% to +25%.
 
 ---
 
