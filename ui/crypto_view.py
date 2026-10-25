@@ -2,7 +2,7 @@
 Crypto Alpha Dashboard Component for TraderAI.
 Renders real-time Bitcoin Macro Regime Gate, 4-Pillar Quant Scorecard (0-100),
 Institutional Verdicts (BUY / HOLD / SELL / AVOID), Live Shadow Tracking Ledger,
-and 1% Indian TDS / Statutory Fee Modeling.
+37+ CoinDCX Traded Tokens, and 1% Indian TDS / Statutory Fee Modeling.
 """
 from __future__ import annotations
 
@@ -18,10 +18,36 @@ from engine.crypto_engine import (
     USD_TO_INR_APPROX,
 )
 
+def format_crypto_usd(p: float) -> str:
+    """Format crypto price with smart decimals for sub-cent meme tokens."""
+    if p >= 100.0:
+        return f"${p:,.2f}"
+    elif p >= 1.0:
+        return f"${p:,.3f}"
+    elif p >= 0.01:
+        return f"${p:.4f}"
+    elif p >= 0.0001:
+        return f"${p:.6f}"
+    else:
+        return f"${p:.8f}"
+
+def format_crypto_inr(p: float) -> str:
+    """Format crypto rupee price with smart decimals."""
+    if p >= 1000.0:
+        return f"₹{p:,.1f}"
+    elif p >= 1.0:
+        return f"₹{p:,.2f}"
+    elif p >= 0.01:
+        return f"₹{p:.4f}"
+    elif p >= 0.0001:
+        return f"₹{p:.6f}"
+    else:
+        return f"₹{p:.8f}"
+
 def render_crypto_section():
     st.markdown("## 🪙 Crypto Alpha — Quantitative Satellite & Shadow Engine")
     st.caption(
-        "Isolated High-Convexity Capital: **₹3,000 Initial** (scaling to **₹6,000 in Feb**) • 2 Position Slots • Spot Only (Zero Leverage) • 100% Segregated from Core NSE Demat Portfolio"
+        "37+ CoinDCX Traded Assets • Isolated High-Convexity Capital: **₹3,000 Initial** (scaling to **₹6,000 in Feb**) • 2 Position Slots • Spot Only (Zero Leverage) • 100% Segregated from Core NSE Demat Portfolio"
     )
 
     st.markdown("""
@@ -30,7 +56,7 @@ def render_crypto_section():
 """)
 
     # Interactive Controls
-    c_ctrl1, c_ctrl2, c_ctrl3, c_ctrl4 = st.columns([2, 2, 2, 2])
+    c_ctrl1, c_ctrl2, c_ctrl3, c_ctrl4, c_ctrl5 = st.columns([2, 2, 2, 2, 1])
     with c_ctrl1:
         crypto_cap = st.selectbox(
             "Crypto Dedicated Capital",
@@ -56,15 +82,33 @@ def render_crypto_section():
                 "⚡ Quick Momentum Burst (3–7 Days)"
             ],
             index=0,
-            help="Parabolic Moonshot Runner: Focuses on explosive high-beta altcoins (SOL, AVAX, NEAR, DOGE, LINK) outperforming BTC. Aims for +50% to +150%+ runners with -6.5% stop!"
+            help="Parabolic Moonshot Runner: Focuses on explosive high-beta altcoins outperforming BTC. Aims for +50% to +150%+ runners with -6.5% stop!"
         )
     with c_ctrl4:
-        refresh_btn = st.button("🔄 Refresh Live Data & Sync", use_container_width=True)
+        universe_preset = st.selectbox(
+            "CoinDCX Universe Preset",
+            options=["all", "moonshot", "ai", "meme", "defi", "l1_l2", "core"],
+            format_func=lambda x: {
+                "all": "🌐 All CoinDCX Tokens (Top 37+)",
+                "moonshot": "🚀 High-Beta Moonshots (SUI, SOL, APT, NEAR...)",
+                "ai": "🤖 AI & Compute Leaders (RENDER, FET, TAO, GRT)",
+                "meme": "🐕 High-Velocity Memes (DOGE, PEPE, WIF, BONK)",
+                "defi": "🏦 DeFi & RWA Titans (AAVE, LINK, UNI, PENDLE)",
+                "l1_l2": "👑 Layer 1 & 2 Chains (SEI, INJ, TIA, ARB, OP)",
+                "core": "💎 Bluechips (BTC, ETH, SOL, BNB, XRP)"
+            }[x],
+            index=0,
+            help="Filter across the top 37+ liquid tokens traded on CoinDCX and CoinSwitch PRO."
+        )
+    with c_ctrl5:
+        st.write("")
+        st.write("")
+        refresh_btn = st.button("🔄 Sync", use_container_width=True)
 
     is_moonshot = "Moonshot" in style_mode
     is_fast_mode = "Quick" in style_mode
 
-    with st.spinner("Fetching live 24/7 crypto market data, computing 4-Pillar Quant Scores and syncing paper ledger..."):
+    with st.spinner("Fetching live 24/7 crypto market data for 37+ CoinDCX tokens, computing 4-Pillar Quant Scores and syncing paper ledger..."):
         data = fetch_crypto_realtime_data()
         analysis = analyze_crypto_market(data)
         paper_ledger = sync_crypto_paper_trades(data)
@@ -125,15 +169,15 @@ def render_crypto_section():
                 "Trade ID": p["id"],
                 "Token": p["symbol"].replace("-USD", ""),
                 "Entry Date": p["entry_date"],
-                "Entry (USD)": f"${p['entry_price_usd']:,.2f}" if p['entry_price_usd'] >= 1 else f"${p['entry_price_usd']:.4f}",
-                "Live (USD)": f"${p.get('current_price_usd', 0):,.2f}" if p.get('current_price_usd', 0) >= 1 else f"${p.get('current_price_usd', 0):.4f}",
+                "Entry (USD)": format_crypto_usd(p['entry_price_usd']),
+                "Live (USD)": format_crypto_usd(p.get('current_price_usd', p['entry_price_usd'])),
                 "Tokens": f"{p['quantity_tokens']:.4f}",
                 "Allocated (INR)": f"₹{p['allocated_inr']:,.0f}",
                 "Unrealized P&L (INR)": f"₹{p.get('unrealized_pnl_inr', 0):+,.1f}",
                 "Net Return %": f"{p.get('unrealized_pnl_pct', 0):+.2f}%",
-                "Stop-Loss (USD)": f"${p['stop_loss_usd']:,.2f}" if p['stop_loss_usd'] >= 1 else f"${p['stop_loss_usd']:.4f}",
+                "Stop-Loss (USD)": format_crypto_usd(p['stop_loss_usd']),
                 "Stop Cushion": f"{p.get('dist_to_stop_pct', 0):.1f}%",
-                "Trail Level (USD)": f"${p.get('trailing_ema_usd', 0):,.2f}" if p.get('trailing_ema_usd', 0) >= 1 else f"${p.get('trailing_ema_usd', 0):.4f}",
+                "Trail Level (USD)": format_crypto_usd(p.get('trailing_ema_usd', 0)),
             })
         st.dataframe(pd.DataFrame(pos_rows), use_container_width=True, hide_index=True)
 
@@ -156,7 +200,7 @@ def render_crypto_section():
     else:
         st.info("ℹ️ **No active open paper trades.** Select a BUY candidate below and click **'⚡ Execute Shadow Buy'** to test the strategy in live market conditions.")
 
-    # 3. LIVE 4-PILLAR QUANT SCORECARD & BREAKOUT SCANNER
+    # 3. LIVE 4-PILLAR QUANT SCORECARD & BREAKOUT SCANNER (37+ TOKENS)
     st.markdown("### 3. Live Institutional Quant Scorecard (0–100) & Signals")
     if is_moonshot:
         st.success("🚀 **Parabolic Moonshot Mode:** High-beta altcoins outperforming BTC. Score $\ge 78$ triggers `BUY 🟢` with uncapped trailing runner!")
@@ -165,14 +209,34 @@ def render_crypto_section():
     else:
         st.success("🌊 **Multi-Week Swing Runner (7–28 Days):** Highest-compounding institutional crypto strategy (+154.1% Net Return).")
 
-    candidates = analysis.get("candidates", [])
+    all_candidates = analysis.get("candidates", [])
     
+    # Filter candidates based on selected universe preset
+    filtered_candidates = []
+    for c in all_candidates:
+        tag = c.get("tag", "")
+        if universe_preset == "all":
+            filtered_candidates.append(c)
+        elif universe_preset == "moonshot" and tag in ["moonshot", "meme", "ai"]:
+            filtered_candidates.append(c)
+        elif universe_preset == "ai" and tag == "ai":
+            filtered_candidates.append(c)
+        elif universe_preset == "meme" and tag == "meme":
+            filtered_candidates.append(c)
+        elif universe_preset == "defi" and tag == "defi":
+            filtered_candidates.append(c)
+        elif universe_preset == "l1_l2" and tag in ["l1_l2", "moonshot", "core"]:
+            filtered_candidates.append(c)
+        elif universe_preset == "core" and tag == "core":
+            filtered_candidates.append(c)
+
     table_rows = []
-    for c in candidates:
+    for c in filtered_candidates:
         table_rows.append({
-            "Asset": f"{c['name']} ({c['symbol'].replace('-USD', '')})",
-            "Price (USD)": f"${c['price_usd']:,.2f}" if c['price_usd'] >= 1 else f"${c['price_usd']:.4f}",
-            "Price (INR)": f"₹{c['price_inr']:,.1f}" if c['price_inr'] >= 10 else f"₹{c['price_inr']:.3f}",
+            "Asset": f"{c['name']} ({c.get('display', c['symbol'])})",
+            "Category": c.get("category", "Altcoin"),
+            "Price (USD)": format_crypto_usd(c['price_usd']),
+            "Price (INR)": format_crypto_inr(c['price_inr']),
             "24h %": f"{c['change_24h']:+.2f}%",
             "Quant Score": f"{c['score']:.1f} / 100",
             "Verdict": c["verdict"],
@@ -180,9 +244,9 @@ def render_crypto_section():
             "RS vs BTC": f"{c['mansfield_rs']:+.1f}%",
             "RVOL": f"{c['rvol']:.2f}x",
             "Breakout (20D)": "YES 🚀" if c["is_breakout"] else "No",
-            "Hard Stop (-6.5%)": f"${c['stop_loss_usd']:,.2f}" if c['stop_loss_usd'] >= 1 else f"${c['stop_loss_usd']:.4f}",
-            "Scale-Out (+25%)": f"${c['target1_usd']:,.2f}" if c['target1_usd'] >= 1 else f"${c['target1_usd']:.4f}",
-            "Trail (10 EMA)": f"${c['trailing_10ema_usd']:,.2f}" if c['trailing_10ema_usd'] >= 1 else f"${c['trailing_10ema_usd']:.4f}",
+            "Hard Stop (-6.5%)": format_crypto_usd(c['stop_loss_usd']),
+            "Scale-Out (+25%)": format_crypto_usd(c['target1_usd']),
+            "Trail (10 EMA)": format_crypto_usd(c['trailing_10ema_usd']),
         })
     
     cand_df = pd.DataFrame(table_rows)
@@ -193,7 +257,7 @@ def render_crypto_section():
     slot_amount = crypto_cap / max_slots
     free_slots = max_slots - len(open_pos)
 
-    buy_candidates = [c for c in candidates if "BUY" in c["verdict"]]
+    buy_candidates = [c for c in filtered_candidates if "BUY" in c["verdict"]]
     
     if free_slots <= 0:
         st.warning(f"⚠️ All {max_slots} paper slots are currently occupied. To open a new paper trade, wait for an active position to hit its stop/target, or close one manually above.")
@@ -204,11 +268,11 @@ def render_crypto_section():
         
         col_cand, col_btn = st.columns([3, 1])
         with col_cand:
-            options_pool = buy_candidates if buy_candidates else candidates
+            options_pool = buy_candidates if buy_candidates else filtered_candidates
             selected_sym = st.selectbox(
                 "Select Candidate to Shadow Buy",
                 options=[c["symbol"] for c in options_pool],
-                format_func=lambda s: next(f"{c['name']} ({s.replace('-USD', '')}) — Score: {c['score']} [{c['verdict']}]" for c in options_pool if c["symbol"] == s)
+                format_func=lambda s: next(f"{c['name']} ({c.get('display', s)}) — Score: {c['score']:.0f} [{c['verdict']}] | {c.get('category', 'Crypto')}" for c in options_pool if c["symbol"] == s)
             )
         with col_btn:
             st.write("")
@@ -217,7 +281,7 @@ def render_crypto_section():
                 cand = next(c for c in options_pool if c["symbol"] == selected_sym)
                 res = execute_crypto_shadow_buy(selected_sym, cand, allocated_inr=slot_amount, strategy_mode=style_mode)
                 if res.get("ok"):
-                    st.success(f"🚀 Shadow Trade Logged! Bought {res['qty']} {selected_sym} at ${cand['price_usd']:,.2f} (₹{cand['price_inr']:,.1f}).")
+                    st.success(f"🚀 Shadow Trade Logged! Bought {res['qty']} {cand.get('display', selected_sym)} at {format_crypto_usd(cand['price_usd'])} ({format_crypto_inr(cand['price_inr'])}).")
                     st.rerun()
                 else:
                     st.error(res.get("error", "Failed to execute shadow buy."))
@@ -232,8 +296,8 @@ def render_crypto_section():
                 "Token": cp["symbol"].replace("-USD", ""),
                 "Entry Date": cp["entry_date"],
                 "Exit Date": cp.get("exit_date", "—"),
-                "Entry ($)": f"${cp['entry_price_usd']:,.2f}" if cp['entry_price_usd'] >= 1 else f"${cp['entry_price_usd']:.4f}",
-                "Exit ($)": f"${cp.get('exit_price_usd', 0):,.2f}" if cp.get('exit_price_usd', 0) >= 1 else f"${cp.get('exit_price_usd', 0):.4f}",
+                "Entry ($)": format_crypto_usd(cp['entry_price_usd']),
+                "Exit ($)": format_crypto_usd(cp.get('exit_price_usd', 0)),
                 "Allocated (₹)": f"₹{cp['allocated_inr']:,.0f}",
                 "Net P&L (₹)": f"₹{cp.get('pnl_inr', 0):+,.2f}",
                 "Net Return %": f"{cp.get('pnl_pct', 0):+.2f}%",

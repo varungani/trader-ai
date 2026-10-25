@@ -29,18 +29,52 @@ from data.db import (
 logger = logging.getLogger(__name__)
 
 CRYPTO_UNIVERSE = [
-    {"symbol": "BTC-USD", "name": "Bitcoin", "type": "Macro Benchmark & Core"},
-    {"symbol": "ETH-USD", "name": "Ethereum", "type": "Smart Contracts Layer 1"},
-    {"symbol": "SOL-USD", "name": "Solana", "type": "High-Throughput Layer 1"},
-    {"symbol": "BNB-USD", "name": "BNB", "type": "Exchange Ecosystem"},
-    {"symbol": "XRP-USD", "name": "XRP", "type": "Cross-Border Payments"},
-    {"symbol": "ADA-USD", "name": "Cardano", "type": "Proof-of-Stake Layer 1"},
-    {"symbol": "AVAX-USD", "name": "Avalanche", "type": "Multi-Chain Layer 1"},
-    {"symbol": "LINK-USD", "name": "Chainlink", "type": "Decentralized Oracle"},
-    {"symbol": "DOGE-USD", "name": "Dogecoin", "type": "High-Liquidity Meme/PoW"},
-    {"symbol": "DOT-USD", "name": "Polkadot", "type": "Interoperability Protocol"},
-    {"symbol": "NEAR-USD", "name": "Near Protocol", "type": "Sharded Layer 1"},
-    {"symbol": "LTC-USD", "name": "Litecoin", "type": "Digital Silver / Payments"},
+    # Core & Bluechips
+    {"symbol": "BTC-USD", "name": "Bitcoin", "display": "BTC", "category": "Core Benchmark", "tag": "core"},
+    {"symbol": "ETH-USD", "name": "Ethereum", "display": "ETH", "category": "Core Layer 1", "tag": "core"},
+    {"symbol": "SOL-USD", "name": "Solana", "display": "SOL", "category": "High-Throughput L1", "tag": "moonshot"},
+    {"symbol": "BNB-USD", "name": "BNB", "display": "BNB", "category": "Exchange Ecosystem", "tag": "core"},
+    {"symbol": "XRP-USD", "name": "XRP", "display": "XRP", "category": "Cross-Border Payments", "tag": "core"},
+    {"symbol": "ADA-USD", "name": "Cardano", "display": "ADA", "category": "PoS Layer 1", "tag": "l1_l2"},
+    {"symbol": "AVAX-USD", "name": "Avalanche", "display": "AVAX", "category": "Multi-Chain L1", "tag": "moonshot"},
+    {"symbol": "DOT-USD", "name": "Polkadot", "display": "DOT", "category": "Interoperability L1", "tag": "l1_l2"},
+    {"symbol": "NEAR-USD", "name": "Near Protocol", "display": "NEAR", "category": "AI / Sharded L1", "tag": "moonshot"},
+    {"symbol": "LTC-USD", "name": "Litecoin", "display": "LTC", "category": "Payments / PoW", "tag": "core"},
+    
+    # Next-Gen L1 / L2 High-Beta Rockets
+    {"symbol": "SUI20947-USD", "name": "Sui", "display": "SUI", "category": "Next-Gen L1", "tag": "moonshot"},
+    {"symbol": "APT21794-USD", "name": "Aptos", "display": "APT", "category": "Move L1", "tag": "moonshot"},
+    {"symbol": "SEI-USD", "name": "Sei Network", "display": "SEI", "category": "Trading L1", "tag": "moonshot"},
+    {"symbol": "INJ-USD", "name": "Injective", "display": "INJ", "category": "DeFi L1", "tag": "moonshot"},
+    {"symbol": "TIA-USD", "name": "Celestia", "display": "TIA", "category": "Modular L1", "tag": "moonshot"},
+    {"symbol": "ARB-USD", "name": "Arbitrum", "display": "ARB", "category": "Ethereum L2", "tag": "l1_l2"},
+    {"symbol": "OP-USD", "name": "Optimism", "display": "OP", "category": "Ethereum L2", "tag": "l1_l2"},
+    {"symbol": "KAS-USD", "name": "Kaspa", "display": "KAS", "category": "PoW Layer 1", "tag": "moonshot"},
+    {"symbol": "STX4847-USD", "name": "Stacks", "display": "STX", "category": "Bitcoin L2", "tag": "moonshot"},
+    {"symbol": "ICP-USD", "name": "Internet Computer", "display": "ICP", "category": "Compute L1", "tag": "l1_l2"},
+    {"symbol": "RUNE-USD", "name": "THORChain", "display": "RUNE", "category": "Cross-Chain Liquidity", "tag": "defi"},
+    
+    # AI & Compute Leaders (Huge Indian Volume)
+    {"symbol": "RENDER-USD", "name": "Render", "display": "RENDER", "category": "AI & GPU Compute", "tag": "ai"},
+    {"symbol": "FET-USD", "name": "Artificial Superintelligence", "display": "FET", "category": "AI Agents", "tag": "ai"},
+    {"symbol": "TAO22974-USD", "name": "Bittensor", "display": "TAO", "category": "Decentralized AI", "tag": "ai"},
+    {"symbol": "GRT6719-USD", "name": "The Graph", "display": "GRT", "category": "Data & Indexing", "tag": "ai"},
+    
+    # High-Velocity Memes (Top CoinDCX Retail Trading Volume)
+    {"symbol": "DOGE-USD", "name": "Dogecoin", "display": "DOGE", "category": "Meme King", "tag": "meme"},
+    {"symbol": "SHIB-USD", "name": "Shiba Inu", "display": "SHIB", "category": "Meme Ecosystem", "tag": "meme"},
+    {"symbol": "PEPE24478-USD", "name": "Pepe", "display": "PEPE", "category": "Meme Wave", "tag": "meme"},
+    {"symbol": "WIF-USD", "name": "dogwifhat", "display": "WIF", "category": "Solana Meme", "tag": "meme"},
+    {"symbol": "BONK-USD", "name": "Bonk", "display": "BONK", "category": "Solana Meme", "tag": "meme"},
+    {"symbol": "FLOKI-USD", "name": "Floki", "display": "FLOKI", "category": "Meme & Gaming", "tag": "meme"},
+    
+    # DeFi & Real World Assets (RWA)
+    {"symbol": "LINK-USD", "name": "Chainlink", "display": "LINK", "category": "Oracle / RWA", "tag": "defi"},
+    {"symbol": "AAVE-USD", "name": "Aave", "display": "AAVE", "category": "DeFi Lending", "tag": "defi"},
+    {"symbol": "UNI7083-USD", "name": "Uniswap", "display": "UNI", "category": "DEX Leader", "tag": "defi"},
+    {"symbol": "PENDLE-USD", "name": "Pendle", "display": "PENDLE", "category": "Yield Trading", "tag": "defi"},
+    {"symbol": "ONDO-USD", "name": "Ondo Finance", "display": "ONDO", "category": "Tokenized RWA", "tag": "defi"},
+    {"symbol": "MKR-USD", "name": "Maker", "display": "MKR", "category": "DeFi Stablecoin", "tag": "defi"},
 ]
 
 USD_TO_INR_APPROX = 86.50  # Real-time conversion factor for Indian traders
@@ -56,7 +90,7 @@ def fetch_crypto_realtime_data() -> dict[str, pd.DataFrame]:
             try:
                 if sym in raw.columns.levels[0]:
                     df = raw[sym].copy().dropna(subset=["Close", "Volume"])
-                    if len(df) >= 25:
+                    if len(df) >= 20:
                         df.columns = [col.lower() for col in df.columns]
                         data[sym] = df
             except Exception as e:
@@ -193,10 +227,14 @@ def analyze_crypto_market(data: dict[str, pd.DataFrame]) -> dict:
             composite_score = min(composite_score, 42.0)
             
         # Institutional Verdict & Detailed Action
-        is_high_beta = sym in ["SOL-USD", "AVAX-USD", "NEAR-USD", "DOGE-USD", "LINK-USD", "BNB-USD", "ADA-USD", "XRP-USD"]
+        is_high_beta = c.get("tag") in ["moonshot", "meme", "ai"] or sym in [
+            "SOL-USD", "AVAX-USD", "NEAR-USD", "DOGE-USD", "LINK-USD",
+            "SUI20947-USD", "APT21794-USD", "SEI-USD", "INJ-USD", "TIA-USD",
+            "RENDER-USD", "FET-USD", "TAO22974-USD", "WIF-USD", "PEPE24478-USD", "BONK-USD"
+        ]
         is_breakout_20d = curr_p >= h20 * 0.995
         is_breakout_10d = curr_p >= h10 * 0.995
-        is_parabolic = is_breakout_20d and rvol >= 1.6 and m_rs >= 4.0 and is_high_beta
+        is_parabolic = is_breakout_20d and rvol >= 1.5 and m_rs >= 4.0 and is_high_beta
         
         if not entries_allowed:
             verdict = "AVOID 🔴"
@@ -218,17 +256,19 @@ def analyze_crypto_market(data: dict[str, pd.DataFrame]) -> dict:
             action = "WAIT / CONSOLIDATION"
             
         # Key Levels (Moonshot / Swing Horizon: 7-30 Days)
-        stop_loss_usd = round(curr_p * 0.935, 4)  # -6.5% Hard Stop
-        stop_loss_inr = round(stop_loss_usd * USD_TO_INR_APPROX, 2)
-        target1_usd = round(curr_p * 1.25, 4)     # +25% Moonshot Scale-out
-        target1_inr = round(target1_usd * USD_TO_INR_APPROX, 2)
-        target2_usd = round(curr_p * 1.50, 4)     # +50% Monster Target
-        target2_inr = round(target2_usd * USD_TO_INR_APPROX, 2)
+        stop_loss_usd = round(curr_p * 0.935, 6)  # -6.5% Hard Stop
+        stop_loss_inr = round(stop_loss_usd * USD_TO_INR_APPROX, 4)
+        target1_usd = round(curr_p * 1.25, 6)     # +25% Moonshot Scale-out
+        target1_inr = round(target1_usd * USD_TO_INR_APPROX, 4)
+        target2_usd = round(curr_p * 1.50, 6)     # +50% Monster Target
+        target2_inr = round(target2_usd * USD_TO_INR_APPROX, 4)
         
         candidates.append({
             "symbol": sym,
+            "display": c.get("display", sym.replace("-USD", "")),
             "name": c["name"],
-            "type": c["type"],
+            "category": c.get("category", c.get("type", "Altcoin")),
+            "tag": c.get("tag", "altcoin"),
             "price_usd": curr_p,
             "price_inr": curr_p_inr,
             "change_24h": chg_24h,
