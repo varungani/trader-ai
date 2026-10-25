@@ -74,6 +74,61 @@ INDMONEY_US_UNIVERSE = [
 ]
 
 
+# Official US Stock Market Holidays (NYSE & NASDAQ) - 2025 & 2026
+US_MARKET_HOLIDAYS: dict[str, str] = {
+    # 2025
+    "2025-01-01": "New Year's Day",
+    "2025-01-20": "Martin Luther King Jr. Day",
+    "2025-02-17": "Presidents' Day (Washington's Birthday)",
+    "2025-04-18": "Good Friday",
+    "2025-05-26": "Memorial Day",
+    "2025-06-19": "Juneteenth National Independence Day",
+    "2025-07-04": "Independence Day",
+    "2025-09-01": "Labor Day",
+    "2025-11-27": "Thanksgiving Day",
+    "2025-12-25": "Christmas Day",
+
+    # 2026
+    "2026-01-01": "New Year's Day",
+    "2026-01-19": "Martin Luther King Jr. Day",
+    "2026-02-16": "Presidents' Day (Washington's Birthday)",
+    "2026-04-03": "Good Friday",
+    "2026-05-25": "Memorial Day",
+    "2026-06-19": "Juneteenth National Independence Day",
+    "2026-07-03": "Independence Day (Observed)",
+    "2026-09-07": "Labor Day",
+    "2026-11-26": "Thanksgiving Day",
+    "2026-12-25": "Christmas Day",
+}
+
+
+def get_upcoming_us_holidays(limit: int = 5) -> list[dict]:
+    """Returns a list of upcoming official NYSE / NASDAQ holidays mapped to IST."""
+    try:
+        eastern_tz = zoneinfo.ZoneInfo("America/New_York")
+    except Exception:
+        eastern_tz = timezone(timedelta(hours=-4))
+
+    today_est = datetime.now(timezone.utc).astimezone(eastern_tz).date()
+    upcoming = []
+    for dt_str, name in sorted(US_MARKET_HOLIDAYS.items()):
+        h_date = datetime.strptime(dt_str, "%Y-%m-%d").date()
+        if h_date >= today_est:
+            days_away = (h_date - today_est).days
+            upcoming.append({
+                "date": dt_str,
+                "name": name,
+                "day_name": h_date.strftime("%A"),
+                "formatted": h_date.strftime("%d %b %Y"),
+                "days_away": days_away,
+                "countdown": "Today" if days_away == 0 else f"In {days_away} days",
+                "ist_impact": "Wall Street session halted (07:00 PM – 01:30 AM IST)",
+            })
+            if len(upcoming) >= limit:
+                break
+    return upcoming
+
+
 def get_us_market_status() -> dict:
     """
     Get current US stock market session status (New York Eastern Time vs IST).
@@ -83,7 +138,6 @@ def get_us_market_status() -> dict:
         eastern_tz = zoneinfo.ZoneInfo("America/New_York")
         ist_tz = zoneinfo.ZoneInfo("Asia/Kolkata")
     except Exception:
-        # Fallback if zoneinfo tz database has quirks
         eastern_tz = timezone(timedelta(hours=-4))
         ist_tz = timezone(timedelta(hours=5, minutes=30))
 
@@ -91,16 +145,18 @@ def get_us_market_status() -> dict:
     now_est = now_utc.astimezone(eastern_tz)
     now_ist = now_utc.astimezone(ist_tz)
 
+    today_est_str = now_est.strftime("%Y-%m-%d")
     weekday = now_est.weekday()  # 0=Mon, 4=Fri, 5=Sat, 6=Sun
     time_minutes = now_est.hour * 60 + now_est.minute
 
-    # US Sessions in Eastern Time (Minutes from midnight):
-    # Pre-market: 04:00 - 09:30 (240 - 570)
-    # Regular Market: 09:30 - 16:00 (570 - 960)
-    # Post-market: 16:00 - 20:00 (960 - 1200)
-    # Overnight / Closed: 20:00 - 04:00
-
-    if weekday in (5, 6):
+    # Check for official US Holiday first
+    if today_est_str in US_MARKET_HOLIDAYS:
+        h_name = US_MARKET_HOLIDAYS[today_est_str]
+        status = "CLOSED_HOLIDAY"
+        badge = f"🔴 US MARKET CLOSED ({h_name.upper()})"
+        detail = f"NYSE & NASDAQ closed today for {h_name}. No evening trading session (07:00 PM – 01:30 AM IST)."
+        is_regular_open = False
+    elif weekday in (5, 6):
         status = "CLOSED_WEEKEND"
         badge = "🔴 US MARKET CLOSED (WEEKEND)"
         detail = "Wall Street resumes Monday 09:30 AM EST (07:00 PM IST)."

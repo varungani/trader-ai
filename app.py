@@ -35,6 +35,7 @@ from data.broker import is_configured
 from ui.glossary import render_glossary_section
 from ui.crypto_view import render_crypto_section
 from ui.us_view import render_us_section
+from engine.us_engine import get_upcoming_us_holidays
 from data.market_calendar import get_market_status, get_upcoming_holidays
 
 logging.basicConfig(level=logging.INFO)
@@ -75,6 +76,16 @@ with st.sidebar:
     if active_module == "🇺🇸 US Equities Alpha (INDmoney)":
         st.subheader("🇺🇸 US Equities Settings")
         st.info("Operating in US Alpha Mode via INDmoney / DriveWealth.\n\n• **$0 Brokerage**\n• **Fractional Shares** down to $1\n• **SIPC Insured** up to $500,000\n• **RBI LRS Limit:** $250k/year\n• **Evening Session:** 07:00 PM – 01:30 AM IST\n• **10Y Net Return:** **+2,486% (38.4% CAGR)**")
+        with st.expander("📅 US Market Timings & Holidays (IST)", expanded=False):
+            st.markdown("""
+- **Pre-Market:** 01:30 PM – 07:00 PM IST
+- **Regular Session:** 07:00 PM – 01:30 AM IST (Mon–Fri)
+- **After-Hours:** 01:30 AM – 05:30 AM IST
+- **Weekends:** Saturday & Sunday (Closed)
+""")
+            st.markdown("**Upcoming NYSE/NASDAQ Holidays:**")
+            for h in get_upcoming_us_holidays(limit=4):
+                st.write(f"• **{h['formatted']}** ({h['day_name']}): {h['name']} *({h['countdown']})*")
         run_btn = False
     elif active_module == "🪙 Crypto Alpha (Satellite ₹3k)":
         st.subheader("🪙 Crypto Satellite Settings")
