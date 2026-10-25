@@ -779,6 +779,24 @@ To maximize capital velocity and enable 65%–80%+ annual account compounding, T
 2. **Crypto Engine: `🚀 Parabolic Moonshot Runner`**: Focuses exclusively on high-beta altcoin leaders (*SOL, AVAX, NEAR, DOGE, LINK, BNB*) displaying $Mansfield\ RS \ge 5.0\%$ outperformance vs BTC on $RVOL \ge 1.5\times$, riding uncapped trailing stops to capture +50% to +150%+ momentum waves.
 3. **High Concentration (2 to 3 Bullets)**: Allocating 35% to 50% capital per position so that single monster runners directly propel total account equity by +15% to +25%.
 
+### 15.6 Crypto Paper Testing, 4-Pillar Scoring & Shadow Tracking
+Equivalating the institutional rigor of the Indian equity engine, the Crypto Alpha module integrates:
+1. **4-Pillar Quantitative Scorecard (0–100)**:
+   - *Trend & Macro Pillar (0–25 pts)*: Price vs 20/50 EMA and Bitcoin Macro Gate confirmation.
+   - *Relative Strength vs BTC (0–25 pts)*: Mansfield RS outperformance vs Bitcoin benchmark.
+   - *Volume Surge Pillar (0–25 pts)*: Relative Volume ($RVOL \ge 1.2\times, 1.6\times, 2.2\times$).
+   - *Breakout & VCP Pillar (0–25 pts)*: 10/20-day Donchian highs and volatility contraction ($\le 0.70$).
+2. **Institutional Verdicts**:
+   - `BUY 🟢`: Score $\ge 70$, Breakout active, BTC Gate bullish.
+   - `HOLD 🟡`: Score $\ge 50$, Stage 2 uptrend intact, trailing EMA cushion safe.
+   - `SELL 🔴`: Price below trailing EMA or stop-loss.
+   - `AVOID 🔴`: Score $< 50$ or Bitcoin below 50 EMA (100% Cash Lock).
+3. **Automated Shadow Tracking Ledger (`paper_crypto_trades` in SQLite)**:
+   - Tracks simulated entries with exact token quantities, stop-losses (-6.5%), targets, and trailing EMAs.
+   - Automatically computes daily mark-to-market floating P&L in INR.
+   - Automatically deducts the statutory **1.0% Section 194S TDS** and **0.20% exchange fees** on all exits.
+   - Enforces automatic stop-loss execution and profit trailing, recording full statistical audit histories.
+
 ---
 
 ## 16. Regulatory & Legal Disclaimer

@@ -16,6 +16,16 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 
+from data.db import (
+    get_connection,
+    create_paper_crypto_trade,
+    close_paper_crypto_trade,
+    get_open_crypto_paper_trades,
+    get_closed_crypto_paper_trades,
+    update_crypto_paper_trade_stop,
+    delete_crypto_paper_trade,
+)
+
 logger = logging.getLogger(__name__)
 
 CRYPTO_UNIVERSE = [
@@ -69,6 +79,7 @@ def analyze_crypto_market(data: dict[str, pd.DataFrame]) -> dict:
     """
     Run quantitative momentum and breakout analysis on live crypto data.
     Enforces Bitcoin Macro Regime Gate.
+    Calculates 4-Pillar Quant Score (0-100) and Institutional Verdict (BUY / HOLD / SELL / AVOID).
     """
     if "BTC-USD" not in data or len(data["BTC-USD"]) < 20:
         return {"status": "ERROR", "message": "Insufficient Bitcoin data for macro regime determination."}
@@ -148,50 +159,71 @@ def analyze_crypto_market(data: dict[str, pd.DataFrame]) -> dict:
         ema20 = float(last['ema20'])
         ema50 = float(last['ema50'])
         
-        # Signal checks
-        is_breakout_20d = curr_p > h20
-        is_breakout_10d = curr_p > h10
-        is_stage2 = curr_p > ema20 and (ema20 > ema50 if not pd.isna(ema50) else True)
-        is_rs_leader = m_rs > 0.0 or sym == "BTC-USD"
-        has_volume = rvol >= 1.3
+        # ── 4-PILLAR INSTITUTIONAL QUANT SCORING (0 to 100) ──
+        # 1. Trend & Macro Pillar (0-25 pts)
+        p1_trend = 0.0
+        if curr_p > ema20: p1_trend += 7.0
+        if curr_p > ema50: p1_trend += 6.0
+        if ema20 > ema50: p1_trend += 6.0
+        if curr_btc_p > curr_btc_ema50: p1_trend += 6.0
         
-        is_high_beta = sym in ["SOL-USD", "AVAX-USD", "NEAR-USD", "DOGE-USD", "LINK-USD", "BNB-USD", "ADA-USD", "XRP-USD"]
-        is_parabolic_surge = is_breakout_20d and rvol >= 1.5 and m_rs >= 5.0
-        
-        action = "HOLD / WATCH"
-        score = 50.0
-        
-        if entries_allowed:
-            if is_parabolic_surge and is_high_beta:
-                action = "🚀 PARABOLIC MOONSHOT"
-                score = 95.0 + min(5.0, (rvol - 1.5) * 5)
-            elif is_breakout_20d and has_volume and is_rs_leader:
-                action = "STRONG BUY (SWING)"
-                score = 88.0 + min(12.0, (rvol - 1.0) * 5)
-            elif is_breakout_10d and has_volume and is_rs_leader:
-                action = "BUY (FAST BREAKOUT)"
-                score = 80.0 + min(15.0, (rvol - 1.0) * 5)
-            elif is_stage2 and is_rs_leader and (curr_p >= ema20 * 0.99 and curr_p <= ema20 * 1.04):
-                action = "BUY (PULLBACK)"
-                score = 75.0 + min(10.0, m_rs)
-            elif is_breakout_10d:
-                action = "WATCHLIST (BREAKOUT)"
-                score = 65.0
+        # 2. Relative Strength vs BTC Pillar (0-25 pts)
+        p2_rs = 0.0
+        if sym == "BTC-USD":
+            p2_rs = 20.0
         else:
-            action = "CASH (MACRO VETO)"
-            score = 30.0
+            if m_rs > 0.0: p2_rs += 10.0
+            if m_rs > 5.0: p2_rs += 8.0
+            if m_rs > 12.0: p2_rs += 7.0
             
-        # Swing Levels (7-15 Days)
-        stop_loss_usd = curr_p * 0.94  # -6% Stop Loss
-        stop_loss_inr = stop_loss_usd * USD_TO_INR_APPROX
-        target1_usd = curr_p * 1.18    # +18% Target (Scale out 35%)
-        target1_inr = target1_usd * USD_TO_INR_APPROX
+        # 3. Volume & Liquidity Pillar (0-25 pts)
+        p3_vol = 0.0
+        if rvol >= 1.2: p3_vol += 8.0
+        if rvol >= 1.6: p3_vol += 9.0
+        if rvol >= 2.2: p3_vol += 8.0
         
-        # Fast Momentum Levels (3-7 Days)
-        fast_stop_usd = curr_p * 0.95  # -5% Fast Stop Loss
-        fast_stop_inr = fast_stop_usd * USD_TO_INR_APPROX
-        fast_target_usd = curr_p * 1.12 # +12% Fast Target
-        fast_target_inr = fast_target_usd * USD_TO_INR_APPROX
+        # 4. Breakout & Volatility Contraction Pillar (0-25 pts)
+        p4_breakout = 0.0
+        if curr_p >= h10 * 0.995: p4_breakout += 10.0
+        if curr_p >= h20 * 0.995: p4_breakout += 10.0
+        if vcp <= 0.70: p4_breakout += 5.0
+        
+        composite_score = round(p1_trend + p2_rs + p3_vol + p4_breakout, 1)
+        if not entries_allowed:
+            composite_score = min(composite_score, 42.0)
+            
+        # Institutional Verdict & Detailed Action
+        is_high_beta = sym in ["SOL-USD", "AVAX-USD", "NEAR-USD", "DOGE-USD", "LINK-USD", "BNB-USD", "ADA-USD", "XRP-USD"]
+        is_breakout_20d = curr_p >= h20 * 0.995
+        is_breakout_10d = curr_p >= h10 * 0.995
+        is_parabolic = is_breakout_20d and rvol >= 1.6 and m_rs >= 4.0 and is_high_beta
+        
+        if not entries_allowed:
+            verdict = "AVOID 🔴"
+            action = "CASH PROTECT (BTC BEAR)"
+        elif composite_score >= 78.0 and is_parabolic:
+            verdict = "BUY 🟢"
+            action = "🚀 PARABOLIC MOONSHOT"
+        elif composite_score >= 70.0 and (is_breakout_20d or is_breakout_10d):
+            verdict = "BUY 🟢"
+            action = "BUY (STAGE 2 BREAKOUT)"
+        elif composite_score >= 50.0 and curr_p > ema20:
+            verdict = "HOLD 🟡"
+            action = "HOLD / RIDE RUNNER"
+        elif curr_p < ema20 * 0.95:
+            verdict = "SELL 🔴"
+            action = "SELL (TREND BROKEN)"
+        else:
+            verdict = "AVOID ⚪"
+            action = "WAIT / CONSOLIDATION"
+            
+        # Key Levels (Moonshot / Swing Horizon: 7-30 Days)
+        stop_loss_usd = round(curr_p * 0.935, 4)  # -6.5% Hard Stop
+        stop_loss_inr = round(stop_loss_usd * USD_TO_INR_APPROX, 2)
+        target1_usd = round(curr_p * 1.25, 4)     # +25% Moonshot Scale-out
+        target1_inr = round(target1_usd * USD_TO_INR_APPROX, 2)
+        target2_usd = round(curr_p * 1.50, 4)     # +50% Monster Target
+        target2_inr = round(target2_usd * USD_TO_INR_APPROX, 2)
         
         candidates.append({
             "symbol": sym,
@@ -200,26 +232,29 @@ def analyze_crypto_market(data: dict[str, pd.DataFrame]) -> dict:
             "price_usd": curr_p,
             "price_inr": curr_p_inr,
             "change_24h": chg_24h,
+            "score": composite_score,
+            "verdict": verdict,
             "action": action,
-            "score": round(score, 1),
+            "trend_score": p1_trend,
+            "rs_score": p2_rs,
+            "vol_score": p3_vol,
+            "breakout_score": p4_breakout,
             "rvol": round(rvol, 2),
             "vcp": round(vcp, 2),
             "mansfield_rs": round(m_rs, 2),
             "is_breakout": is_breakout_20d,
             "is_fast_breakout": is_breakout_10d,
-            "is_stage2": is_stage2,
+            "is_parabolic": is_parabolic,
             "stop_loss_usd": stop_loss_usd,
             "stop_loss_inr": stop_loss_inr,
             "target1_usd": target1_usd,
             "target1_inr": target1_inr,
-            "fast_stop_usd": fast_stop_usd,
-            "fast_stop_inr": fast_stop_inr,
-            "fast_target_usd": fast_target_usd,
-            "fast_target_inr": fast_target_inr,
-            "trailing_5ema_usd": ema5,
-            "trailing_5ema_inr": ema5 * USD_TO_INR_APPROX,
-            "trailing_10ema_usd": ema10,
-            "trailing_10ema_inr": ema10 * USD_TO_INR_APPROX,
+            "target2_usd": target2_usd,
+            "target2_inr": target2_inr,
+            "trailing_10ema_usd": round(ema10, 4),
+            "trailing_10ema_inr": round(ema10 * USD_TO_INR_APPROX, 2),
+            "trailing_15ema_usd": round(last['ema20'], 4),  # Use EMA20 as wide runner
+            "trailing_15ema_inr": round(last['ema20'] * USD_TO_INR_APPROX, 2),
         })
         
     candidates.sort(key=lambda x: x["score"], reverse=True)
@@ -237,6 +272,182 @@ def analyze_crypto_market(data: dict[str, pd.DataFrame]) -> dict:
         },
         "candidates": candidates
     }
+
+# ─── SHADOW TRACKING & PAPER TRADING ENGINE ───────────────────────
+
+def execute_crypto_shadow_buy(
+    symbol: str,
+    candidate: dict,
+    allocated_inr: float = 1500.0,
+    strategy_mode: str = "Parabolic Moonshot Runner"
+) -> dict:
+    """Execute a simulated paper buy order in SQLite."""
+    conn = get_connection()
+    try:
+        open_trades = get_open_crypto_paper_trades(conn)
+        # Check if already open
+        if any(t["symbol"] == symbol for t in open_trades):
+            return {"ok": False, "error": f"{symbol} is already an active open paper position."}
+            
+        fee_inr = allocated_inr * 0.0020
+        net_alloc_inr = allocated_inr - fee_inr
+        price_inr = candidate["price_inr"]
+        quantity_tokens = round(net_alloc_inr / price_inr, 6)
+        
+        trade = {
+            "symbol": symbol,
+            "name": candidate.get("name", symbol),
+            "strategy_mode": strategy_mode,
+            "entry_price_usd": candidate["price_usd"],
+            "entry_price_inr": price_inr,
+            "quantity_tokens": quantity_tokens,
+            "allocated_inr": allocated_inr,
+            "stop_loss_usd": candidate["stop_loss_usd"],
+            "target_price_usd": candidate["target1_usd"],
+            "trailing_ema_usd": candidate["trailing_10ema_usd"],
+            "notes": f"Score: {candidate['score']} | {candidate['action']}"
+        }
+        trade_id = create_paper_crypto_trade(conn, trade)
+        return {"ok": True, "trade_id": trade_id, "symbol": symbol, "qty": quantity_tokens}
+    finally:
+        conn.close()
+
+def sync_crypto_paper_trades(data: dict[str, pd.DataFrame]) -> dict:
+    """
+    Sync open crypto paper trades with live real-time bars.
+    Auto-triggers Stop-Loss (-6.5%), Target scales, and Trailing EMA exits.
+    Calculates floating MTM P&L and historical closed metrics.
+    """
+    conn = get_connection()
+    try:
+        open_trades = get_open_crypto_paper_trades(conn)
+        closed_trades = get_closed_crypto_paper_trades(conn, limit=100)
+        
+        processed_open = []
+        auto_exits = []
+        
+        for t in open_trades:
+            sym = t["symbol"]
+            if sym not in data:
+                processed_open.append(t)
+                continue
+                
+            df = data[sym]
+            last = df.iloc[-1]
+            curr_p_usd = float(last['close'])
+            low_p_usd = float(last['low'])
+            high_p_usd = float(last['high'])
+            curr_p_inr = curr_p_usd * USD_TO_INR_APPROX
+            
+            # Unrealized calculation with 1% TDS deducted
+            gross_val_inr = t["quantity_tokens"] * curr_p_inr
+            fee_inr = gross_val_inr * 0.0020
+            tds_inr = gross_val_inr * 0.0100
+            net_val_inr = gross_val_inr - fee_inr - tds_inr
+            unrealized_pnl_inr = net_val_inr - t["allocated_inr"]
+            unrealized_pnl_pct = (unrealized_pnl_inr / t["allocated_inr"]) * 100.0
+            
+            # Auto-Exit Check
+            exit_reason = None
+            exit_px_usd = 0.0
+            
+            # 1. Hard Stop Hit
+            if low_p_usd <= t["stop_loss_usd"]:
+                exit_reason = "HARD STOP-LOSS (-6.5%)"
+                exit_px_usd = t["stop_loss_usd"]
+            # 2. Trailing EMA Break (if in profit)
+            elif unrealized_pnl_pct >= 5.0 and curr_p_usd < t.get("trailing_ema_usd", 0.0):
+                exit_reason = "10 EMA TRAILING EXIT"
+                exit_px_usd = curr_p_usd
+            # 3. Dynamic trail upward
+            else:
+                new_trail = float(last.get('ema10', t.get('trailing_ema_usd', 0.0)))
+                new_stop = max(t["stop_loss_usd"], curr_p_usd * 0.935)
+                update_crypto_paper_trade_stop(conn, t["id"], new_stop, new_trail)
+                
+            if exit_reason:
+                exit_px_inr = exit_px_usd * USD_TO_INR_APPROX
+                final_gross_inr = t["quantity_tokens"] * exit_px_inr
+                final_fee_inr = final_gross_inr * 0.0020
+                final_tds_inr = final_gross_inr * 0.0100
+                final_net_inr = final_gross_inr - final_fee_inr - final_tds_inr
+                realized_pnl_inr = final_net_inr - t["allocated_inr"]
+                realized_pnl_pct = (realized_pnl_inr / t["allocated_inr"]) * 100.0
+                
+                close_paper_crypto_trade(
+                    conn, t["id"], exit_price_usd=exit_px_usd, exit_reason=exit_reason,
+                    exit_price_inr=exit_px_inr, tds_inr=final_tds_inr,
+                    pnl_inr=realized_pnl_inr, pnl_pct=realized_pnl_pct
+                )
+                auto_exits.append({
+                    "symbol": sym, "reason": exit_reason,
+                    "pnl_inr": realized_pnl_inr, "pnl_pct": realized_pnl_pct
+                })
+            else:
+                dist_to_stop = ((curr_p_usd - t["stop_loss_usd"]) / curr_p_usd) * 100.0
+                t_copy = dict(t)
+                t_copy.update({
+                    "current_price_usd": curr_p_usd,
+                    "current_price_inr": curr_p_inr,
+                    "gross_val_inr": gross_val_inr,
+                    "unrealized_pnl_inr": unrealized_pnl_inr,
+                    "unrealized_pnl_pct": unrealized_pnl_pct,
+                    "dist_to_stop_pct": dist_to_stop,
+                })
+                processed_open.append(t_copy)
+                
+        # Re-fetch closed trades if any auto-exited
+        if auto_exits:
+            closed_trades = get_closed_crypto_paper_trades(conn, limit=100)
+            
+        tot_allocated = sum(t["allocated_inr"] for t in processed_open)
+        tot_floating_pnl = sum(t.get("unrealized_pnl_inr", 0.0) for t in processed_open)
+        tot_realized_pnl = sum(t.get("pnl_inr", 0.0) for t in closed_trades)
+        tot_tds_paid = sum(t.get("tds_inr", 0.0) for t in closed_trades)
+        
+        wins = [t for t in closed_trades if t.get("pnl_inr", 0.0) > 0]
+        losses = [t for t in closed_trades if t.get("pnl_inr", 0.0) <= 0]
+        win_rate = (len(wins) / len(closed_trades) * 100.0) if closed_trades else 0.0
+        
+        return {
+            "open_positions": processed_open,
+            "closed_trades": closed_trades,
+            "auto_exits": auto_exits,
+            "total_allocated": tot_allocated,
+            "floating_pnl_inr": tot_floating_pnl,
+            "realized_pnl_inr": tot_realized_pnl,
+            "total_tds_paid": tot_tds_paid,
+            "win_rate": win_rate,
+            "total_closed_count": len(closed_trades)
+        }
+    finally:
+        conn.close()
+
+def manual_close_crypto_paper_trade(trade_id: int, current_price_usd: float) -> dict:
+    """Manually close an open paper crypto trade at current market price."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM paper_crypto_trades WHERE id = ?", (trade_id,))
+        row = cursor.fetchone()
+        if not row:
+            return {"ok": False, "error": "Trade not found."}
+        t = dict(row)
+        exit_px_inr = current_price_usd * USD_TO_INR_APPROX
+        gross_inr = t["quantity_tokens"] * exit_px_inr
+        fee_inr = gross_inr * 0.0020
+        tds_inr = gross_inr * 0.0100
+        net_inr = gross_inr - fee_inr - tds_inr
+        pnl_inr = net_inr - t["allocated_inr"]
+        pnl_pct = (pnl_inr / t["allocated_inr"]) * 100.0
+        
+        close_paper_crypto_trade(
+            conn, trade_id, exit_price_usd=current_price_usd, exit_reason="MANUAL_EXIT",
+            exit_price_inr=exit_px_inr, tds_inr=tds_inr, pnl_inr=pnl_inr, pnl_pct=pnl_pct
+        )
+        return {"ok": True, "pnl_inr": pnl_inr, "pnl_pct": pnl_pct}
+    finally:
+        conn.close()
 
 def get_crypto_backtest_stats() -> dict:
     """Pre-computed 5-year empirical validation stats for display."""
