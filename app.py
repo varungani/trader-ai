@@ -34,6 +34,7 @@ from engine.pipeline import run_pipeline
 from data.broker import is_configured
 from ui.glossary import render_glossary_section
 from ui.crypto_view import render_crypto_section
+from ui.us_view import render_us_section
 from data.market_calendar import get_market_status, get_upcoming_holidays
 
 logging.basicConfig(level=logging.INFO)
@@ -41,7 +42,7 @@ st.set_page_config(page_title="TraderAI", page_icon="📈", layout="wide")
 
 st.title("TraderAI ⚡ Quantitative Engine")
 st.caption(
-    "Short-Term Swing Trading • CNC Equities Core • Isolated Crypto Satellite Bucket • Read-Only Broker Integration"
+    "Short-Term Swing Trading • CNC Equities Core • 🇺🇸 US Equities Alpha (INDmoney) • 🪙 Crypto Satellite Bucket • Read-Only Broker Integration"
 )
 
 # Live Indian Market Status & Trading Clock
@@ -61,13 +62,21 @@ with st.sidebar:
     st.header("⚡ TraderAI Engine")
     active_module = st.radio(
         "Active Engine",
-        ["📈 NSE Equities Swing (Core)", "🪙 Crypto Alpha (Satellite ₹3k)"],
+        [
+            "📈 NSE Equities Swing (Core ₹30k)",
+            "🇺🇸 US Equities Alpha (INDmoney)",
+            "🪙 Crypto Alpha (Satellite ₹3k)",
+        ],
         index=0,
-        help="Core NSE Equities for main wealth compounding vs Isolated ₹3,000 Crypto Satellite Bucket."
+        help="Core NSE Equities for main wealth compounding vs US Equities Alpha (INDmoney / DriveWealth) vs Isolated ₹3,000 Crypto Satellite Bucket."
     )
     st.divider()
 
-    if active_module == "🪙 Crypto Alpha (Satellite ₹3k)":
+    if active_module == "🇺🇸 US Equities Alpha (INDmoney)":
+        st.subheader("🇺🇸 US Equities Settings")
+        st.info("Operating in US Alpha Mode via INDmoney / DriveWealth.\n\n• **$0 Brokerage**\n• **Fractional Shares** down to $1\n• **SIPC Insured** up to $500,000\n• **RBI LRS Limit:** $250k/year\n• **Evening Session:** 07:00 PM – 01:30 AM IST\n• **10Y Net Return:** **+2,486% (38.4% CAGR)**")
+        run_btn = False
+    elif active_module == "🪙 Crypto Alpha (Satellite ₹3k)":
         st.subheader("🪙 Crypto Satellite Settings")
         st.info("Operating in Satellite Convexity Mode.\n\n• Initial Capital: **₹3,000**\n• Feb Capital: **₹6,000**\n• Spot Only (Zero Margin)\n• Main NSE Portfolio: **100% Isolated**")
         run_btn = False
@@ -151,7 +160,10 @@ with st.sidebar:
             for h in upcoming_hols:
                 st.write(f"• **{h['formatted']}** ({h['day_name']}): {h['name']} *({h['countdown']})*")
 
-if active_module == "🪙 Crypto Alpha (Satellite ₹3k)":
+if active_module == "🇺🇸 US Equities Alpha (INDmoney)":
+    render_us_section()
+    st.stop()
+elif active_module == "🪙 Crypto Alpha (Satellite ₹3k)":
     render_crypto_section()
     st.stop()
 

@@ -170,6 +170,33 @@ def _create_tables(conn: sqlite3.Connection):
         )
     """)
 
+    # US Equities Paper Trades (INDmoney / DriveWealth Shadow Tracking Bucket)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS paper_us_trades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            name TEXT,
+            sector TEXT,
+            entry_price_usd REAL NOT NULL,
+            shares REAL NOT NULL,
+            allocated_usd REAL NOT NULL,
+            allocated_inr REAL NOT NULL,
+            entry_date TEXT NOT NULL,
+            stop_loss_usd REAL NOT NULL,
+            target_price_usd REAL NOT NULL,
+            trailing_ema_usd REAL,
+            exit_price_usd REAL,
+            exit_date TEXT,
+            exit_reason TEXT,
+            pnl_usd REAL,
+            pnl_inr REAL,
+            pnl_pct REAL,
+            status TEXT DEFAULT 'OPEN',
+            notes TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     conn.commit()
 
     # Lightweight migrations for existing DBs
@@ -677,4 +704,99 @@ def delete_crypto_paper_trade(conn: sqlite3.Connection, trade_id: int):
     cursor = conn.cursor()
     cursor.execute("DELETE FROM paper_crypto_trades WHERE id = ?", (trade_id,))
     conn.commit()
+
+
+# ─── US Equities Paper Trades CRUD (INDmoney Shadow Tracking) ────
+
+def create_paper_us_trade(conn: sqlite3.Connection, trade: dict) -> int:
+    """Create a new US equities paper trade in SQLite."""
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO paper_us_trades 
+        (symbol, name, sector, entry_price_usd, shares, allocated_usd,
+         allocated_inr, entry_date, stop_loss_usd, target_price_usd,
+         trailing_ema_usd, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        trade["symbol"],
+        trade.get("name", trade["symbol"]),
+        trade.get("sector", "US Equities"),
+        trade["entry_price_usd"],
+        trade["shares"],
+        trade["allocated_usd"],
+        trade.get("allocated_inr", trade["allocated_usd"] * 86.50),
+        trade.get("entry_date", datetime.now().strftime("%Y-%m-%d")),
+        trade["stop_loss_usd"],
+        trade["target_price_usd"],
+        trade.get("trailing_ema_usd", trade["stop_loss_usd"]),
+        trade.get("notes", ""),
+    ))
+    conn.commit()
+    return cursor.lastrowid
+
+
+def close_paper_us_trade(
+    conn: sqlite3.Connection,
+    trade_id: int,
+    exit_price_usd: float,
+    exit_reason: str = "MANUAL",
+    pnl_usd: float = 0.0,
+    pnl_inr: float = 0.0,
+    pnl_pct: float = 0.0,
+):
+    """Close an open US equities paper trade with realized P&L."""
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE paper_us_trades
+        SET exit_price_usd = ?, exit_date = ?, exit_reason = ?,
+            pnl_usd = ?, pnl_inr = ?, pnl_pct = ?, status = 'CLOSED'
+        WHERE id = ?
+    """, (
+        exit_price_usd,
+        datetime.now().strftime("%Y-%m-%d"),
+        exit_reason,
+        round(pnl_usd, 2),
+        round(pnl_inr, 2),
+        round(pnl_pct, 2),
+        trade_id,
+    ))
+    conn.commit()
+
+
+def get_open_us_paper_trades(conn: sqlite3.Connection) -> list[dict]:
+    """Fetch all open US paper trades."""
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM paper_us_trades WHERE status = 'OPEN' ORDER BY entry_date DESC, id DESC")
+    return [dict(row) for row in cursor.fetchall()]
+
+
+def get_closed_us_paper_trades(conn: sqlite3.Connection, limit: int = 50) -> list[dict]:
+    """Fetch closed US paper trades for statistical audit."""
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM paper_us_trades WHERE status = 'CLOSED' ORDER BY exit_date DESC, id DESC LIMIT ?", (limit,))
+    return [dict(row) for row in cursor.fetchall()]
+
+
+def update_us_paper_trade_stop(
+    conn: sqlite3.Connection,
+    trade_id: int,
+    new_stop_usd: float,
+    new_trail_usd: float = 0.0
+):
+    """Update trailing stop-loss for open US paper trade."""
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE paper_us_trades
+        SET stop_loss_usd = ?, trailing_ema_usd = ?
+        WHERE id = ?
+    """, (round(new_stop_usd, 2), round(new_trail_usd, 2), trade_id))
+    conn.commit()
+
+
+def delete_us_paper_trade(conn: sqlite3.Connection, trade_id: int):
+    """Delete a US paper trade."""
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM paper_us_trades WHERE id = ?", (trade_id,))
+    conn.commit()
+
 
