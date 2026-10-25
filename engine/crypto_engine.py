@@ -155,11 +155,17 @@ def analyze_crypto_market(data: dict[str, pd.DataFrame]) -> dict:
         is_rs_leader = m_rs > 0.0 or sym == "BTC-USD"
         has_volume = rvol >= 1.3
         
+        is_high_beta = sym in ["SOL-USD", "AVAX-USD", "NEAR-USD", "DOGE-USD", "LINK-USD", "BNB-USD", "ADA-USD", "XRP-USD"]
+        is_parabolic_surge = is_breakout_20d and rvol >= 1.5 and m_rs >= 5.0
+        
         action = "HOLD / WATCH"
         score = 50.0
         
         if entries_allowed:
-            if is_breakout_20d and has_volume and is_rs_leader:
+            if is_parabolic_surge and is_high_beta:
+                action = "🚀 PARABOLIC MOONSHOT"
+                score = 95.0 + min(5.0, (rvol - 1.5) * 5)
+            elif is_breakout_20d and has_volume and is_rs_leader:
                 action = "STRONG BUY (SWING)"
                 score = 88.0 + min(12.0, (rvol - 1.0) * 5)
             elif is_breakout_10d and has_volume and is_rs_leader:

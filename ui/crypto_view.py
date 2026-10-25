@@ -47,15 +47,17 @@ def render_crypto_section():
         style_mode = st.selectbox(
             "Horizon & Trading Style",
             options=[
+                "🚀 Parabolic Moonshot Runner (7–30 Days / High-Beta Focus)",
                 "🌊 Multi-Week Swing Runner (7–28 Days / 4 Wk Max)",
                 "⚡ Quick Momentum Burst (3–7 Days)"
             ],
             index=0,
-            help="Multi-Week Swing Runner: 20D breakout, -6.5% stop, uncapped 10 EMA trailing runner held up to 4 weeks max. Backtested +154.1% net profit!"
+            help="Parabolic Moonshot Runner: Focuses on explosive high-beta altcoins (SOL, AVAX, NEAR, DOGE, LINK) outperforming BTC. Aims for +50% to +150%+ runners with -6.0% stop!"
         )
     with c_ctrl4:
         refresh_btn = st.button("🔄 Refresh Live Data", use_container_width=True)
 
+    is_moonshot = "Moonshot" in style_mode
     is_fast_mode = "Quick" in style_mode
 
     with st.spinner("Fetching live 24/7 crypto market data and calculating Mansfield RS vs BTC..."):
@@ -88,7 +90,9 @@ def render_crypto_section():
 
     # 2. LIVE CANDIDATES & BREAKOUT SCANNER
     st.markdown("### 2. Live Top-12 Liquid Crypto Scanner (CoinDCX / CoinSwitch Traded)")
-    if is_fast_mode:
+    if is_moonshot:
+        st.success("🚀 **Parabolic Moonshot Mode Active:** High-beta altcoin focus (SOL, AVAX, NEAR, DOGE, LINK, BNB). Designed to catch rapid +50% to +150%+ momentum waves when Bitcoin is in Stage 2 Bull. Hard stop strictly at -6.0%, scale-out at +25%, uncapped 10 EMA trailing runner!")
+    elif is_fast_mode:
         st.info("⚡ **Quick Momentum Burst Active:** Optimized for fast 3–7 day velocity bursts. Triggers on 10-day breakouts with RVOL ≥ 1.3x, -5.0% hard stop, +12.0% target, and dynamic daily 5 EMA trailing exit.")
     else:
         st.success("🌊 **Multi-Week Swing Runner Active (7 to 28 Days / 4 Wks Max):** Highest-compounding institutional crypto strategy (+154.1% Net Return). Triggers on 20-day Donchian breakouts, -6.5% stop, uncapped 10 EMA trailing runner, and 28-day hard time boundary.")
@@ -97,7 +101,24 @@ def render_crypto_section():
     
     table_rows = []
     for c in candidates:
-        if is_fast_mode:
+        if is_moonshot:
+            table_rows.append({
+                "Asset": f"{c['name']} ({c['symbol'].replace('-USD', '')})",
+                "Category": c["type"],
+                "Price (USD)": f"${c['price_usd']:,.2f}" if c['price_usd'] >= 1 else f"${c['price_usd']:.4f}",
+                "Price (INR)": f"₹{c['price_inr']:,.1f}" if c['price_inr'] >= 10 else f"₹{c['price_inr']:.3f}",
+                "24h %": f"{c['change_24h']:+.2f}%",
+                "Action": c["action"],
+                "Score": c["score"],
+                "RS vs BTC": f"{c['mansfield_rs']:+.1f}%",
+                "RVOL": f"{c['rvol']:.2f}x",
+                "20D Breakout": "YES 🚀" if c["is_breakout"] else "No",
+                "Hard Stop (-6.0%)": f"${c['price_usd'] * 0.94:,.2f}" if c['price_usd'] >= 1 else f"${c['price_usd'] * 0.94:.4f}",
+                "Moonshot Scale (+25%)": f"${c['price_usd'] * 1.25:,.2f}" if c['price_usd'] >= 1 else f"${c['price_usd'] * 1.25:.4f}",
+                "Uncapped Trail (10 EMA)": f"${c['trailing_10ema_usd']:,.2f}" if c['trailing_10ema_usd'] >= 1 else f"${c['trailing_10ema_usd']:.4f}",
+                "Max Horizon": "30 Days (4 Wks)"
+            })
+        elif is_fast_mode:
             table_rows.append({
                 "Asset": f"{c['name']} ({c['symbol'].replace('-USD', '')})",
                 "Category": c["type"],
