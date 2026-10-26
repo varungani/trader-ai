@@ -292,21 +292,23 @@ def render_us_section():
     st.dataframe(cand_df, use_container_width=True, hide_index=True)
 
     # 5. ONE-CLICK US SHADOW BUY EXECUTION PANEL
-    st.markdown("### 5. US Shadow Buy Execution Panel")
+    # 5. ONE-CLICK US SHADOW / PAPER BUY EXECUTION PANEL
+    st.markdown("### 5. ⚡ 1-Click US Paper Trade Execution Panel")
     slot_amount_usd = round(us_cap_usd / us_slots, 2)
     free_slots = us_slots - len(open_pos)
     buy_candidates = [c for c in filtered_candidates if "BUY" in c["verdict"]]
 
     if free_slots <= 0:
-        st.warning(f"⚠️ All {us_slots} US paper slots are currently occupied. Close a trade above or wait for an automated target/stop trigger to open new positions.")
-    elif not macro["entries_allowed"]:
-        st.error("🛑 **Dual Macro Gate is RED.** S&P 500 and Nasdaq 100 are below their 50-day SMAs. Risk policy mandates cash preservation.")
+        st.warning(f"⚠️ All {us_slots} US paper slots are currently occupied. Close a trade in Section 3 above or wait for an automated target/stop trigger to open new positions.")
     else:
-        st.success(f"✅ **{free_slots} Slot(s) Available for Shadow Trading.** Dedicated allocation: **${slot_amount_usd:,.2f} per slot** (≈ ₹{slot_amount_usd * USD_TO_INR_APPROX:,.0f}).")
+        if not macro["entries_allowed"]:
+            st.warning("⚠️ **Dual Macro Gate is RED (Cash Preservation Active).** In real-money trading, new entries are strictly blocked. For paper simulation & practice testing, you can execute a test trade below:")
+        else:
+            st.success(f"✅ **{free_slots} Slot(s) Available for Shadow Trading.** Dedicated allocation: **${slot_amount_usd:,.2f} per slot** (≈ ₹{slot_amount_usd * USD_TO_INR_APPROX:,.0f}).")
         
         col_pick, col_btn = st.columns([3, 1])
         with col_pick:
-            pool = buy_candidates if buy_candidates else filtered_candidates
+            pool = buy_candidates if (buy_candidates and macro["entries_allowed"]) else filtered_candidates
             selected_sym = st.selectbox(
                 "Select US Equity to Shadow Buy",
                 options=[c["symbol"] for c in pool],

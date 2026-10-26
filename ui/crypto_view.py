@@ -261,14 +261,15 @@ def render_crypto_section():
     
     if free_slots <= 0:
         st.warning(f"⚠️ All {max_slots} paper slots are currently occupied. To open a new paper trade, wait for an active position to hit its stop/target, or close one manually above.")
-    elif not btc["entries_allowed"]:
-        st.error("🛑 **Bitcoin Macro Gate is RED.** New simulated entries are blocked by risk policy to protect capital.")
     else:
-        st.success(f"✅ **{free_slots} Slot(s) Available for Shadow Trading.** Dedicated allocation: **₹{slot_amount:,.0f} per slot**.")
+        if not btc["entries_allowed"]:
+            st.warning("⚠️ **Bitcoin Macro Gate is RED (Capital Preservation Active).** In real-money trading, new entries are blocked. For paper simulation & practice testing, you can execute a test trade below:")
+        else:
+            st.success(f"✅ **{free_slots} Slot(s) Available for Shadow Trading.** Dedicated allocation: **₹{slot_amount:,.0f} per slot**.")
         
         col_cand, col_btn = st.columns([3, 1])
         with col_cand:
-            options_pool = buy_candidates if buy_candidates else filtered_candidates
+            options_pool = buy_candidates if (buy_candidates and btc["entries_allowed"]) else filtered_candidates
             selected_sym = st.selectbox(
                 "Select Candidate to Shadow Buy",
                 options=[c["symbol"] for c in options_pool],
