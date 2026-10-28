@@ -1,8 +1,8 @@
 # TraderAI ⚡ System Architecture & In-Depth Technical Specification
 
-> **Document Version:** 2.4.0-sector-alpha-and-calendar-engine  
+> **Document Version:** 2.5.0-monster-runner  
 > **Status:** Experimental Simulator & Quantitative Research Specification  
-> **Focus:** Short-Term Indian Equity Swing Trading Engine (1 to 15 Sessions)  
+> **Focus:** Short-Term Indian Equity Swing Trading & Monster Runners (15 Sessions Base, up to 30 Sessions / 1 Month for Performing Winners)  
 > **Instrument:** NSE Cash Delivery (CNC — Cash 'n Carry Only)  
 > **Broker Integration:** Kotak Neo API SDK (Strictly Read-Only Holding & Balance Audit)  
 > **Compliance:** SEBI (Research Analysts) Regulations, 2014 Educational/Simulator Framework
@@ -11,15 +11,16 @@
 
 ## 1. Executive Summary & Core Philosophy
  
-**TraderAI** is an open-source, quantitative research and simulation engine engineered for empirical testing of short-term swing trading anomalies (1 to 15 trading sessions) in the National Stock Exchange of India (NSE) cash delivery market. It analyzes momentum setups, evaluates multi-factor signals, enforces strict capital preservation rules, and subjects all hypotheses to empirical backtesting and out-of-sample scrutiny.
+**TraderAI** is an open-source, quantitative research and simulation engine engineered for empirical testing of high-velocity swing trading anomalies and monster breakouts in the National Stock Exchange of India (NSE) cash delivery market. It analyzes momentum setups, evaluates multi-factor signals, enforces strict capital preservation rules, and subjects all hypotheses to empirical backtesting and out-of-sample scrutiny.
 
 ### Guiding Principles
 
-1. **Pure Swing Trading Focus (CNC Only)**:
+1. **Pure Swing & Performing Runner Focus (CNC Only)**:
    - Zero Futures & Options (F&O).
    - Zero Intraday Margin (MIS) or leveraged day trading.
    - Eliminates broker auto-square-off at 3:15 PM and margin call liquidations.
    - Explicitly accounts for 100% overnight gap risk and circuit limits.
+   - **Dynamic Holding Horizon**: 15 market sessions baseline for non-performing or flat setups (with an 8-session fast stagnation exit if flat within $\pm 1.5\%$). If a stock is **performing** (gain $\ge +5.0\%$ or target reached) and holding above its 10 EMA, the holding window automatically expands up to **30 trading sessions (1 full calendar month)** to capture massive $+25\%$ to $+50\%$ multi-week runners!
 
 2. **Hard Market Regime Gating with Sector-Relative Alpha Decoupling**:
    - Broad Beta Protection: When benchmark (**NIFTY 50**) is below its 50-day Simple Moving Average (SMA) or market volatility is elevated (>24% annualized proxy), the engine gates general index beta (`CASH PRESERVATION`).
