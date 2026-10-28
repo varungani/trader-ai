@@ -118,6 +118,37 @@ def get_next_trading_day(from_date: Optional[date] = None) -> tuple[date, str]:
         cur += timedelta(days=1)
 
 
+def count_trading_days(start_date: date | str, end_date: Optional[date | str] = None) -> int:
+    """
+    Count the number of actual market trading sessions between start_date and end_date.
+    Excludes weekends and official NSE trading holidays.
+    """
+    if isinstance(start_date, str):
+        try:
+            start_date = datetime.strptime(start_date[:10], "%Y-%m-%d").date()
+        except Exception:
+            return 0
+    if end_date is None:
+        end_date = get_ist_now().date()
+    elif isinstance(end_date, str):
+        try:
+            end_date = datetime.strptime(end_date[:10], "%Y-%m-%d").date()
+        except Exception:
+            end_date = get_ist_now().date()
+
+    if start_date >= end_date:
+        return 0
+
+    count = 0
+    cur = start_date + timedelta(days=1)
+    while cur <= end_date:
+        is_td, _ = is_trading_day(cur)
+        if is_td:
+            count += 1
+        cur += timedelta(days=1)
+    return count
+
+
 def get_market_status(dt: Optional[datetime] = None) -> dict:
     """
     Comprehensive real-time status of Indian Stock Market (NSE/BSE).

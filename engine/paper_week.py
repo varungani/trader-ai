@@ -31,6 +31,7 @@ from data.db import (
     partial_close_paper_trade,
 )
 from data.market_data import fetch_live_quote
+from data.market_calendar import count_trading_days
 
 logger = logging.getLogger(__name__)
 
@@ -225,15 +226,15 @@ def mark_to_market() -> dict:
                         update_paper_trade_stop(conn, t["id"], stop)
                         logger.info(f"Trailing Stop updated for {ticker}: locked at +5% (Rs. {stop})")
 
-                # Lever 4: 10-Session Momentum Stagnation Exit
+                # Lever 4: 10-Session Momentum Stagnation Exit (Real Trading Days)
                 try:
-                    entry_dt = datetime.strptime(t.get("entry_date", ""), "%Y-%m-%d")
-                    days_held = (datetime.now() - entry_dt).days
+                    entry_date_str = str(t.get("entry_date", "")).split()[0]
+                    sessions_held = count_trading_days(entry_date_str)
                 except Exception:
-                    days_held = 0
+                    sessions_held = 0
 
-                if days_held >= 10 and -1.5 <= gain_pct <= 1.5:
-                    close_paper_trade(conn, t["id"], px, exit_reason="MOMENTUM_STAGNATION_EXIT (10 Days)")
+                if sessions_held >= 10 and -1.5 <= gain_pct <= 1.5:
+                    close_paper_trade(conn, t["id"], px, exit_reason="MOMENTUM_STAGNATION_EXIT (10 Sessions)")
                     closed.append({"ticker": ticker, "reason": "MOMENTUM_STAGNATION_EXIT", "price": px})
                     continue
 

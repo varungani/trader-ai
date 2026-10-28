@@ -28,16 +28,14 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
 
     buy_min = RISK_CONFIG["min_score_to_buy"]
     sell_max = RISK_CONFIG["max_score_to_sell"]
+    setup_pattern = "NONE"
+    vcp_ratio = 1.0
 
     # Hard risk override
     if event_signal == "HIGH_RISK" or event_score < 28:
         action = "SELL" if holding else "AVOID"
         confidence = "HIGH"
         rationale = "Severe event risk (sanctions / fraud / insolvency / regulatory)."
-    elif final >= buy_min + 10:
-        action = "STRONG_BUY"
-        confidence = "HIGH"
-        rationale = "Multi-factor score well above buy threshold."
     elif final >= buy_min:
         # ─── Fortress Shortlisting Gates (Targeting >= 75-80% Win Rate) ─────
         sector_rs = score_result.get("sector_relative_strength") or {}
@@ -65,7 +63,7 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
 
         if not holding:
             # Gate 1: Strict Zero-Tolerance on Sector Drag
-            if sector_status in ("LAGGING", "SEVERE_DRAG") or sector_rs_pct < 0.0:
+            if sector_status in ("LAGGING", "SEVERE_DRAG"):
                 action = "HOLD"
                 confidence = "LOW"
                 rationale = f"SECTOR_DRAG: Sector {sector_name} is lagging Nifty ({sector_rs_pct:+.2f}% RS). Buying into an underperforming sector has a >65% failure rate; candidate gated to HOLD."
@@ -76,11 +74,11 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
                 confidence = "LOW"
                 rationale = "NOT_STAGE_2: Stock is below major moving averages (50 SMA < 200 SMA / Stage 3-4 distribution). Prohibits buying against long-term trend."
 
-            # Gate 3: Sweet-Spot Entry Corridor (Must be within -2.0% to +4.0% of 20 EMA)
-            elif dev_pct > 4.0:
+            # Gate 3: Sweet-Spot Entry Corridor (Must be within -2.5% to +6.0% of 20 EMA)
+            elif dev_pct > 6.0:
                 action = "HOLD"
                 confidence = "LOW"
-                rationale = f"WAIT_FOR_PULLBACK: Stock is +{dev_pct:.1f}% stretched above its 20 EMA (over-extended). High risk of intraday mean-reversion. Wait for consolidation retest near support."
+                rationale = f"WAIT_FOR_PULLBACK: Stock is +{dev_pct:.1f}% stretched above its 20 EMA (over-extended > 6.0%). High risk of intraday mean-reversion. Wait for consolidation retest near support."
             elif dev_pct < -2.5:
                 action = "HOLD"
                 confidence = "LOW"
@@ -180,19 +178,40 @@ def apply_portfolio_risk_gates(
         out["action"] = "HOLD"
         out["rationale"] = "Blocked by Liquidity Gate (ADTV < ₹5 Cr)."
 
-    # 2. Hard Macro Regime Gate (Nifty Trend / Volatility Gate)
+    # 2. Hard Macro Regime Gate (Nifty Trend / Volatility Gate with Sector Decoupling)
     macro_info = score_result.get("macro") or {}
+    sector_info = score_result.get("sector_relative_strength") or {}
+    sec_status = sector_info.get("status", "NEUTRAL")
+    sec_rs = float(sector_info.get("relative_strength_pct") or 0.0)
+    final_score = float(score_result.get("final_score") or 0.0)
+
+    # Sector Decoupling: Leaders in non-lagging sectors with score >= 65 are exempt from blanket beta shutdown
+    is_sector_decoupled = bool(
+        final_score >= 65.0 
+        and sec_status not in ("LAGGING", "SEVERE_DRAG")
+    )
+
     if not macro_info.get("is_regime_gate_cleared", True) or macro_info.get("no_trade_today"):
         gate_msg = macro_info.get("regime_gate_reason", "Market in adverse regime")
-        warnings.append(f"Hard Market Regime Gate: {gate_msg} — Cash preservation active; new BUYs prohibited.")
-        out["action"] = "HOLD"
-        out["rationale"] = f"Blocked by Hard Market Regime Gate ({macro_info.get('regime_gate_status', 'CASH_PRESERVATION')})."
+        if is_sector_decoupled:
+            warnings.append(f"Hard Market Regime Gate: {gate_msg} — Sector Decoupling Active for {sector_info.get('sector', 'Leader')} ({sec_rs:+.1f}% RS vs Nifty).")
+            out["is_sector_decoupled"] = True
+            out["regime_context"] = f"SECTOR_ALPHA_DECOUPLED ({sec_rs:+.1f}% RS)"
+        else:
+            warnings.append(f"Hard Market Regime Gate: {gate_msg} — Cash preservation active; new BUYs prohibited.")
+            out["action"] = "HOLD"
+            out["rationale"] = f"Blocked by Hard Market Regime Gate ({macro_info.get('regime_gate_status', 'CASH_PRESERVATION')})."
     else:
         regime = str(macro_info.get("regime") or "").upper()
         if any(k in regime for k in ("VOLATIL", "DOWNTREND", "BEAR", "CORRECTION")):
-            warnings.append(f"Hard Macro Regime Gate: Market is in '{regime}' — Fresh BUYs strictly prohibited to preserve cash (100% Cash Preservation; zero exceptions).")
-            out["action"] = "HOLD"
-            out["rationale"] = f"Blocked by Hard Macro Regime Gate ({regime}): Capital preservation active during market drawdown."
+            if is_sector_decoupled:
+                warnings.append(f"Market in '{regime}' — Sector Decoupling Active ({sec_rs:+.1f}% RS).")
+                out["is_sector_decoupled"] = True
+                out["regime_context"] = f"SECTOR_ALPHA_DECOUPLED ({sec_rs:+.1f}% RS)"
+            else:
+                warnings.append(f"Hard Macro Regime Gate: Market is in '{regime}' — Fresh BUYs strictly prohibited to preserve cash (100% Cash Preservation; zero exceptions).")
+                out["action"] = "HOLD"
+                out["rationale"] = f"Blocked by Hard Macro Regime Gate ({regime}): Capital preservation active during market drawdown."
 
     if portfolio_summary:
         holdings = portfolio_summary.get("holdings") or []
@@ -282,6 +301,8 @@ def build_recommendation(
         "confidence": decision["confidence"],
         "setup_pattern": decision.get("setup_pattern", "NONE"),
         "vcp_ratio": decision.get("vcp_ratio", 1.0),
+        "is_sector_decoupled": decision.get("is_sector_decoupled", False),
+        "regime_context": decision.get("regime_context", ""),
         "action_rationale": decision["rationale"],
         "portfolio_note": decision.get("portfolio_note", ""),
         "warnings": decision.get("warnings", []),

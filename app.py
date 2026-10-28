@@ -387,8 +387,15 @@ def _rec_table(rows, prefix: str = "rec", show_filters: bool = False):
         t2_px = float(r.get("extended_target_price") or (t1_px * 1.15))
         t3_px = float(r.get("runner_target_price") or (t1_px * 1.35))
         is_runner = r.get("is_runner_candidate", False)
-        
-        with st.expander(f"{badge} {r.get('ticker')} — {action} | Swing Score: {score:.1f}/100 {'🚀 [RUNNER CANDIDATE]' if is_runner else ''}", expanded=(i == 0)):
+        is_decoupled = r.get("is_sector_decoupled", False)
+        badge_tags = []
+        if is_decoupled:
+            badge_tags.append("⚡ [SECTOR DECOUPLED]")
+        if is_runner:
+            badge_tags.append("🚀 [RUNNER CANDIDATE]")
+        tag_str = f" {' '.join(badge_tags)}" if badge_tags else ""
+
+        with st.expander(f"{badge} {r.get('ticker')} — {action} | Swing Score: {score:.1f}/100{tag_str}", expanded=(i == 0)):
             # 1. 6-factor score breakdown row
             c1, c2, c3, c4, c5, c6 = st.columns(6)
             c1.metric("Swing Score", f"{score:.1f}/100", help="Overall swing confidence blending Momentum (40%), News (20%), Event/Geopolitics Safety (15%), Macro (15%), and Fundamentals (10%)")
@@ -499,13 +506,24 @@ def _rec_table(rows, prefix: str = "rec", show_filters: bool = False):
 with tabs[0]:
     picks = brief.get("top_picks") or []
     regime_gate_active = brief.get("regime_gate_active", False)
+    sector_decoupled_active = brief.get("sector_decoupled_active", False)
     no_trade_today = brief.get("no_trade_today", False)
     no_trade_reason = brief.get("no_trade_reason", "")
 
     st.markdown("### ⚡ Top Short-Term Swing Buys (1 to 15 Days)")
     st.caption("Highest-momentum NSE breakout candidates clearing technical momentum, news sentiment, and 2:1 Reward-to-Risk gates.")
 
-    if regime_gate_active:
+    if sector_decoupled_active and picks:
+        st.info("⚡ **SELECTIVE SECTOR ALPHA ACTIVE (NIFTY < 50 SMA DECOUPLING)**\n\nBroad NIFTY 50 is trading below its 50-day SMA (broad index caution enforced), but the decoupled leaders below belong to thriving sectors in Stage-2 expansion with heavy institutional volume (RVOL ≥ 1.2x) and positive relative strength.")
+        with st.expander("💡 Beginner's Guide: How to Execute These Top Picks in Your Broker", expanded=True):
+            st.markdown("""
+* **Delivery (CNC) Only**: Buy these shares under **Cash 'n Carry (CNC)** in Kotak Neo or your broker app. Never choose intraday (MIS) or leverage.
+* **GTT Stop-Loss Order**: Immediately place a **GTT Stop-Loss Order** at the exact planned stop price shown on the stock card.
+* **Profit Target**: When the stock rallies to the Target price (+10% to +15%), sell to book your profit!
+* **How Much to Buy**: Spread your money equally across the top 3-5 picks (20% max per stock). See **Tab 1 ('💼 Swing Capital & Sizing')** for exact share quantities.
+""")
+        _rec_table(picks, prefix="top_picks", show_filters=True)
+    elif regime_gate_active and not picks:
         st.warning(f"🛡️ **MARKET REGIME GATE ACTIVE: NO NEW TRADES TODAY (CASH PRESERVATION)**\n\n{no_trade_reason}\n\n**Institutional Rule:** When NIFTY 50 trades below its 50-day moving average or market volatility spikes, the probability of long momentum breakouts drops sharply. Sitting in cash preserves capital for high-expectancy market regimes.")
     elif no_trade_today or not picks:
         st.info(f"ℹ️ **NO SWING TRADES TODAY**\n\n{no_trade_reason or 'No stocks in the universe cleared the strict 2:1 Reward-to-Risk and momentum criteria today. Cash preservation active.'}")

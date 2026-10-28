@@ -149,6 +149,8 @@ def run_pipeline(
                 if hit:
                     rec["screen_score"] = hit.get("screen_score")
                     rec["screen_ret_1m_pct"] = hit.get("ret_1m_pct")
+                    rec["screen_rvol"] = hit.get("rvol")
+                    rec["setup_pattern"] = hit.get("setup_pattern")
             recommendations.append(rec)
         except Exception as e:
             logger.error(f"Failed scoring {ticker}: {e}")
@@ -232,10 +234,35 @@ def run_pipeline(
 
     regime_gate_active = not macro.get("is_regime_gate_cleared", True) or macro.get("no_trade_today", False)
 
+    # ─── Sector Decoupling Engine (Alpha Over Broad Beta) ─────────────────────
+    # If broad NIFTY 50 is below 50 SMA (regime gate active), check if high-conviction
+    # Stage-2 sector leaders are actively breaking out with institutional volume.
+    decoupled_picks = []
+    if regime_gate_active and buys:
+        for b in buys:
+            score = float(b.get("final_score") or 0)
+            sector_info = b.get("sector_relative_strength") or {}
+            sec_status = sector_info.get("status", "NEUTRAL")
+            sec_rs = float(sector_info.get("relative_strength_pct") or 0.0)
+            vol_ratio = float(b.get("screen_rvol") or (b.get("technical") or {}).get("indicators", {}).get("volume", {}).get("volume_ratio") or 1.0)
+
+            # An elite decoupled leader has score >= 65, non-lagging sector
+            if score >= 65 and sec_status not in ("LAGGING", "SEVERE_DRAG"):
+                b["is_sector_decoupled"] = True
+                b["regime_context"] = f"SECTOR_ALPHA_DECOUPLED ({sec_rs:+.1f}% RS)"
+                decoupled_picks.append(b)
+
+    sector_decoupled_active = False
     if regime_gate_active:
-        top_picks = []
-        no_trade_today = True
-        no_trade_reason = macro.get("regime_gate_reason", "Market Regime Gate active (NIFTY 50 below 50-day SMA or elevated volatility). Cash preservation enforced.")
+        if decoupled_picks:
+            top_picks = decoupled_picks[:DAILY_TOP_PICKS]
+            no_trade_today = False
+            sector_decoupled_active = True
+            no_trade_reason = None
+        else:
+            top_picks = []
+            no_trade_today = True
+            no_trade_reason = macro.get("regime_gate_reason", "Market Regime Gate active (NIFTY 50 below 50-day SMA or elevated volatility). Cash preservation enforced.")
     elif buys:
         top_picks = buys[:DAILY_TOP_PICKS]
         no_trade_today = False
@@ -318,6 +345,7 @@ def run_pipeline(
         "no_trade_today": no_trade_today,
         "no_trade_reason": no_trade_reason,
         "regime_gate_active": regime_gate_active,
+        "sector_decoupled_active": sector_decoupled_active,
         "sell_candidates": sells[:DAILY_TOP_PICKS],
         "portfolio_actions": portfolio_actions,
         "all_recommendations": recommendations,

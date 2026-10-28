@@ -156,12 +156,16 @@ def pre_screen(
             cur_open = float(df["Open"].iloc[-1]) if "Open" in df.columns else price
             is_bullish_bar = bool(price >= cur_open)
 
+            is_52w_breakout = bool(pos >= 0.85 and rvol >= 1.3 and price >= high_20d * 0.98)
             is_vcp = bool(vcp_ratio <= 0.65 and rvol >= 1.3 and price >= high_20d * 0.98)
             is_sweet_spot = bool(0.0 <= dist_ema20 <= 2.5 and is_bullish_bar)
 
             pattern_tag = "NONE"
             pattern_bonus = 0.0
-            if is_vcp:
+            if is_52w_breakout:
+                pattern_tag = "52W_HIGH_BREAKOUT"
+                pattern_bonus = 10.0
+            elif is_vcp:
                 pattern_tag = "VCP_BREAKOUT"
                 pattern_bonus = 8.0
             elif is_sweet_spot:
@@ -170,8 +174,14 @@ def pre_screen(
 
             # Score 0-100: Momentum (30%), RVOL Volume Expansion (25%), Range (20%), Liquidity (15%), Volatility (10%) + Pattern Bonus
             mom = 50 + ret_1m * 80 + ret_3m * 40
-            # Prefer not blown-off top (>0.95) or broken bottom (<0.15)
-            range_score = 70 if 0.35 <= pos <= 0.85 else (45 if pos < 0.35 else 40)
+            # Range score: High-volume Stage-2 breakouts at top of range get full credit (85).
+            # Low-volume exhaustion tops (>0.85 with rvol < 1.3) are penalized (40). Broken bottoms (<0.15) get 30.
+            if pos >= 0.85:
+                range_score = 85 if rvol >= 1.3 else 40
+            elif 0.35 <= pos < 0.85:
+                range_score = 70
+            else:
+                range_score = 45 if pos >= 0.15 else 30
             liq_score = min(100, 40 + avg_value_cr * 2)
             vol_score = 75 if vol_ann < 0.25 else (55 if vol_ann < 0.4 else 35)
 

@@ -25,10 +25,22 @@ def compute_technical_score(df: pd.DataFrame, ticker: str = "") -> dict:
         return {"ticker": ticker, "score": 50, "signal": "NEUTRAL", "error": "Insufficient data"}
 
     try:
-        close = df["Close"]
-        high = df["High"]
-        low = df["Low"]
-        volume = df["Volume"]
+        if isinstance(df.columns, pd.MultiIndex):
+            df = df.droplevel(1, axis=1) if df.columns.nlevels > 1 else df
+
+        close = df["Close"].squeeze()
+        high = df["High"].squeeze()
+        low = df["Low"].squeeze()
+        volume = df["Volume"].squeeze()
+
+        if close.ndim > 1:
+            close = close.iloc[:, 0]
+        if high.ndim > 1:
+            high = high.iloc[:, 0]
+        if low.ndim > 1:
+            low = low.iloc[:, 0]
+        if volume.ndim > 1:
+            volume = volume.iloc[:, 0]
 
         signals = {}
         scores = []
@@ -309,9 +321,9 @@ def compute_support_resistance(df: pd.DataFrame, window: int = 20) -> dict:
     if df.empty or len(df) < window:
         return {}
 
-    close = df["Close"]
-    high = df["High"]
-    low = df["Low"]
+    close = df["Close"].squeeze()
+    high = df["High"].squeeze()
+    low = df["Low"].squeeze()
 
     # Recent support and resistance
     recent_low = low.tail(window).min()

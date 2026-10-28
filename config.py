@@ -92,10 +92,10 @@ RISK_CONFIG = {
     "default_target_pct": 0.12,    # Default +12% target for swing trades
     "risk_per_trade_pct": 0.02,
     "max_open_positions": 5,       # Focus on top 3-5 swing picks at a time
-    "min_score_to_buy": 72,        # High-Conviction Threshold (72+ required for BUY with strict trend/sector gates)
+    "min_score_to_buy": 65,        # Fortress Buy Threshold (65+ required for BUY with strict trend/sector gates)
     "max_score_to_sell": 40,
     "hold_band_low": 40,
-    "hold_band_high": 72,
+    "hold_band_high": 65,
     "max_portfolio_heat": 0.08,    # sum of open risk ≤ 8% of capital
 }
 

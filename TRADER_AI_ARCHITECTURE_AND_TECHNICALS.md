@@ -1,6 +1,6 @@
 # TraderAI ⚡ System Architecture & In-Depth Technical Specification
 
-> **Document Version:** 2.3.0-empirical-audit  
+> **Document Version:** 2.4.0-sector-alpha-and-calendar-engine  
 > **Status:** Experimental Simulator & Quantitative Research Specification  
 > **Focus:** Short-Term Indian Equity Swing Trading Engine (1 to 15 Sessions)  
 > **Instrument:** NSE Cash Delivery (CNC — Cash 'n Carry Only)  
@@ -21,8 +21,9 @@
    - Eliminates broker auto-square-off at 3:15 PM and margin call liquidations.
    - Explicitly accounts for 100% overnight gap risk and circuit limits.
 
-2. **Hard Market Regime Gating (Cash Preservation)**:
-   - When the underlying benchmark (**NIFTY 50**) is below its 50-day Simple Moving Average (SMA) or market volatility is elevated (>24% annualized proxy), the engine vetoes all new long entries (`NO TRADES TODAY — CASH PRESERVATION`).
+2. **Hard Market Regime Gating with Sector-Relative Alpha Decoupling**:
+   - Broad Beta Protection: When benchmark (**NIFTY 50**) is below its 50-day Simple Moving Average (SMA) or market volatility is elevated (>24% annualized proxy), the engine gates general index beta (`CASH PRESERVATION`).
+   - **Sector Alpha Decoupling Exception**: Independent Stage-2 breakout leaders scoring $\ge 65$ belonging to thriving, non-lagging sectors (e.g. IT, Telecom, Auto) with positive Relative Strength are decoupled from the blanket beta shutdown, allowing high-conviction alpha generation even during sideways/corrective benchmark regimes.
 
 3. **Asymmetric Risk-to-Reward ($\ge 2.0:1$)**:
    - No trade recommendation is generated unless planned upside target is at least twice the planned downside risk ($Reward : Risk \ge 2.0$).
@@ -177,9 +178,10 @@ $$\text{Final Score} = 0.40 \times S_{\text{Technical}} + 0.20 \times S_{\text{S
 
 ### Action Mapping Thresholds (Harmonized with config.py & recommender.py)
 
-* **Score $\ge 72.0$**: `BUY` / `STRONG_BUY` (Requires clearing all 5 Fortress Institutional Gates, sector tailwind, and R:R $\ge 2.0$).
-* **Score $40.0 \text{ to } 71.9$**: `HOLD` (No clear statistical edge; active risk monitoring and capital preservation).
+* **Score $\ge 65.0$**: `BUY` / `STRONG_BUY` (Requires clearing Fortress Institutional Gates, sector tailwind / alpha decoupling, and R:R $\ge 2.0$).
+* **Score $40.0 \text{ to } 64.9$**: `HOLD` (No clear statistical edge; active risk monitoring and capital preservation).
 * **Score $\le 40.0$**: `SELL` (If held) or `AVOID` (If looking to enter).
+* **52W High Volume Breakout Pattern**: Candidates breaking into new 52-week highs with heavy volume ($RVOL \ge 1.3\times$, Range Position $\ge 0.85$) receive an 85 range score and a +10 pattern bonus (`52W_HIGH_BREAKOUT`), recognizing institutional accumulation instead of penalizing as range exhaustion.
 * **Severe Event Override**: Any stock exhibiting binary disaster risk (SEBI probe, sanction, fraud, insolvency) is immediately forced to `SELL` / `AVOID`, regardless of high technical momentum.
 
 ---
@@ -198,7 +200,7 @@ Empirical testing revealed that premature $+1\text{R}$ breakeven ratchets and ti
 * **Base Target ($T_1$)**: $+12.0\%$ to $+15.0\%$ (calibrated to guarantee $\ge 2.0:1$ R:R relative to the dynamic stop).
 * **Firm Stop Preservation**: The initial stop loss remains firmly in place until the trade reaches its target, preventing normal market volatility from prematurely triggering stops.
 * **Stop-First Bar Resolution Rule**: On daily bars, if both the target price and the stop price fall within the day's high-low range, institutional backtesting conservatism mandates that the **stop is assumed to have triggered first**. Assuming target execution on ambiguous daily bars is prohibited as look-ahead bias.
-* **Session 15 Time Expiry**: Swing trades are strictly short-term anomalies. If a position has hit neither stop nor target after **15 trading sessions**, it is closed at market price to recycle capital.
+* **Session 15 Time Expiry (NSE Calendar Engine)**: Swing trades are strictly short-term anomalies. If a position has hit neither stop nor target after **15 NSE trading sessions**, it is closed at market price to recycle capital. Active holding duration is strictly measured using actual trading sessions via `count_trading_days(start_date, end_date)` in [`data/market_calendar.py`](data/market_calendar.py), filtering weekends and official exchange holidays (e.g. Dussehra, Diwali) rather than naive calendar day arithmetic.
 * **Realistic Gap-Down Fills**: Stops never fill at theoretical stop prices when a stock gaps down overnight:
   $$\text{Exit Fill Price} = \min(\text{Effective Stop}, \text{Day's Open})$$
 
