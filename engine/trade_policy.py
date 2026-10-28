@@ -16,13 +16,15 @@ from typing import Optional, Literal
 
 logger = logging.getLogger(__name__)
 
-POLICY_VERSION = "2.2.0-pure-swing"
+POLICY_VERSION = "2.5.0-monster-runner"
 
-# Pure Swing Trading Constraints (1 to 15 Trading Sessions)
+# Pure Swing & Performing Runner Constraints
 DEFAULT_MIN_REWARD_RISK = 2.0  # Minimum 2:1 Reward-to-Risk ratio required for BUY
 HARD_STOP_LOSS_PCT = 6.0       # Hard stop-loss ceiling (6.0% maximum planned stop risk)
-DEFAULT_TARGET_PCT = 12.0      # Standard swing target (+12.0% to +15.0%)
-MAX_HOLDING_DAYS_SWING = 20    # Swing trading horizon (maximum 20 trading sessions)
+DEFAULT_TARGET_PCT = 15.0      # High-velocity base swing target (+15.0% to +18.0%)
+BASE_HOLDING_DAYS = 15         # Standard swing trading window (15 market sessions)
+MAX_RUNNER_HOLDING_DAYS = 30   # Performing runner extension (30 market sessions / 1 month)
+FAST_STAGNATION_DAYS = 8       # Fast capital recycling if stock flat (+/- 1.5% in 8 sessions)
 MIN_ATR_STOP_PCT = 3.5         # Minimum dynamic stop (tight 3.5% on calm large caps)
 MAX_ATR_STOP_PCT = 6.0         # Maximum dynamic stop (capped at 6.0%)
 
@@ -31,7 +33,7 @@ MAX_ATR_STOP_PCT = 6.0         # Maximum dynamic stop (capped at 6.0%)
 class TradeExitLevels:
     entry_price: float
     stop_loss: float
-    target_price: float                 # Base Target (T1: +12% to +15%)
+    target_price: float                 # Base Target (T1: +15% to +18%)
     stop_loss_pct: float
     target_pct: float
     reward_risk: float
@@ -39,9 +41,10 @@ class TradeExitLevels:
     partial_target_price: float = 0.0   # +1.5R Level
     extended_target_price: float = 0.0  # T2 Extended Target (+25% to +35%)
     runner_target_price: float = 0.0    # T3 Multi-Bagger Runner (+50%+)
-    extended_target_pct: float = 25.0   # T2 Extended Target %
+    extended_target_pct: float = 30.0   # T2 Extended Target %
     runner_target_pct: float = 50.0     # T3 Multi-Bagger Runner %
-    time_stop_days: int = MAX_HOLDING_DAYS_SWING
+    time_stop_days: int = BASE_HOLDING_DAYS
+    max_runner_days: int = MAX_RUNNER_HOLDING_DAYS
     policy_version: str = POLICY_VERSION
 
 
@@ -50,12 +53,13 @@ def calculate_trade_levels(
     atr: Optional[float] = None,
     preferred_target_pct: float = DEFAULT_TARGET_PCT,
     timeframe: str = "short_term",
+    is_monster_runner: bool = False,
 ) -> TradeExitLevels:
     """
     Calculate unified dynamic ATR-based stop-loss, breakeven ratchet, and tiered profit targets:
-      - T1 Base Target: +12% to +15% (2:1 R:R minimum)
-      - T2 Extended Target: +25% to +35% (Momentum continuation)
-      - T3 Multi-Bagger Runner: +50%+ (Catalyst & breakout runners with trailing stop)
+      - T1 Base Target: +15% to +18% (High-velocity swing target)
+      - T2 Extended Target: +30% to +35% (Momentum continuation)
+      - T3 Multi-Bagger Runner: +50%+ (Catalyst & breakout runners with 10 EMA trailing stop)
     """
     entry_px = float(entry_price or 0.0)
     if entry_px <= 0:
@@ -70,9 +74,9 @@ def calculate_trade_levels(
         # Default standard delivery planned stop
         stop_pct = 5.0
 
-    # Target percentage: Must guarantee at least 2:1 Reward-to-Risk
-    min_required_target = round(stop_pct * DEFAULT_MIN_REWARD_RISK, 2)
-    target_pct = max(preferred_target_pct, min_required_target)
+    # Target percentage: Must guarantee at least 2:1 Reward-to-Risk (aiming for 3:1 on monster runners)
+    min_required_target = round(stop_pct * (2.5 if is_monster_runner else DEFAULT_MIN_REWARD_RISK), 2)
+    target_pct = max(preferred_target_pct if not is_monster_runner else 15.0, min_required_target)
 
     stop_loss_price = round(entry_px * (1.0 - (stop_pct / 100.0)), 2)
     target_price = round(entry_px * (1.0 + (target_pct / 100.0)), 2)
@@ -80,14 +84,16 @@ def calculate_trade_levels(
 
     # Risk in Rupees (1R)
     one_r = entry_px - stop_loss_price
-    breakeven_px = round(entry_px + one_r, 2)  # When price hits breakeven_px, stop moves to entry
-    partial_target_px = round(entry_px + (1.5 * one_r), 2)  # Halfway profit booking
+    breakeven_px = round(entry_px + one_r, 2)
+    partial_target_px = round(entry_px + (1.5 * one_r), 2)
 
     # Tiered Targets for letting winners run (Convexity)
-    extended_target_pct = round(max(25.0, target_pct * 2.0), 1)
-    runner_target_pct = round(max(50.0, target_pct * 3.8), 1)
+    extended_target_pct = 35.0 if is_monster_runner else round(max(25.0, target_pct * 1.8), 1)
+    runner_target_pct = 50.0 if is_monster_runner else round(max(40.0, target_pct * 3.0), 1)
     extended_target_px = round(entry_px * (1.0 + (extended_target_pct / 100.0)), 2)
     runner_target_px = round(entry_px * (1.0 + (runner_target_pct / 100.0)), 2)
+
+    holding_limit = MAX_RUNNER_HOLDING_DAYS if is_monster_runner else BASE_HOLDING_DAYS
 
     return TradeExitLevels(
         entry_price=round(entry_px, 2),
@@ -102,7 +108,8 @@ def calculate_trade_levels(
         runner_target_price=runner_target_px,
         extended_target_pct=extended_target_pct,
         runner_target_pct=runner_target_pct,
-        time_stop_days=MAX_HOLDING_DAYS_SWING,
+        time_stop_days=holding_limit,
+        max_runner_days=MAX_RUNNER_HOLDING_DAYS,
         policy_version=POLICY_VERSION,
     )
 
@@ -209,12 +216,12 @@ def evaluate_trade_exit(
 
     gain_pct = round(((cur_px - entry_px) / entry_px) * 100.0, 2)
 
-    # Priority 3: Momentum Stagnation Exit (Session 10 exit if trade is stagnant between -2.0% and +2.0%)
-    # Frees up capital 2x faster to recycle into fresh breakout runners instead of sitting in dead money
-    if days_held >= 10 and -2.0 <= gain_pct <= 2.0 and not active_runner:
+    # Priority 3: Momentum Stagnation Exit (Session 8 exit if trade is stagnant between -1.5% and +1.5%)
+    # Recycles capital 2x faster to deploy into active high-momentum breakout runners
+    if days_held >= FAST_STAGNATION_DAYS and -1.5 <= gain_pct <= 1.5 and not active_runner:
         return TradeResolution(
             is_closed=True,
-            exit_reason=f"MOMENTUM_STAGNATION_EXIT (10 Sessions, {gain_pct:+.2f}%)",
+            exit_reason=f"MOMENTUM_STAGNATION_EXIT ({FAST_STAGNATION_DAYS} Sessions, {gain_pct:+.2f}%)",
             exit_price=cur_px,
             pnl_pct=gain_pct,
             days_held=days_held,
@@ -223,11 +230,14 @@ def evaluate_trade_exit(
             is_runner=False,
         )
 
-    # Priority 4: Max Time Expiry (20 trading sessions max hold, unless actively running in substantial profit)
-    if days_held >= MAX_HOLDING_DAYS_SWING and not (active_runner and cur_px > entry_px * 1.10):
+    # Priority 4: Dynamic Time Expiry (15 Sessions baseline, extended up to 30 Sessions / 1 Month for performing runners)
+    is_performing = bool(gain_pct >= 5.0 or (active_runner and cur_px > entry_px * 1.05))
+    max_days = MAX_RUNNER_HOLDING_DAYS if is_performing else BASE_HOLDING_DAYS
+    if days_held >= max_days:
+        reason_label = f"RUNNER_1_MONTH_EXPIRED ({MAX_RUNNER_HOLDING_DAYS} Sessions, {gain_pct:+.2f}%)" if is_performing else f"SWING_TIME_EXPIRED ({BASE_HOLDING_DAYS} Sessions)"
         return TradeResolution(
             is_closed=True,
-            exit_reason=f"SWING_TIME_EXPIRED ({MAX_HOLDING_DAYS_SWING} Sessions)",
+            exit_reason=reason_label,
             exit_price=cur_px,
             pnl_pct=gain_pct,
             days_held=days_held,

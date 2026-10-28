@@ -219,6 +219,14 @@ MIDCAP_LIQUID_STOCKS = [
     "SUPREMEIND.NS", "SYNGENE.NS", "TATAELXSI.NS", "UNIONBANK.NS", "YESBANK.NS",
 ]
 
+# High-Velocity Momentum & Monster Runner Universe (High ATR%, Heavy Breakout Velocity)
+HIGH_VELOCITY_STOCKS = [
+    "TRENT.NS", "DIXON.NS", "KAYNES.NS", "BSE.NS", "CDSL.NS", 
+    "SONACOMS.NS", "COFORGE.NS", "PERSISTENT.NS", "POLYCAB.NS", "SOLARINDS.NS", 
+    "SUZLON.NS", "BHARTIARTL.NS", "BAJAJ-AUTO.NS", "HAL.NS", "BEL.NS", 
+    "ZOMATO.NS", "PRESTIGE.NS", "TIINDIA.NS", "MCX.NS", "VOLTAS.NS"
+]
+
 # Liquid Index, Commodity & Sector ETFs (ideal for cash stability, zero day-trading delivery)
 ETF_COMMODITY_STOCKS = [
     "GOLDBEES.NS",    # Nippon India Gold ETF (physical gold)

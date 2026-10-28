@@ -270,10 +270,11 @@ def build_recommendation(
     tech = score_result.get("technical") or {}
     atr_val = float(tech.get("atr") or 0.0) if tech.get("atr") else None
     tf = score_result.get("preferred_timeframe") or score_result.get("timeframe", "short_term")
-    levels = calculate_trade_levels(cur_px, atr=atr_val, timeframe=tf)
+    is_runner = bool(float(score_result.get("final_score") or 50) >= 68 and float(score_result.get("event_risk_score") or 50) >= 55)
+    levels = calculate_trade_levels(cur_px, atr=atr_val, timeframe=tf, is_monster_runner=is_runner)
 
     stop_px = levels.stop_loss if levels.stop_loss > 0 else float(score_result.get("stop_loss") or (cur_px * 0.94))
-    target_px = levels.target_price if levels.target_price > 0 else float(score_result.get("target_price") or (cur_px * 1.12))
+    target_px = levels.target_price if levels.target_price > 0 else float(score_result.get("target_price") or (cur_px * 1.15))
     rr_val = levels.reward_risk if levels.reward_risk > 0 else float(score_result.get("reward_risk") or 2.0)
 
     return {
@@ -295,8 +296,9 @@ def build_recommendation(
         "partial_target_price": levels.partial_target_price,
         "extended_target_price": levels.extended_target_price,
         "runner_target_price": levels.runner_target_price,
-        "is_runner_candidate": bool(float(score_result.get("final_score") or 50) >= 68 and float(score_result.get("event_risk_score") or 50) >= 55),
+        "is_runner_candidate": is_runner,
         "time_stop_days": levels.time_stop_days,
+        "max_runner_days": levels.max_runner_days,
         "action": decision["action"],
         "confidence": decision["confidence"],
         "setup_pattern": decision.get("setup_pattern", "NONE"),

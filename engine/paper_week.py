@@ -226,16 +226,29 @@ def mark_to_market() -> dict:
                         update_paper_trade_stop(conn, t["id"], stop)
                         logger.info(f"Trailing Stop updated for {ticker}: locked at +5% (Rs. {stop})")
 
-                # Lever 4: 10-Session Momentum Stagnation Exit (Real Trading Days)
+                # Lever 4: Fast 8-Session Stagnation Exit (Real Trading Days)
                 try:
                     entry_date_str = str(t.get("entry_date", "")).split()[0]
                     sessions_held = count_trading_days(entry_date_str)
                 except Exception:
                     sessions_held = 0
 
-                if sessions_held >= 10 and -1.5 <= gain_pct <= 1.5:
-                    close_paper_trade(conn, t["id"], px, exit_reason="MOMENTUM_STAGNATION_EXIT (10 Sessions)")
+                # Fast stagnation: If 8 sessions passed and position is flat (+/- 1.5%), cut it to recycle cash!
+                if sessions_held >= 8 and -1.5 <= gain_pct <= 1.5:
+                    close_paper_trade(conn, t["id"], px, exit_reason="MOMENTUM_STAGNATION_EXIT (8 Sessions)")
                     closed.append({"ticker": ticker, "reason": "MOMENTUM_STAGNATION_EXIT", "price": px})
+                    continue
+
+                # Lever 5: 15-Day Base vs 30-Day Performing Runner Extension (Up to 1 Month)
+                # If >= 15 sessions: If trade is performing (gain >= +5%), grant 30-session runway!
+                # If trade is flat/losing (gain < +5%), close on Session 15.
+                if sessions_held >= 15 and gain_pct < 5.0:
+                    close_paper_trade(conn, t["id"], px, exit_reason="SWING_TIME_EXPIRED (15 Sessions)")
+                    closed.append({"ticker": ticker, "reason": "SWING_TIME_EXPIRED", "price": px})
+                    continue
+                elif sessions_held >= 30:
+                    close_paper_trade(conn, t["id"], px, exit_reason="RUNNER_1_MONTH_EXPIRED (30 Sessions)")
+                    closed.append({"ticker": ticker, "reason": "RUNNER_1_MONTH_EXPIRED", "price": px})
                     continue
 
             if stop and px <= float(stop):
@@ -243,8 +256,16 @@ def mark_to_market() -> dict:
                 close_paper_trade(conn, t["id"], px, exit_reason=exit_reason)
                 closed.append({"ticker": ticker, "reason": exit_reason, "price": px})
             elif target and px >= float(target):
-                close_paper_trade(conn, t["id"], px, exit_reason="TARGET")
-                closed.append({"ticker": ticker, "reason": "TARGET", "price": px})
+                # If position is up big, let runner ride with high trailing stop or close at target
+                if gain_pct >= 18.0:
+                    profit_lock = round(entry * 1.12, 2)
+                    if stop < profit_lock:
+                        stop = profit_lock
+                        update_paper_trade_stop(conn, t["id"], stop)
+                        logger.info(f"Target surpassed on {ticker} (+{gain_pct:.1f}%): Runner trailing stop elevated to +12% (Rs. {stop})")
+                else:
+                    close_paper_trade(conn, t["id"], px, exit_reason="TARGET")
+                    closed.append({"ticker": ticker, "reason": "TARGET", "price": px})
         stats = get_paper_trade_stats(conn)
     finally:
         conn.close()

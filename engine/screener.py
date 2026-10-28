@@ -13,18 +13,20 @@ import pandas as pd
 import yfinance as yf
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import NIFTY50_STOCKS, NIFTY_NEXT50_STOCKS, MIDCAP_LIQUID_STOCKS, UNIVERSE_PRESETS
+from config import NIFTY50_STOCKS, NIFTY_NEXT50_STOCKS, MIDCAP_LIQUID_STOCKS, HIGH_VELOCITY_STOCKS, UNIVERSE_PRESETS
 
 logger = logging.getLogger(__name__)
 
 
 def get_universe(preset: str = "nifty500") -> list[str]:
     """
-    preset: nifty500 | nifty50 | nifty100 | midcap | extended | all
+    preset: nifty500 | nifty50 | nifty100 | midcap | high_velocity | extended | all
     """
     preset = (preset or "nifty500").lower()
     if preset in UNIVERSE_PRESETS:
         names = UNIVERSE_PRESETS[preset]
+    elif preset in ("high_beta_rockets", "high_velocity", "monster", "runners"):
+        names = list(HIGH_VELOCITY_STOCKS)
     elif preset == "nifty50":
         names = list(NIFTY50_STOCKS)
     elif preset == "nifty100":
@@ -32,9 +34,9 @@ def get_universe(preset: str = "nifty500") -> list[str]:
     elif preset == "midcap":
         names = list(MIDCAP_LIQUID_STOCKS)
     elif preset == "all":
-        names = list(dict.fromkeys(NIFTY50_STOCKS + NIFTY_NEXT50_STOCKS + MIDCAP_LIQUID_STOCKS))
+        names = list(dict.fromkeys(NIFTY50_STOCKS + NIFTY_NEXT50_STOCKS + MIDCAP_LIQUID_STOCKS + HIGH_VELOCITY_STOCKS))
     else:
-        names = list(dict.fromkeys(NIFTY50_STOCKS + NIFTY_NEXT50_STOCKS + MIDCAP_LIQUID_STOCKS))
+        names = list(dict.fromkeys(NIFTY50_STOCKS + NIFTY_NEXT50_STOCKS + MIDCAP_LIQUID_STOCKS + HIGH_VELOCITY_STOCKS))
 
     # Optional user override file: data/custom_universe.txt (one ticker per line)
     custom_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "custom_universe.txt")
@@ -159,10 +161,19 @@ def pre_screen(
             is_52w_breakout = bool(pos >= 0.85 and rvol >= 1.3 and price >= high_20d * 0.98)
             is_vcp = bool(vcp_ratio <= 0.65 and rvol >= 1.3 and price >= high_20d * 0.98)
             is_sweet_spot = bool(0.0 <= dist_ema20 <= 2.5 and is_bullish_bar)
+            is_monster_breakout = bool(
+                rvol >= 1.6
+                and (is_52w_breakout or is_vcp)
+                and (ret_1m >= 0.04 or pos >= 0.90)
+                and is_bullish_bar
+            )
 
             pattern_tag = "NONE"
             pattern_bonus = 0.0
-            if is_52w_breakout:
+            if is_monster_breakout:
+                pattern_tag = "MONSTER_BREAKOUT"
+                pattern_bonus = 15.0
+            elif is_52w_breakout:
                 pattern_tag = "52W_HIGH_BREAKOUT"
                 pattern_bonus = 10.0
             elif is_vcp:
@@ -204,6 +215,7 @@ def pre_screen(
                     "rvol": rvol,
                     "vcp_ratio": round(vcp_ratio, 2),
                     "setup_pattern": pattern_tag,
+                    "is_runner_candidate": bool(pattern_tag in ("MONSTER_BREAKOUT", "52W_HIGH_BREAKOUT") or (pattern_tag == "VCP_BREAKOUT" and rvol >= 1.5)),
                     "range_position": round(pos, 2),
                     "volatility_ann": round(vol_ann * 100, 1),
                     "avg_value_cr": round(avg_value_cr, 2),
