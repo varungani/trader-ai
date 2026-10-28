@@ -858,7 +858,46 @@ TraderAI backtested 10 full years of daily price and volume data across 30 premi
 * **`HOLD 🟡`:** Composite Score $\ge 50$, uptrend intact, trailing 10/15 EMA cushion safe.
 * **`SELL 🔴`:** Price breaks below trailing 10 EMA or -5.5% hard stop.
 * **`AVOID 🔴`:** Composite Score $< 50$ or SPY & QQQ both below 50 SMA (100% Cash Lock).
-* **Paper / Shadow Tracking Ledger (`paper_us_trades` in SQLite):** Real-time forward tracking with fractional share sizing, automated trailing stops, and exact statutory deduction modeling (SEC Section 31 fee + FINRA TAF $0.000166/share).
+### 15.8 Option C: The Cross-Market Multi-Asset Mesh (NSE Core + Wall Street Bridge)
+
+To solve the universal problem of **"Cash Drag"** (where capital sits idle earning 0% during domestic market corrections or dry spells), TraderAI formally deploys **Option C: The Cross-Market Multi-Asset Mesh**.
+
+```mermaid
+graph LR
+    subgraph DaySession ["🇮🇳 Indian Session (09:15 AM - 03:30 PM IST)"]
+        NSE_Scan["NSE Screener & 5 Fortress Gates"]
+        NSE_Picks{"High-Beta Setups Found?"}
+        NSE_Scan --> NSE_Picks
+        NSE_Picks -->|YES| Deploy_NSE["Deploy Indian CNC Swing Slots (Mphasis, Trent, Dixon)"]
+        NSE_Picks -->|NO / Nifty < 50 SMA| Cash_Defense["🛡️ INDIAN CASH DEFENSE (0% Risk)"]
+    end
+
+    subgraph NightSession ["🇺🇸 Wall Street Session (07:00 PM - 01:30 AM IST)"]
+        US_Bridge["Option C Dynamic Capital Bridge"]
+        US_Scan["INDmoney 30-Leader Screener (SPY/QQQ Gates)"]
+        US_Picks{"US Tech Breakouts Found?"}
+        
+        Cash_Defense -.->|Zero Cash Drag Routing| US_Bridge
+        US_Bridge --> US_Scan
+        US_Scan --> US_Picks
+        US_Picks -->|YES| Deploy_US["Deploy INDmoney Spot Fractional (TSLA, NVDA, PLTR, QQQ)"]
+        US_Picks -->|NO| US_Cash["Global Cash Preservation"]
+    end
+```
+
+#### 1. The Mathematical Rationale for Option C
+1. **Time-Zone Symmetry (Non-Overlapping Windows):**
+   - NSE runs **09:15 AM – 03:30 PM IST** (daytime).
+   - NYSE / NASDAQ runs **07:00 PM – 01:30 AM IST** (evening/night).
+   - Because these sessions are 100% non-overlapping, an investor can review, plan, and execute both markets seamlessly without conflict or operational fatigue.
+2. **Eliminating the 0% Cash Drag:**
+   - When the Indian market is consolidating or correcting (e.g. NIFTY below 50 SMA), single-market swing traders sit in cash for weeks.
+   - Option C eliminates idle cash by dynamically transferring momentum focus to US Tech Growth leaders (Nvidia, Tesla, Palantir, CrowdStrike) which frequently decouple from Indian domestic liquidity.
+3. **Currency & Inflation Convexity (USD/INR Hedge):**
+   - Compounding in USD provides a structural ~3.5% to 5.0% annual tailwind via long-term INR depreciation against the US Dollar.
+   - All investments use **100% Spot Cash Delivery** via INDmoney (DriveWealth LLC) with fractional shares down to $1, eliminating margin loans, leverage, and liquidation risks under RBI's LRS regime.
+4. **Unified Live Paper Tracking:**
+   - Both Indian and US paper executions are aggregated in Tab 2 (**Option C: Global Multi-Asset Cross-Market Dashboard**), displaying consolidated capital deployed, combined floating MTM P&L in INR and USD, and dynamic trailing runner exits.
 
 ---
 

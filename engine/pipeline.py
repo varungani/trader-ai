@@ -324,6 +324,33 @@ def run_pipeline(
     except Exception as e:
         logger.warning(f"Forward validation engine step failed: {e}")
 
+    # ─── OPTION C: CROSS-MARKET MULTI-ASSET MESH (INDIA -> US BRIDGE) ───
+    cross_market_bridge = None
+    try:
+        from engine.us_engine import get_us_market_status, fetch_us_realtime_data, analyze_us_market
+        us_status = get_us_market_status()
+        us_data = fetch_us_realtime_data()
+        us_analysis = analyze_us_market(us_data)
+        top_us = [
+            c for c in us_analysis.get("candidates", [])
+            if "BUY" in c.get("verdict", "") or "HOLD" in c.get("verdict", "")
+        ][:6]
+        cross_market_bridge = {
+            "active": True,
+            "india_no_trade": no_trade_today,
+            "india_regime_gate": regime_gate_active,
+            "reason": (
+                "Indian Market Gate Active (Cash Defense / Zero Setups). Option C Mesh dynamically routes momentum capital to Wall Street (INDmoney)."
+                if no_trade_today
+                else "Cross-Market Barbell Active (Both Indian & US opportunities available for 24h non-overlapping compounding)."
+            ),
+            "us_status": us_status,
+            "macro": us_analysis.get("macro", {}),
+            "top_candidates": top_us,
+        }
+    except Exception as e:
+        logger.warning(f"Cross-market US bridge calculation failed: {e}")
+
     brief = {
         "date": datetime.now().strftime("%Y-%m-%d"),
         "market_status": get_market_status(),
@@ -351,6 +378,7 @@ def run_pipeline(
         "all_recommendations": recommendations,
         "broker_sync": broker_sync,
         "news_counts": {k: len(v) for k, v in news_bundles.items()},
+        "cross_market_bridge": cross_market_bridge,
     }
 
     if persist:

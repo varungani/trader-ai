@@ -35,7 +35,7 @@ from data.broker import is_configured
 from ui.glossary import render_glossary_section
 from ui.crypto_view import render_crypto_section
 from ui.us_view import render_us_section
-from engine.us_engine import get_upcoming_us_holidays
+from engine.us_engine import get_upcoming_us_holidays, get_us_market_status
 from data.market_calendar import get_market_status, get_upcoming_holidays
 
 logging.basicConfig(level=logging.INFO)
@@ -43,24 +43,34 @@ st.set_page_config(page_title="TraderAI", page_icon="📈", layout="wide")
 
 st.title("TraderAI ⚡ Quantitative Engine")
 st.caption(
-    "Short-Term Swing Trading • CNC Equities Core • 🇺🇸 US Equities Alpha (INDmoney) • 🪙 Crypto Satellite Bucket • Read-Only Broker Integration"
+    "Option C: Cross-Market Multi-Asset Mesh • 🇮🇳 NSE Core (9:15 AM – 3:30 PM IST) ⇄ 🇺🇸 Wall Street (7:00 PM – 1:30 AM IST) • 0% Cash Drag • Read-Only Broker Integration"
 )
 
-# Live Indian Market Status & Trading Clock
+# Live Multi-Market Barbell Clocks (Option C: India + US)
 m_status = get_market_status()
-mcol1, mcol2 = st.columns([3, 1])
-with mcol1:
+us_status = get_us_market_status()
+
+clock_col1, clock_col2 = st.columns([1, 1])
+with clock_col1:
     if m_status["is_open"]:
-        st.success(f"**{m_status['badge']}** — {m_status['detail']}")
+        st.success(f"🇮🇳 **{m_status['badge']}** — {m_status['detail']}")
     elif "HOLIDAY" in m_status["status"]:
-        st.warning(f"**{m_status['badge']}** — {m_status['detail']}")
+        st.warning(f"🇮🇳 **{m_status['badge']}** — {m_status['detail']}")
     else:
-        st.info(f"**{m_status['badge']}** — {m_status['detail']}")
-with mcol2:
-    st.markdown(f"🕒 **Current IST:** `{m_status['current_time_str']}`")
+        st.info(f"🇮🇳 **{m_status['badge']}** — {m_status['detail']}")
+with clock_col2:
+    if us_status["is_open"]:
+        st.success(f"🇺🇸 **{us_status['badge']}** — {us_status['detail']}")
+    elif "HOLIDAY" in us_status["status"]:
+        st.warning(f"🇺🇸 **{us_status['badge']}** — {us_status['detail']}")
+    else:
+        st.info(f"🇺🇸 **{us_status['badge']}** — {us_status['detail']}")
 
 with st.sidebar:
     st.header("⚡ TraderAI Engine")
+    if "active_module_selector" not in st.session_state:
+        st.session_state["active_module_selector"] = "📈 NSE Equities Swing (Core ₹30k)"
+
     active_module = st.radio(
         "Active Engine",
         [
@@ -68,7 +78,7 @@ with st.sidebar:
             "🇺🇸 US Equities Alpha (INDmoney)",
             "🪙 Crypto Alpha (Satellite ₹3k)",
         ],
-        index=0,
+        key="active_module_selector",
         help="Core NSE Equities for main wealth compounding vs US Equities Alpha (INDmoney / DriveWealth) vs Isolated ₹3,000 Crypto Satellite Bucket."
     )
     st.divider()
@@ -503,6 +513,93 @@ def _rec_table(rows, prefix: str = "rec", show_filters: bool = False):
                 st.warning(" · ".join(r["warnings"]))
 
 
+def _render_cross_market_mesh_panel(brief_obj, is_no_trade_banner: bool = False):
+    """
+    Renders Option C: Cross-Market Multi-Asset Mesh (India Core -> Wall Street Bridge).
+    Dynamically routes idle capital to US Equities via INDmoney when Indian market is in cash defense
+    or when zero Indian setups qualify.
+    """
+    mesh = brief_obj.get("cross_market_bridge")
+    if not mesh:
+        try:
+            from engine.us_engine import get_us_market_status, fetch_us_realtime_data, analyze_us_market
+            us_stat = get_us_market_status()
+            us_data = fetch_us_realtime_data()
+            us_res = analyze_us_market(us_data)
+            mesh = {
+                "active": True,
+                "us_status": us_stat,
+                "macro": us_res.get("macro", {}),
+                "top_candidates": [c for c in us_res.get("candidates", []) if "BUY" in c.get("verdict", "") or "HOLD" in c.get("verdict", "")][:6],
+            }
+        except Exception as e:
+            st.caption(f"US Mesh Bridge offline: {e}")
+            return
+
+    if not mesh:
+        return
+
+    us_stat = mesh.get("us_status") or {}
+    us_macro = mesh.get("macro") or {}
+    top_us = mesh.get("top_candidates") or []
+
+    if is_no_trade_banner:
+        st.markdown("---")
+        st.markdown("### 🌐 Option C: Cross-Market Multi-Asset Mesh (Wall Street Deployment)")
+        st.success(
+            "💡 **Zero-Cash-Drag Dynamic Routing:** Zero Indian breakout setups qualified today due to strict cash-defense risk management. "
+            "Under **Option C**, your idle capital is dynamically redirected to **Wall Street (US Equities Alpha via INDmoney)** during the evening session (**07:00 PM – 01:30 AM IST**) "
+            "to capture global tech momentum with zero cash drag and zero liquidation risk!"
+        )
+
+    m_c1, m_c2, m_c3 = st.columns([2, 2, 1])
+    with m_c1:
+        st.metric("Wall Street Session (IST)", us_stat.get("badge", "Active"), help=us_stat.get("detail", ""))
+    with m_c2:
+        st.metric("Macro Regime Gate", us_macro.get("regime", "SELECTIVE_CHOP"), help=us_macro.get("verdict", ""))
+    with m_c3:
+        st.write("")
+        if st.button("🇺🇸 Open Full US Engine", type="primary", use_container_width=True, key=f"btn_mesh_switch_us_{'banner' if is_no_trade_banner else 'exp'}"):
+            st.session_state["active_module_selector"] = "🇺🇸 US Equities Alpha (INDmoney)"
+            st.rerun()
+
+    if top_us:
+        st.markdown("#### 🚀 Tonight's Top Wall Street Breakout Candidates (INDmoney)")
+        st.caption("Spot Delivery via INDmoney / DriveWealth • Fractional Shares Down to $1 • Uncapped 15 EMA Dynamic Trailing Runner")
+
+        us_disp_rows = []
+        for c in top_us:
+            us_disp_rows.append({
+                "Symbol": c.get("symbol"),
+                "Name": c.get("name"),
+                "Sector": c.get("sector"),
+                "Score (0-100)": c.get("score"),
+                "Verdict": c.get("verdict"),
+                "Price ($)": f"${c.get('price_usd', 0):,.2f}",
+                "Price (₹)": f"₹{c.get('price_inr', 0):,.2f}",
+                "Action Setup": c.get("action"),
+                "Stop Loss ($)": f"${c.get('stop_loss_usd', 0):,.2f} (-5.5%)",
+                "Target 1 ($)": f"${c.get('target1_usd', 0):,.2f} (+18%)",
+                "Target 2 ($)": f"${c.get('target2_usd', 0):,.2f} (+35%)",
+            })
+        st.dataframe(pd.DataFrame(us_disp_rows), use_container_width=True)
+
+        st.markdown("##### ⚡ 1-Click Simulated Paper Allocation (Test Without Real Cash)")
+        p_cols = st.columns(min(len(top_us[:3]), 3))
+        from engine.us_engine import execute_us_shadow_buy
+        for idx, c in enumerate(top_us[:3]):
+            with p_cols[idx]:
+                st.markdown(f"**{c['symbol']}** — {c['name']}")
+                st.caption(f"Price: ${c['price_usd']:.2f} (₹{c['price_inr']:.0f}) | Score: {c['score']}")
+                if st.button(f"🎯 Paper Buy $58 (≈₹5,000) in {c['symbol']}", key=f"quick_paper_us_{c['symbol']}_{'b' if is_no_trade_banner else 'e'}"):
+                    res = execute_us_shadow_buy(c['symbol'], c, allocated_usd=58.0)
+                    if res.get("ok"):
+                        st.success(f"✅ Paper order opened for {c['symbol']} ({res['shares']} shares @ ${c['price_usd']:.2f})!")
+                        st.rerun()
+                    else:
+                        st.warning(res.get("error", "Execution failed"))
+
+
 with tabs[0]:
     picks = brief.get("top_picks") or []
     regime_gate_active = brief.get("regime_gate_active", False)
@@ -523,10 +620,15 @@ with tabs[0]:
 * **How Much to Buy**: Spread your money equally across the top 3-5 picks (20% max per stock). See **Tab 1 ('💼 Swing Capital & Sizing')** for exact share quantities.
 """)
         _rec_table(picks, prefix="top_picks", show_filters=True)
+        with st.expander("🌐 Cross-Market Multi-Asset Mesh (Option C): Evening Wall Street Watchlist", expanded=False):
+            st.caption("Active barbell compounding: Review tonight's US Equities Alpha setups while holding Indian swing runners:")
+            _render_cross_market_mesh_panel(brief, is_no_trade_banner=False)
     elif regime_gate_active and not picks:
         st.warning(f"🛡️ **MARKET REGIME GATE ACTIVE: NO NEW TRADES TODAY (CASH PRESERVATION)**\n\n{no_trade_reason}\n\n**Institutional Rule:** When NIFTY 50 trades below its 50-day moving average or market volatility spikes, the probability of long momentum breakouts drops sharply. Sitting in cash preserves capital for high-expectancy market regimes.")
+        _render_cross_market_mesh_panel(brief, is_no_trade_banner=True)
     elif no_trade_today or not picks:
         st.info(f"ℹ️ **NO SWING TRADES TODAY**\n\n{no_trade_reason or 'No stocks in the universe cleared the strict 2:1 Reward-to-Risk and momentum criteria today. Cash preservation active.'}")
+        _render_cross_market_mesh_panel(brief, is_no_trade_banner=True)
     else:
         with st.expander("💡 Beginner's Guide: How to Execute These Top Picks in Your Broker", expanded=True):
             st.markdown("""
@@ -536,6 +638,9 @@ with tabs[0]:
 * **How Much to Buy**: Spread your money equally across the top 3-5 picks (20% max per stock). See **Tab 1 ('💼 Swing Capital & Sizing')** for exact share quantities.
 """)
         _rec_table(picks, prefix="top_picks", show_filters=True)
+        with st.expander("🌐 Cross-Market Multi-Asset Mesh (Option C): Evening Wall Street Watchlist", expanded=False):
+            st.caption("Active barbell compounding: Review tonight's US Equities Alpha setups while holding Indian swing runners:")
+            _render_cross_market_mesh_panel(brief, is_no_trade_banner=False)
         st.divider()
         st.subheader("⚡ 1-Click Backtest on Today's Top Picks")
         st.caption("Simulate how these exact AI swing picks would have performed historically with dynamic ATR stops and statutory costs.")
@@ -1077,30 +1182,49 @@ with tabs[2]:
         finally:
             conn.close()
 
-        col_btn, _ = st.columns([2, 3])
-        with col_btn:
-            if st.button("🔄 Refresh Live Mark-to-Market Prices", type="primary", use_container_width=True, key="btn_refresh_mtm"):
+        from engine.us_engine import fetch_us_realtime_data, sync_us_paper_trades, USD_TO_INR_APPROX
+        us_cached_data = fetch_us_realtime_data()
+        us_summary = sync_us_paper_trades(us_cached_data)
+        us_open = us_summary.get("open_trades", [])
+
+        us_tot_invested_inr = sum(t.get("allocated_inr", 0.0) for t in us_open)
+        us_tot_pnl_inr = us_summary.get("tot_floating_pnl_inr", 0.0)
+        us_tot_pnl_usd = us_summary.get("tot_floating_pnl_usd", 0.0)
+
+        in_tot_invested = sum(float(t.get("entry_price", 0)) * int(t.get("quantity", 1)) for t in open_trades)
+        in_tot_pnl = sum(float(marks_map.get(t["id"], {}).get("unrealized_pnl", 0)) for t in open_trades)
+
+        comb_invested = in_tot_invested + us_tot_invested_inr
+        comb_pnl = in_tot_pnl + us_tot_pnl_inr
+        comb_pnl_pct = (comb_pnl / (comb_invested + 1e-8)) * 100.0 if comb_invested > 0 else 0.0
+
+        col_btn1, col_btn2 = st.columns([2, 2])
+        with col_btn1:
+            if st.button("🔄 Refresh Live Mark-to-Market (NSE)", type="primary", use_container_width=True, key="btn_refresh_mtm"):
                 with st.spinner("Fetching live NSE quotes and updating paper trades..."):
                     mark_to_market()
                     st.success("Updated paper trades with live market prices & trailing stops!")
                     st.rerun()
+        with col_btn2:
+            if st.button("🇺🇸 Sync US Paper Portfolio Live (Wall St)", type="secondary", use_container_width=True, key="btn_sync_us_mtm"):
+                with st.spinner("Syncing US Equities live quotes from Wall Street..."):
+                    sync_us_paper_trades(fetch_us_realtime_data())
+                    st.success("Synced US paper trades!")
+                    st.rerun()
+
+        st.markdown("#### 🌐 Option C: Global Multi-Asset Cross-Market Dashboard")
+        st.caption("Consolidated forward validation across 🇮🇳 Indian High-Beta Midcaps (NSE) and 🇺🇸 US Growth Titans (INDmoney / DriveWealth):")
+
+        gc1, gc2, gc3, gc4 = st.columns(4)
+        gc1.metric("Total Deployed Capital", f"₹{comb_invested:,.0f}", help="Combined paper capital deployed across India and US")
+        gc2.metric("Total Floating P&L", f"₹{comb_pnl:+,.2f} ({comb_pnl_pct:+.2f}%)", help="Net floating P&L across all Indian and US paper positions")
+        gc3.metric("🇮🇳 Indian Paper", f"{len(open_trades)} Active", f"P&L: ₹{in_tot_pnl:+,.2f}")
+        gc4.metric("🇺🇸 US Paper", f"{len(us_open)} Active", f"P&L: ₹{us_tot_pnl_inr:+,.2f} (${us_tot_pnl_usd:+.2f})")
 
         pw = brief.get("paper_week") or {}
         metrics = pw.get("metrics") or {}
 
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Status", pw.get("status", "RUNNING"), help="Simulated 7-day shadow trading gate")
-        c2.metric("Open Paper Trades", len(open_trades), help="Number of simulated positions currently active in the market")
-
-        tot_unrealized = sum(float(marks_map.get(t["id"], {}).get("unrealized_pnl", 0)) for t in open_trades)
-        c3.metric("Live Unrealized P&L", f"₹{tot_unrealized:+,.2f}", help="Total current floating profit or loss across all open paper positions")
-        c4.metric(
-            "Realized Win Rate",
-            f"{stats.get('win_rate', 0):.1f}%" if stats.get("total_trades", 0) > 0 else "Pending exits",
-            help="Percentage of completed paper trades that hit the profit target",
-        )
-
-        st.markdown("#### 📈 Active Open Paper Trades (Live Price Tracking & Trailing Stops)")
+        st.markdown("#### 🇮🇳 Active Indian Open Paper Trades (NSE CNC Delivery)")
         if open_trades:
             df_open = []
             for t in open_trades:
@@ -1132,7 +1256,29 @@ with tabs[2]:
                 })
             st.dataframe(pd.DataFrame(df_open), use_container_width=True)
         else:
-            st.info("No active open paper trades right now. Click 'Run analysis' with 'Paper week' checked to open trades on current recommendations!")
+            st.info("No active open Indian paper trades right now. Click 'Run analysis' with 'Paper week' checked to open trades on current recommendations!")
+
+        if us_open:
+            st.markdown("#### 🇺🇸 Active US Open Paper Trades (INDmoney / DriveWealth)")
+            st.caption("Spot Delivery • Fractional Shares • Uncapped 15 EMA Dynamic Trailing Runner")
+            df_us_open = []
+            for ut in us_open:
+                df_us_open.append({
+                    "Symbol": ut.get("symbol"),
+                    "Name": ut.get("name"),
+                    "Sector": ut.get("sector"),
+                    "Shares": f"{ut.get('shares', 0):.4f}",
+                    "Allocated ($)": f"${ut.get('allocated_usd', 0):,.2f}",
+                    "Allocated (₹)": f"₹{ut.get('allocated_inr', 0):,.2f}",
+                    "Entry ($)": f"${ut.get('entry_price_usd', 0):,.2f}",
+                    "Live Price ($)": f"${ut.get('current_price_usd', 0):,.2f}",
+                    "Floating P&L ($)": f"${ut.get('unrealized_pnl_usd', 0):+,.2f}",
+                    "Floating P&L (₹)": f"₹{ut.get('unrealized_pnl_inr', 0):+,.2f}",
+                    "P&L (%)": f"{ut.get('unrealized_pnl_pct', 0):+.2f}%",
+                    "Stop Loss ($)": f"${ut.get('stop_loss_usd', 0):,.2f}",
+                    "Target 1 ($)": f"${ut.get('target_price_usd', 0):,.2f}",
+                })
+            st.dataframe(pd.DataFrame(df_us_open), use_container_width=True)
 
         if closed_trades:
             st.markdown("#### 🏁 Completed / Closed Paper Trades This Week")
