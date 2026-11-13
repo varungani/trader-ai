@@ -252,3 +252,4 @@ runner_wins = res_runner['trades_df'].sort_values('ret_pct', ascending=False).he
 print("\nTop 10 Winning Trades under Dynamic Runner Mode:")
 for _, tr in runner_wins.iterrows():
     print(f"  {tr['ticker']:<14} | Gain: {tr['ret_pct']:>+6.1f}% | PnL: ₹{tr['pnl']:>+8,.0f} | Days: {tr['days']:>2} | Date: {tr['date']} | Exit: {tr['reason']}")
+

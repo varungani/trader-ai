@@ -174,11 +174,20 @@ def pre_screen(
             is_bullish_bar = bool(price >= cur_open)
             day_range = float(high.iloc[-1] - low.iloc[-1]) if len(high) else 1.0
             close_loc = (price - float(low.iloc[-1])) / day_range if day_range > 0 else 0.5
+            
+            # Delivery Volume & Institutional Accumulation Fingerprint
+            est_delivery_pct = min(95.0, max(25.0, round(35.0 + 35.0 * close_loc + 15.0 * min(1.0, rvol / 2.5), 1)))
+            is_delivery_confirmed = bool(est_delivery_pct >= 45.0 and close_loc >= 0.68)
+            is_wick_shakeout = bool(rvol >= 1.6 and close_loc < 0.38)  # Intraday wick dump
+
             is_institutional_ignition = bool(rvol >= 1.7 and close_loc >= 0.70 and is_bullish_bar)
-            is_institutional_blast = bool(rvol >= 1.8 and close_loc >= 0.70 and is_bullish_bar and pos >= 0.85)
+            is_institutional_blast = bool(rvol >= 1.8 and close_loc >= 0.70 and is_bullish_bar and pos >= 0.85 and is_delivery_confirmed)
             
             rs_21 = (ret_1m - nifty_ret_1m) * 100.0
-            is_ultra_alpha = bool(rs_21 >= 15.0 and pos >= 0.88 and rvol >= 1.8 and is_bullish_bar)
+            is_ultra_alpha = bool(rs_21 >= 15.0 and pos >= 0.88 and rvol >= 1.8 and is_bullish_bar and is_delivery_confirmed)
+
+            # Pre-Ignition Coil Pattern: Coiling within 4% of 52W high, RS >= 10%, tight VCP <= 0.65, calm volume
+            is_pre_ignition_coil = bool(pos >= 0.88 and vcp_ratio <= 0.65 and rs_21 >= 10.0 and 0.6 <= rvol <= 1.45)
 
             is_52w_breakout = bool(pos >= 0.85 and rvol >= 1.3 and price >= high_20d * 0.98)
             is_vcp = bool(vcp_ratio <= 0.65 and rvol >= 1.3 and price >= high_20d * 0.98)
@@ -190,6 +199,14 @@ def pre_screen(
                 and is_bullish_bar
             )
 
+            # Sector Leadership Multiplier Integration
+            from config import TICKER_TO_SECTOR
+            from analysis.sector_rs import compute_sector_rs
+            sec_name = TICKER_TO_SECTOR.get(ticker, "General")
+            sec_info = compute_sector_rs(sec_name)
+            sec_bonus = float(sec_info.get("bonus_points") or 0.0)
+            sec_status = sec_info.get("status", "NEUTRAL")
+
             pattern_tag = "NONE"
             pattern_bonus = 0.0
             if is_ultra_alpha:
@@ -198,6 +215,9 @@ def pre_screen(
             elif is_institutional_blast:
                 pattern_tag = "INSTITUTIONAL_BLAST"
                 pattern_bonus = 20.0
+            elif is_pre_ignition_coil:
+                pattern_tag = "PRE_IGNITION_COIL"
+                pattern_bonus = 18.0
             elif is_monster_breakout or is_institutional_ignition:
                 pattern_tag = "INSTITUTIONAL_IGNITION" if is_institutional_ignition else "MONSTER_BREAKOUT"
                 pattern_bonus = 15.0
@@ -211,10 +231,12 @@ def pre_screen(
                 pattern_tag = "20EMA_SWEET_SPOT"
                 pattern_bonus = 6.0
 
-            # Score 0-100: Momentum (30%), RVOL Volume Expansion (25%), Range (20%), Liquidity (15%), Volatility (10%) + Pattern Bonus
+            # Intraday wick dump penalty
+            if is_wick_shakeout:
+                pattern_bonus -= 15.0
+
+            # Score 0-100: Momentum (25%), RVOL Volume Expansion (20%), Range (15%), Liquidity (15%), Volatility (10%) + Pattern Bonus + Sector Bonus
             mom = 50 + ret_1m * 80 + ret_3m * 40
-            # Range score: High-volume Stage-2 breakouts at top of range get full credit (85).
-            # Low-volume exhaustion tops (>0.85 with rvol < 1.3) are penalized (40). Broken bottoms (<0.15) get 30.
             if pos >= 0.85:
                 range_score = 85 if rvol >= 1.3 else 40
             elif 0.35 <= pos < 0.85:
@@ -225,12 +247,13 @@ def pre_screen(
             vol_score = 75 if vol_ann < 0.25 else (55 if vol_ann < 0.4 else 35)
 
             screen_score = (
-                0.30 * max(0, min(100, mom))
-                + 0.25 * rvol_score
-                + 0.20 * range_score
+                0.25 * max(0, min(100, mom))
+                + 0.20 * rvol_score
+                + 0.15 * range_score
                 + 0.15 * liq_score
                 + 0.10 * vol_score
                 + pattern_bonus
+                + sec_bonus
             )
 
             rows.append(
@@ -244,7 +267,11 @@ def pre_screen(
                     "rvol": rvol,
                     "vcp_ratio": round(vcp_ratio, 2),
                     "setup_pattern": pattern_tag,
-                    "is_runner_candidate": bool(pattern_tag in ("MONSTER_BREAKOUT", "52W_HIGH_BREAKOUT") or (pattern_tag == "VCP_BREAKOUT" and rvol >= 1.5)),
+                    "est_delivery_pct": est_delivery_pct,
+                    "pivot_buy_stop": round(high_5d, 2),
+                    "sector": sec_name,
+                    "sector_status": sec_status,
+                    "is_runner_candidate": bool(pattern_tag in ("MONSTER_BREAKOUT", "52W_HIGH_BREAKOUT", "PRE_IGNITION_COIL") or (pattern_tag == "VCP_BREAKOUT" and rvol >= 1.5)),
                     "range_position": round(pos, 2),
                     "volatility_ann": round(vol_ann * 100, 1),
                     "avg_value_cr": round(avg_value_cr, 2),

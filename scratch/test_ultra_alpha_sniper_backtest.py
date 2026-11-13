@@ -274,3 +274,4 @@ print("=" * 125)
 for r in results:
     print(f"{r['strategy']:<48} | ₹{r['final_val']:>11,.0f} | {r['ret_pct']:>7.1f}% | {r['cagr']:>5.1f}% | {r['win_pct']:>5.1f}% | {r['trades']:>6} | {r['profit_factor']:>4.2f} | {r['max_dd']:>6.1f}% | ₹{r['mo_avg_inr']:>+8,.0f}")
 print("=" * 125)
+

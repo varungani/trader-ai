@@ -379,6 +379,20 @@ def run_pipeline(
     # ─── OPTION C: CROSS-MARKET MULTI-ASSET MESH (INDIA -> US BRIDGE) ───
     cross_market_bridge = None
 
+    # Apex High-Velocity Scan (Tier 1 Execution + Tier 2 Radar Watchlist + Leading Sectors)
+    from engine.apex_engine import run_apex_scan
+    apex_res = {}
+    try:
+        apex_cap = float(capital_base or 100000.0)
+        apex_res = run_apex_scan(capital=apex_cap, top_slots=3, radar_slots=12)
+        if allocation_profile == "apex_3slot" or universe_preset in ("high_beta_apex", "high_beta_rockets", "smallcap_rockets"):
+            if apex_res.get("picks"):
+                top_picks = apex_res["picks"]
+                no_trade_today = False
+                no_trade_reason = None
+    except Exception as e:
+        logger.warning(f"Apex scan failed: {e}")
+
     brief = {
         "date": datetime.now().strftime("%Y-%m-%d"),
         "market_status": get_market_status(),
@@ -397,6 +411,9 @@ def run_pipeline(
         "forward_validation": forward_val_report,
         "real_money": real_money_allowed(),
         "top_picks": top_picks,
+        "radar_watchlist": apex_res.get("radar_watchlist", []),
+        "leading_sectors": apex_res.get("leading_sectors", []),
+        "apex_scan": apex_res,
         "no_trade_today": no_trade_today,
         "no_trade_reason": no_trade_reason,
         "regime_gate_active": regime_gate_active,

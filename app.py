@@ -470,6 +470,21 @@ with tabs[0]:
     st.markdown("### ⚡ Top Short-Term Swing Buys & Super-Movers (1 to 15 Days)")
     st.caption("High-velocity NSE breakout candidates with institutional volume shocks (RVOL ≥ 1.6x), Stage-2 momentum, and 2:1+ Reward-to-Risk.")
 
+    # Institutional Sector Leadership Header
+    leading_secs = brief.get("leading_sectors") or []
+    if leading_secs:
+        st.markdown("##### 🏆 Institutional Leading Sectors in India (Tailwind Gate):")
+        sec_cols = st.columns(min(4, len(leading_secs)))
+        for idx, sec in enumerate(leading_secs[:4]):
+            with sec_cols[idx]:
+                st.metric(
+                    label=f"Rank #{sec.get('sector_rank', idx+1)}: {sec.get('sector')}",
+                    value=f"{sec.get('composite_rs', 0):+.2f}% RS",
+                    delta=f"+{sec.get('bonus_points', 0):.0f} Pts ({sec.get('status')})",
+                    help="Relative Strength vs NIFTY 50. Stocks in leading sectors receive capital multipliers and score boosts."
+                )
+        st.divider()
+
     if sector_decoupled_active and picks:
         st.info("⚡ **SELECTIVE SECTOR ALPHA ACTIVE (NIFTY < 50 SMA DECOUPLING)**\n\nBroad NIFTY 50 is trading below its 50-day SMA, but the decoupled leaders below belong to thriving sectors in Stage-2 expansion with heavy institutional volume (RVOL ≥ 1.5x) and positive relative strength.")
         with st.expander("💡 Execution Plan: How to Trade These Picks in Your Demat Account", expanded=True):
@@ -497,63 +512,89 @@ with tabs[0]:
 * **Capital Sizing**: Spread capital equally across top 3-5 picks (max 20% per stock). See **Tab 1 ('💼 Swing Capital & Sizing')** for exact share quantities.
 """)
         _rec_table(picks, prefix="top_picks", show_filters=True)
-        st.divider()
-        st.subheader("⚡ 1-Click Backtest on Today's Top Picks")
-        st.caption("Simulate how these exact AI swing picks would have performed historically with dynamic ATR stops and statutory costs.")
-        pcol1, pcol2, pcol3 = st.columns([2, 1, 1])
-        with pcol1:
-            p_period = st.selectbox(
-                "Historical lookback for AI picks",
-                ["6mo", "1y", "2y", "3y", "5y"],
-                index=1,
-                key="picks_bt_period",
+
+    # 📡 Tier 2: High-Velocity Radar & Pre-Ignition Watchlist (Solves the Shortlisting Bottleneck)
+    radar = brief.get("radar_watchlist") or []
+    if radar:
+        st.markdown("---")
+        st.markdown("### 📡 Tier 2: High-Velocity Radar & Pre-Ignition Watchlist (Next in Line)")
+        st.caption("Solves the shortlisting bottleneck: High-Relative-Strength leaders coiling near 52W highs. Set alerts at the **Pivot Trigger Price**—if a Tier-1 slot hits target or exits, immediately deploy 33% capital into the top triggered candidate below.")
+
+        radar_df = pd.DataFrame([
+            {
+                "Ticker": r["ticker"].replace(".NS", ""),
+                "Current Price": f"₹{r['current_price']:,.2f}",
+                "Pivot Trigger (Buy Stop)": f"₹{r['pivot_buy_stop']:,.2f}",
+                "Target (+20%)": f"₹{r['target_price']:,.2f}",
+                "Stop (-7% Close)": f"₹{r['stop_loss']:,.2f}",
+                "Readiness / Setup": r.get("readiness", "COILING"),
+                "RS vs Nifty": f"{r.get('rs_vs_nifty', 0):+.1f}%",
+                "RVOL": f"{r.get('rvol', 1.0):.2f}x",
+                "Est Delivery %": f"{r.get('est_delivery_pct', 50):.1f}%",
+                "Sector": f"{r.get('sector', 'General')} ({r.get('sector_status', 'NEUTRAL')})",
+                "Action Plan": r.get("action_plan", "Track for breakout"),
+            }
+            for r in radar
+        ])
+        st.dataframe(radar_df, use_container_width=True)
+
+    st.divider()
+    st.subheader("⚡ 1-Click Backtest on Today's Top Picks")
+    st.caption("Simulate how these exact AI swing picks would have performed historically with dynamic ATR stops and statutory costs.")
+    pcol1, pcol2, pcol3 = st.columns([2, 1, 1])
+    with pcol1:
+        p_period = st.selectbox(
+            "Historical lookback for AI picks",
+            ["6mo", "1y", "2y", "3y", "5y"],
+            index=1,
+            key="picks_bt_period",
+        )
+    with pcol2:
+        p_cap = st.number_input(
+            "Capital (INR)",
+            min_value=10000.0,
+            value=float(swing_capital or 50000.0),
+            step=10000.0,
+            key="picks_bt_cap",
+        )
+    with pcol3:
+        st.write("")
+        st.write("")
+        run_picks_bt = st.button("⚡ Backtest Shortlist", type="primary", key="btn_picks_bt")
+
+    if run_picks_bt:
+        with st.spinner(f"Simulating strategy on {len(picks)} AI shortlisted names..."):
+            from backtesting.engine import run_simple_backtest
+            p_tickers = [p["ticker"] for p in picks if p.get("ticker")]
+            bt_p_res = run_simple_backtest(
+                p_tickers,
+                period=p_period,
+                initial_capital=p_cap,
+                use_trailing_stop=False,
+                use_trend_filter=True,
+                allow_runners=True,
             )
-        with pcol2:
-            p_cap = st.number_input(
-                "Capital (INR)",
-                min_value=10000.0,
-                value=float(swing_capital or 50000.0),
-                step=10000.0,
-                key="picks_bt_cap",
-            )
-        with pcol3:
-            st.write("")
-            st.write("")
-            run_picks_bt = st.button("⚡ Backtest Shortlist", type="primary", key="btn_picks_bt")
+            if bt_p_res.get("error"):
+                st.error(bt_p_res["error"])
+            else:
+                st.session_state["shortlist_backtest_result"] = bt_p_res
 
-        if run_picks_bt:
-            with st.spinner(f"Simulating strategy on {len(picks)} AI shortlisted names..."):
-                from backtesting.engine import run_simple_backtest
-                p_tickers = [p["ticker"] for p in picks if p.get("ticker")]
-                bt_p_res = run_simple_backtest(
-                    p_tickers,
-                    period=p_period,
-                    initial_capital=p_cap,
-                    use_trailing_stop=False,
-                    use_trend_filter=True,
-                    allow_runners=True,
-                )
-                if bt_p_res.get("error"):
-                    st.error(bt_p_res["error"])
-                else:
-                    st.session_state["shortlist_backtest_result"] = bt_p_res
+    bt_p_res = st.session_state.get("shortlist_backtest_result")
+    if bt_p_res:
+        st.success(f"Backtest of AI Shortlist completed ({bt_p_res.get('start_date')} to {bt_p_res.get('end_date')})")
+        pm1, pm2, pm3, pm4, pm5, pm6 = st.columns(6)
+        pm1.metric("Strategy Return", f"{bt_p_res.get('total_return', 0):+.2f}%", help="Cumulative percentage capital growth")
+        pm2.metric("Nifty Benchmark", f"{bt_p_res.get('benchmark_return', 0):+.2f}%", help="NIFTYBEES buy-and-hold return")
+        pm3.metric("Alpha (Excess)", f"{bt_p_res.get('alpha', 0):+.2f}%", help="Excess return generated over Nifty 50 benchmark")
+        pm4.metric("Win Rate", f"{bt_p_res.get('win_rate', 0):.1f}%", help="Percentage of trades closed in profit")
+        pm5.metric("Biggest Winner", f"+{bt_p_res.get('biggest_winner_pct', 0):.1f}%", help="Largest single trade gain captured via uncapped runner trailing")
+        pm6.metric("Runner Trades", bt_p_res.get("runner_trades_count", 0), help="Number of trades that surged past base target into extended profit (+20% to +50%+)")
 
-        bt_p_res = st.session_state.get("shortlist_backtest_result")
-        if bt_p_res:
-            st.success(f"Backtest of AI Shortlist completed ({bt_p_res.get('start_date')} to {bt_p_res.get('end_date')})")
-            pm1, pm2, pm3, pm4, pm5, pm6 = st.columns(6)
-            pm1.metric("Strategy Return", f"{bt_p_res.get('total_return', 0):+.2f}%", help="Cumulative percentage capital growth")
-            pm2.metric("Nifty Benchmark", f"{bt_p_res.get('benchmark_return', 0):+.2f}%", help="NIFTYBEES buy-and-hold return")
-            pm3.metric("Alpha (Excess)", f"{bt_p_res.get('alpha', 0):+.2f}%", help="Excess return generated over Nifty 50 benchmark")
-            pm4.metric("Win Rate", f"{bt_p_res.get('win_rate', 0):.1f}%", help="Percentage of trades closed in profit")
-            pm5.metric("Biggest Winner", f"+{bt_p_res.get('biggest_winner_pct', 0):.1f}%", help="Largest single trade gain captured via uncapped runner trailing")
-            pm6.metric("Runner Trades", bt_p_res.get("runner_trades_count", 0), help="Number of trades that surged past base target into extended profit (+20% to +50%+)")
-
-            detail = bt_p_res.get("detailed_results") or {}
-            samples = detail.get("sample_trades") or []
-            if samples:
-                with st.expander("Simulated Trade Executions for AI Shortlist", expanded=False):
-                    st.dataframe(pd.DataFrame(samples), use_container_width=True)
+        detail = bt_p_res.get("detailed_results") or {}
+        samples = detail.get("sample_trades") or []
+        if samples:
+            with st.expander("Simulated Trade Executions for AI Shortlist", expanded=False):
+                st.dataframe(pd.DataFrame(samples), use_container_width=True)
 
 with tabs[1]:
     st.markdown("### 💼 Swing Capital Allocator & Position Sizing")
