@@ -59,8 +59,11 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
         is_ignition = bool(is_blast or ign_info.get("is_ignition") or ema_info.get("is_ignition") or (vol_ratio >= 1.6 and dev_pct >= 2.0))
 
         # Determine Winning Pattern
+        preset_pattern = score_result.get("setup_pattern", "")
         setup_pattern = "NONE"
-        if is_blast and vcp_info.get("is_contracted"):
+        if preset_pattern == "ULTRA_ALPHA_LEADER":
+            setup_pattern = "ULTRA_ALPHA_LEADER"
+        elif is_blast and vcp_info.get("is_contracted"):
             setup_pattern = "SUPER_MOVER_COIL_BLAST"
         elif is_blast:
             setup_pattern = "INSTITUTIONAL_BLAST"

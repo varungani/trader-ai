@@ -91,6 +91,12 @@ def pre_screen(
 
     from data.market_data import _get_cached_history
 
+    nifty_df = _get_cached_history("^NSEI", period="3mo")
+    nifty_ret_1m = 0.0
+    if not nifty_df.empty and "Close" in nifty_df.columns and len(nifty_df) >= 22:
+        n_c = nifty_df["Close"].dropna()
+        nifty_ret_1m = float(n_c.iloc[-1] / n_c.iloc[-22] - 1)
+
     rows = []
     multi = isinstance(data.columns, pd.MultiIndex) if not data.empty else False
 
@@ -170,20 +176,26 @@ def pre_screen(
             close_loc = (price - float(low.iloc[-1])) / day_range if day_range > 0 else 0.5
             is_institutional_ignition = bool(rvol >= 1.7 and close_loc >= 0.70 and is_bullish_bar)
             is_institutional_blast = bool(rvol >= 1.8 and close_loc >= 0.70 and is_bullish_bar and pos >= 0.85)
+            
+            rs_21 = (ret_1m - nifty_ret_1m) * 100.0
+            is_ultra_alpha = bool(rs_21 >= 15.0 and pos >= 0.88 and rvol >= 1.8 and is_bullish_bar)
 
             is_52w_breakout = bool(pos >= 0.85 and rvol >= 1.3 and price >= high_20d * 0.98)
             is_vcp = bool(vcp_ratio <= 0.65 and rvol >= 1.3 and price >= high_20d * 0.98)
             is_sweet_spot = bool(0.0 <= dist_ema20 <= 2.5 and is_bullish_bar)
             is_monster_breakout = bool(
                 rvol >= 1.6
-                and (is_52w_breakout or is_vcp or is_institutional_ignition or is_institutional_blast)
+                and (is_52w_breakout or is_vcp or is_institutional_ignition or is_institutional_blast or is_ultra_alpha)
                 and (ret_1m >= 0.03 or pos >= 0.85)
                 and is_bullish_bar
             )
 
             pattern_tag = "NONE"
             pattern_bonus = 0.0
-            if is_institutional_blast:
+            if is_ultra_alpha:
+                pattern_tag = "ULTRA_ALPHA_LEADER"
+                pattern_bonus = 25.0
+            elif is_institutional_blast:
                 pattern_tag = "INSTITUTIONAL_BLAST"
                 pattern_bonus = 20.0
             elif is_monster_breakout or is_institutional_ignition:
@@ -228,6 +240,7 @@ def pre_screen(
                     "price": round(price, 2),
                     "ret_1m_pct": round(ret_1m * 100, 2),
                     "ret_3m_pct": round(ret_3m * 100, 2),
+                    "rs_vs_nifty": round(rs_21, 2),
                     "rvol": rvol,
                     "vcp_ratio": round(vcp_ratio, 2),
                     "setup_pattern": pattern_tag,

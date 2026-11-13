@@ -78,9 +78,10 @@ def run_apex_scan(
             rec = build_recommendation(score_data)
             
             # Enrich with screener pattern
-            pattern = hit.get("pattern", "NONE")
+            pattern = hit.get("setup_pattern") or hit.get("pattern") or "NONE"
             rec["setup_pattern"] = pattern
             rec["rvol"] = hit.get("rvol", 1.0)
+            rec["rs_vs_nifty"] = hit.get("rs_vs_nifty", 0.0)
             rec["screen_rank"] = hit.get("screen_score", 0.0)
             
             scored.append(rec)
@@ -89,10 +90,11 @@ def run_apex_scan(
 
     # 4. Filter BUY / STRONG_BUY & Sort by Conviction
     buys = [r for r in scored if r.get("action") in ("BUY", "STRONG_BUY")]
-    # Priority sort: Institutional Blast -> High Score -> High RVOL
+    # Priority sort: Ultra Alpha Leader -> Institutional Blast -> High Score -> High RVOL
     buys.sort(
         key=lambda x: (
-            1 if "BLAST" in x.get("setup_pattern", "") else (0.5 if "IGNITION" in x.get("setup_pattern", "") else 0),
+            3 if "ULTRA_ALPHA" in str(x.get("setup_pattern", "")) else (2 if "BLAST" in str(x.get("setup_pattern", "")) else (1 if "IGNITION" in str(x.get("setup_pattern", "")) else 0)),
+            float(x.get("rs_vs_nifty", 0)),
             float(x.get("final_score", 0)),
             float(x.get("rvol", 1.0)),
         ),
@@ -131,6 +133,7 @@ def run_apex_scan(
             "final_score": rec.get("final_score"),
             "pattern": rec.get("setup_pattern"),
             "rvol": rec.get("rvol"),
+            "rs_vs_nifty": rec.get("rs_vs_nifty", 0.0),
             "current_price": cur_px,
             "target_price": target_px,
             "target_pct": round((target_px - cur_px) / cur_px * 100, 2) if cur_px > 0 else 20.0,
@@ -168,6 +171,6 @@ if __name__ == "__main__":
     print(f"Market Regime: {res['regime']} (Nifty Cleared: {res['nifty_cleared']})")
     print(f"Total Capital: ₹{res['capital']:,.2f} | Deployed: ₹{res['total_deployed']:,.2f} | Cash: ₹{res['cash_remaining']:,.2f}\n")
     for i, p in enumerate(res["picks"], 1):
-        print(f"Slot {i}: [{p['ticker']}] - {p['pattern']} (Score: {p['final_score']} | RVOL: {p['rvol']}x)")
+        print(f"Slot {i}: [{p['ticker']}] - {p['pattern']} (Score: {p['final_score']} | RVOL: {p['rvol']}x | RS vs Nifty: {p.get('rs_vs_nifty', 0.0):+.1f}%)")
         print(f"  Entry: ₹{p['current_price']:,.2f} | Target (+20%): ₹{p['target_price']:,.2f} | Stop (-7% Close): ₹{p['stop_loss']:,.2f}")
         print(f"  Position: {p['shares']} shares = ₹{p['allocated_rupees']:,.2f} ({p['weight_pct']}% of portfolio) | R:R: {p['reward_risk']}:1\n")
