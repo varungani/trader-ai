@@ -22,6 +22,7 @@ from config import (
     MONTHLY_MF_BUDGET,
     MONTHLY_STOCK_BUDGET,
     SCREEN_TOP_N,
+    TICKER_TO_SECTOR,
 )
 from analysis.macro import compute_macro_score
 from data.db import get_connection, save_daily_brief, save_daily_score
@@ -212,6 +213,57 @@ def run_pipeline(
             d for d in (balance.get("deploy_plan") or []) if d.get("ticker") in allow
         ]
 
+    # Ensure full market scan coverage: Add fast screened recommendations for the rest of universe
+    if screen_info and screen_info.get("all_screened"):
+        deep_scored_set = {r["ticker"] for r in recommendations}
+        for s in screen_info["all_screened"]:
+            t = s["ticker"]
+            if t not in deep_scored_set:
+                sc = float(s.get("screen_score") or 50.0)
+                pat = s.get("setup_pattern", "NONE")
+                rvol_val = float(s.get("rvol") or 1.0)
+                px = float(s.get("price") or 0.0)
+
+                if sc >= 75.0 or pat in ("INSTITUTIONAL_IGNITION", "MONSTER_BREAKOUT"):
+                    act = "BUY"
+                    conf = "HIGH" if sc >= 80 else "MEDIUM"
+                elif sc >= 65.0:
+                    act = "BUY"
+                    conf = "MEDIUM"
+                elif sc <= 40.0:
+                    act = "SELL"
+                    conf = "MEDIUM"
+                else:
+                    act = "HOLD"
+                    conf = "LOW"
+
+                fast_rec = {
+                    "ticker": t,
+                    "name": t.replace(".NS", ""),
+                    "sector": TICKER_TO_SECTOR.get(t, "General"),
+                    "timeframe": timeframe,
+                    "final_score": sc,
+                    "screen_score": sc,
+                    "technical_score": sc,
+                    "fundamental_score": 50.0,
+                    "sentiment_score": 50.0,
+                    "macro_score": float(macro.get("score", 50)),
+                    "event_risk_score": 50.0,
+                    "action": act,
+                    "confidence": conf,
+                    "setup_pattern": pat,
+                    "screen_rvol": rvol_val,
+                    "screen_ret_1m_pct": s.get("ret_1m_pct", 0.0),
+                    "current_price": px,
+                    "stop_loss": round(px * 0.94, 2),
+                    "target_price": round(px * 1.15, 2),
+                    "reward_risk": 2.5,
+                    "is_runner_candidate": s.get("is_runner_candidate", False),
+                    "reasoning": f"Universe scan ranking: Score {sc:.1f} | RVOL {rvol_val:.2f}x | Pattern: {pat}.",
+                    "action_rationale": f"Fast screen momentum score {sc:.1f} with {rvol_val:.2f}x volume conviction.",
+                }
+                recommendations.append(fast_rec)
+
     recommendations.sort(key=lambda r: float(r.get("final_score") or 0), reverse=True)
 
     monthly = build_monthly_plan(
@@ -326,30 +378,6 @@ def run_pipeline(
 
     # ─── OPTION C: CROSS-MARKET MULTI-ASSET MESH (INDIA -> US BRIDGE) ───
     cross_market_bridge = None
-    try:
-        from engine.us_engine import get_us_market_status, fetch_us_realtime_data, analyze_us_market
-        us_status = get_us_market_status()
-        us_data = fetch_us_realtime_data()
-        us_analysis = analyze_us_market(us_data)
-        top_us = [
-            c for c in us_analysis.get("candidates", [])
-            if "BUY" in c.get("verdict", "") or "HOLD" in c.get("verdict", "")
-        ][:6]
-        cross_market_bridge = {
-            "active": True,
-            "india_no_trade": no_trade_today,
-            "india_regime_gate": regime_gate_active,
-            "reason": (
-                "Indian Market Gate Active (Cash Defense / Zero Setups). Option C Mesh dynamically routes momentum capital to Wall Street (INDmoney)."
-                if no_trade_today
-                else "Cross-Market Barbell Active (Both Indian & US opportunities available for 24h non-overlapping compounding)."
-            ),
-            "us_status": us_status,
-            "macro": us_analysis.get("macro", {}),
-            "top_candidates": top_us,
-        }
-    except Exception as e:
-        logger.warning(f"Cross-market US bridge calculation failed: {e}")
 
     brief = {
         "date": datetime.now().strftime("%Y-%m-%d"),

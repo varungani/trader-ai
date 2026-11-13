@@ -59,22 +59,25 @@ def pre_screen(
     tickers: list[str],
     top_n: int = 25,
     period: str = "6mo",
-    min_price: float = 50.0,
-    min_avg_value_cr: float = 5.0,
+    min_price: float = 10.0,
+    min_avg_value_cr: float = 2.0,
+    return_all: bool = False,
 ) -> list[dict]:
     """
-    Fast batch screen using yfinance download (no per-ticker news yet).
+    Fast batch screen using yfinance download with high-resolution cache fallback.
 
     Ranking blend:
       - 3m / 1m momentum
+      - RVOL volume expansion & institutional ignition
       - proximity to 52w high (not chasing extremes blindly)
-      - liquidity proxy (avg rupee volume)
+      - liquidity proxy (avg rupee volume >= ₹2 Cr)
       - lower volatility preferred slightly for small capital
     """
     if not tickers:
         return []
 
     logger.info(f"Pre-screening {len(tickers)} tickers (top_n={top_n})")
+    data = pd.DataFrame()
     try:
         data = yf.download(
             tickers,
@@ -84,27 +87,33 @@ def pre_screen(
             threads=True,
         )
     except Exception as e:
-        logger.error(f"Batch download failed: {e}")
-        return [{"ticker": t, "screen_score": 50, "error": str(e)} for t in tickers[:top_n]]
+        logger.debug(f"Batch download failed: {e}, falling back to cache")
+
+    from data.market_data import _get_cached_history
 
     rows = []
-    multi = isinstance(data.columns, pd.MultiIndex)
+    multi = isinstance(data.columns, pd.MultiIndex) if not data.empty else False
 
     for ticker in tickers:
         try:
-            if multi:
-                if ticker not in data.columns.get_level_values(0):
-                    continue
-                df = data[ticker].dropna(how="all")
-            else:
-                df = data.dropna(how="all")
+            df = pd.DataFrame()
+            if not data.empty:
+                if multi:
+                    if ticker in data.columns.get_level_values(0):
+                        df = data[ticker].dropna(how="all")
+                else:
+                    df = data.dropna(how="all")
 
-            if df.empty or len(df) < 40 or "Close" not in df.columns:
+            # Fallback to local cache if batch fetch is missing data for this ticker
+            if df.empty or len(df) < 30 or "Close" not in df.columns:
+                df = _get_cached_history(ticker, period=period)
+
+            if df.empty or len(df) < 30 or "Close" not in df.columns:
                 continue
 
             close = df["Close"].dropna()
             vol = df["Volume"].dropna() if "Volume" in df.columns else pd.Series(dtype=float)
-            if len(close) < 40:
+            if len(close) < 30:
                 continue
 
             price = float(close.iloc[-1])
@@ -157,21 +166,24 @@ def pre_screen(
 
             cur_open = float(df["Open"].iloc[-1]) if "Open" in df.columns else price
             is_bullish_bar = bool(price >= cur_open)
+            day_range = float(high.iloc[-1] - low.iloc[-1]) if len(high) else 1.0
+            close_loc = (price - float(low.iloc[-1])) / day_range if day_range > 0 else 0.5
+            is_institutional_ignition = bool(rvol >= 1.7 and close_loc >= 0.70 and is_bullish_bar)
 
             is_52w_breakout = bool(pos >= 0.85 and rvol >= 1.3 and price >= high_20d * 0.98)
             is_vcp = bool(vcp_ratio <= 0.65 and rvol >= 1.3 and price >= high_20d * 0.98)
             is_sweet_spot = bool(0.0 <= dist_ema20 <= 2.5 and is_bullish_bar)
             is_monster_breakout = bool(
                 rvol >= 1.6
-                and (is_52w_breakout or is_vcp)
-                and (ret_1m >= 0.04 or pos >= 0.90)
+                and (is_52w_breakout or is_vcp or is_institutional_ignition)
+                and (ret_1m >= 0.03 or pos >= 0.85)
                 and is_bullish_bar
             )
 
             pattern_tag = "NONE"
             pattern_bonus = 0.0
-            if is_monster_breakout:
-                pattern_tag = "MONSTER_BREAKOUT"
+            if is_monster_breakout or is_institutional_ignition:
+                pattern_tag = "INSTITUTIONAL_IGNITION" if is_institutional_ignition else "MONSTER_BREAKOUT"
                 pattern_bonus = 15.0
             elif is_52w_breakout:
                 pattern_tag = "52W_HIGH_BREAKOUT"
@@ -225,20 +237,21 @@ def pre_screen(
             logger.debug(f"Screen skip {ticker}: {e}")
 
     rows.sort(key=lambda r: r["screen_score"], reverse=True)
-    return rows[:top_n]
+    return rows if return_all else rows[:top_n]
 
 
 def select_deep_score_universe(
     preset: str = "extended",
-    top_n: int = 20,
+    top_n: int = 25,
     always_include: Optional[list[str]] = None,
 ) -> dict:
     """
-    Build scan list → pre-screen → return tickers for expensive deep scoring.
-    always_include: holdings / forced names.
+    Build scan list → pre-screen all names → return tickers for expensive deep scoring
+    while retaining all screened stocks so the user has scores for the full universe.
     """
     universe = get_universe(preset)
-    screened = pre_screen(universe, top_n=top_n)
+    all_screened = pre_screen(universe, top_n=top_n, return_all=True)
+    screened = all_screened[:top_n]
     picked = [r["ticker"] for r in screened]
 
     always_include = always_include or []
@@ -250,5 +263,6 @@ def select_deep_score_universe(
         "preset": preset,
         "universe_size": len(universe),
         "screened": screened,
+        "all_screened": all_screened,
         "deep_score_tickers": list(dict.fromkeys(picked)),
     }

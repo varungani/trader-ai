@@ -51,15 +51,26 @@ def compute_technical_score(df: pd.DataFrame, ticker: str = "") -> dict:
         sma_50 = ta.trend.sma_indicator(close, window=sma_fast_w)
         sma_200 = ta.trend.sma_indicator(close, window=sma_slow_w)
         fast_v, slow_v = float(sma_50.iloc[-1]), float(sma_200.iloc[-1])
+        cur_close = float(close.iloc[-1]) if float(close.iloc[-1]) > 0 else 1.0
 
         if slow_v == 0 or (fast_v != fast_v) or (slow_v != slow_v):  # NaN guard
             sma_signal, sma_score = "NEUTRAL", 50
         elif fast_v > slow_v:
             sma_signal = "BULLISH"
-            sma_score = 70 + min(30, (fast_v - slow_v) / slow_v * 1000)
+            # Golden cross with momentum scaling
+            pct_diff = (fast_v - slow_v) / slow_v * 100.0
+            sma_score = 70.0 + min(25.0, pct_diff * 2.5)
+            if cur_close > fast_v:
+                sma_score = min(100.0, sma_score + 5.0)  # Price leading above both MAs
         else:
-            sma_signal = "BEARISH"
-            sma_score = 30 - min(30, (slow_v - fast_v) / slow_v * 1000)
+            pct_diff = (slow_v - fast_v) / slow_v * 100.0
+            if cur_close > fast_v:
+                # Emerging Stage 2 breakout / recovery: price reclaimed 50 SMA even if 50 < 200
+                sma_signal = "EMERGING_STAGE_2"
+                sma_score = 60.0
+            else:
+                sma_signal = "BEARISH"
+                sma_score = max(15.0, 35.0 - min(20.0, pct_diff * 1.5))
 
         signals["sma_crossover"] = {
             "signal": sma_signal,
@@ -89,11 +100,23 @@ def compute_technical_score(df: pd.DataFrame, ticker: str = "") -> dict:
         signals["macd"] = {"signal": macd_signal, "macd": round(macd_line.iloc[-1], 2), "histogram_pct": round(hist_pct, 3)}
         scores.append(("MACD", max(0, min(100, macd_score)), 0.15))
 
-        # EMA trend & Over-Extension Guard (Avoid buying stretched rubber bands > 6% above 20 EMA)
+        # ─── VOLUME & BAR ANATOMY PRE-CHECK ─────────────────
+        vol_sma20 = volume.rolling(window=min(len(volume), 20)).mean().iloc[-1]
+        vol_ratio = float(volume.iloc[-1] / vol_sma20) if vol_sma20 > 0 else 1.0
+        cur_open = float(df["Open"].iloc[-1]) if "Open" in df.columns else cur_close
+        day_range = float(high.iloc[-1] - low.iloc[-1])
+        close_loc = (cur_close - float(low.iloc[-1])) / day_range if day_range > 0 else 0.5
+        is_bullish_bar = bool(cur_close >= cur_open)
+        is_institutional_ignition = bool(vol_ratio >= 1.6 and close_loc >= 0.70 and is_bullish_bar)
+
+        # EMA trend & Over-Extension Guard (with Institutional Ignition Exception)
         ema_20 = ta.trend.ema_indicator(close, window=20)
         price_vs_ema = (close.iloc[-1] - ema_20.iloc[-1]) / ema_20.iloc[-1] * 100
 
-        if 0.5 <= price_vs_ema <= 4.5:
+        if is_institutional_ignition and price_vs_ema >= 2.0:
+            ema_signal = "INSTITUTIONAL_IGNITION"
+            ema_score = 95  # Institutional buying explosion closing near day's high — do not choke!
+        elif 0.5 <= price_vs_ema <= 4.5:
             ema_signal = "SWEET_SPOT_VALUE"
             ema_score = 90  # Ideal low-risk swing entry near dynamic 20 EMA support
         elif -2.0 <= price_vs_ema < 0.5:
@@ -112,10 +135,18 @@ def compute_technical_score(df: pd.DataFrame, ticker: str = "") -> dict:
             ema_signal = "BREAKDOWN_BELOW_EMA"
             ema_score = 25  # Deep breakdown below moving average
 
+        is_overextended = bool(price_vs_ema > 6.0 and not is_institutional_ignition)
+
         signals["ema_20"] = {
             "signal": ema_signal,
             "deviation_pct": round(price_vs_ema, 2),
-            "is_overextended": price_vs_ema > 6.0,
+            "is_overextended": is_overextended,
+            "is_ignition": is_institutional_ignition,
+        }
+        signals["ignition"] = {
+            "is_ignition": is_institutional_ignition,
+            "rvol": round(vol_ratio, 2),
+            "close_location": round(close_loc, 2),
         }
         scores.append(("EMA 20", max(0, min(100, ema_score)), 0.10))
 
@@ -246,20 +277,31 @@ def compute_technical_score(df: pd.DataFrame, ticker: str = "") -> dict:
         # OBV trend
         obv = ta.volume.on_balance_volume(close, volume)
         obv_sma = obv.rolling(window=20).mean()
+        is_obv_accum = bool(obv.iloc[-1] > obv_sma.iloc[-1])
 
-        if obv.iloc[-1] > obv_sma.iloc[-1]:
-            vol_signal = "ACCUMULATION"
-            vol_score = 65
+        # Volume Score based on Relative Volume (RVOL) & OBV accumulation
+        if vol_ratio >= 2.0:
+            vol_signal = "INSTITUTIONAL_VOLUME_SURGE"
+            vol_score = 95.0 if is_obv_accum else 88.0
+        elif vol_ratio >= 1.5:
+            vol_signal = "STRONG_ACCUMULATION"
+            vol_score = 85.0 if is_obv_accum else 75.0
+        elif vol_ratio >= 1.0:
+            vol_signal = "ACCUMULATION" if is_obv_accum else "NORMAL_VOLUME"
+            vol_score = 70.0 if is_obv_accum else 55.0
+        elif vol_ratio >= 0.7:
+            vol_signal = "SUBDUED_VOLUME"
+            vol_score = 50.0 if is_obv_accum else 40.0
         else:
-            vol_signal = "DISTRIBUTION"
-            vol_score = 35
+            vol_signal = "DRY_VOLUME"
+            vol_score = 35.0
 
-        # ADTV (Average Daily Turnover in INR) — Minimum ₹5 Crore Liquidity Filter
+        # ADTV (Average Daily Turnover in INR) — Minimum ₹2.5 Crore Liquidity Filter for Delivery
         turnover_20d = (volume * close).rolling(window=min(len(close), 20)).mean().iloc[-1]
         adtv_cr = round(turnover_20d / 10_000_000, 2) if turnover_20d > 0 else 0.0
-        is_liquid = turnover_20d >= 50_000_000  # Minimum ₹5 Crore daily turnover
+        is_liquid = turnover_20d >= 25_000_000  # Minimum ₹2.5 Crore daily turnover
         if not is_liquid and turnover_20d > 0:
-            vol_score -= 15
+            vol_score = max(20.0, vol_score - 15.0)
             vol_signal += "_LOW_LIQUIDITY"
 
         signals["volume"] = {"signal": vol_signal, "volume_ratio": round(vol_ratio, 2)}
@@ -278,7 +320,11 @@ def compute_technical_score(df: pd.DataFrame, ticker: str = "") -> dict:
         # ─── FINAL SCORE CALCULATION ─────────────────────────
         weighted_score = sum(score * weight for _, score, weight in scores)
         total_weight = sum(weight for _, _, weight in scores)
-        final_score = weighted_score / total_weight if total_weight > 0 else 50
+        final_score = weighted_score / total_weight if total_weight > 0 else 50.0
+
+        # Institutional Ignition Direct Bonus (+5 points for confirmed volume surge near highs)
+        if is_institutional_ignition:
+            final_score = min(100.0, final_score + 5.0)
 
         # Determine overall signal
         if final_score >= 70:

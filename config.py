@@ -36,29 +36,29 @@ MF_SCHEME_CODES = [
     if code.strip()
 ]
 
-# ─── Timeframe Definitions (Pure Swing Trading Focus) ────────
+# ─── Timeframe Definitions (Pure Swing Trading Focus - Max 1 Month) ────────
 DEFAULT_TIMEFRAME = "short_term"
 
 TIMEFRAMES = {
     "short_term": {
-        "label": "⚡ Swing Trading (Days to Weeks)",
-        "horizon": "3 to 20 trading sessions",
+        "label": "⚡ Swing Trading (Max 1 Month)",
+        "horizon": "3 to 21 trading sessions (Max 1 Month)",
         "min_days": 1,
-        "max_days": 20,
+        "max_days": 21,
         "description": "Quick momentum breakouts, 52W high proximity, RSI sweet spot (60-75), volume surges, and catalyst swings",
         "weights": {
-            "technical": 0.40,
-            "sentiment": 0.20,
-            "event_risk": 0.15,
-            "macro": 0.15,
-            "fundamental": 0.10,
+            "technical": 0.45,   # Core driver: Price action, RVOL volume shock, Stage-2 trend, VCP contraction
+            "sentiment": 0.20,   # 3-tier NLP catalyst scoring
+            "event_risk": 0.15,  # Earnings and corporate event safety gate
+            "macro": 0.10,       # Market regime and sector relative velocity
+            "fundamental": 0.10, # Solvency baseline
         },
     },
     "mid_term": {
-        "label": "⚡ Swing Trading (Days to Weeks)",
-        "horizon": "3 to 20 trading sessions",
+        "label": "⚡ Swing Trading (Max 1 Month)",
+        "horizon": "3 to 21 trading sessions (Max 1 Month)",
         "min_days": 1,
-        "max_days": 20,
+        "max_days": 21,
         "description": "Quick momentum breakouts, 52W high proximity, RSI sweet spot (60-75), volume surges, and catalyst swings",
         "weights": {
             "technical": 0.40,
@@ -69,10 +69,10 @@ TIMEFRAMES = {
         },
     },
     "long_term": {
-        "label": "⚡ Swing Trading (Days to Weeks)",
-        "horizon": "3 to 20 trading sessions",
+        "label": "⚡ Swing Trading (Max 1 Month)",
+        "horizon": "3 to 21 trading sessions (Max 1 Month)",
         "min_days": 1,
-        "max_days": 20,
+        "max_days": 21,
         "description": "Quick momentum breakouts, 52W high proximity, RSI sweet spot (60-75), volume surges, and catalyst swings",
         "weights": {
             "technical": 0.40,
@@ -84,19 +84,23 @@ TIMEFRAMES = {
     },
 }
 
-# ─── Risk Management ─────────────────────────────────────────
+# ─── Risk Management (Pure Swing & 1-Month Max Hold Architecture) ───────────────
 RISK_CONFIG = {
-    "max_position_pct": 0.20,      # Max 20% per swing stock (allows holding 5 focused high-conviction swing names)
-    "max_sector_pct": 0.35,
-    "default_stop_loss_pct": 0.05, # Default 5% stop for swing trades
-    "default_target_pct": 0.12,    # Default +12% target for swing trades
+    "max_position_pct": 0.25,      # 25% concentrated allocation into top 4 apex leaders
+    "max_sector_pct": 0.50,
+    "default_stop_loss_pct": 0.07, # 7.0% Daily Close stop loss (gives swing room to breathe, prevents intraday wick sweep)
+    "default_target_pct": 0.20,    # Explosive +20% 1-Month profit target
     "risk_per_trade_pct": 0.02,
-    "max_open_positions": 5,       # Focus on top 3-5 swing picks at a time
+    "max_open_positions": 4,       # High-conviction focus on top 4 apex names
+    "min_position_size_rupees": 5000.0, # Minimum ticket size to prevent friction bleed
     "min_score_to_buy": 65,        # Fortress Buy Threshold (65+ required for BUY with strict trend/sector gates)
     "max_score_to_sell": 40,
     "hold_band_low": 40,
     "hold_band_high": 65,
-    "max_portfolio_heat": 0.08,    # sum of open risk ≤ 8% of capital
+    "max_portfolio_heat": 0.10,    # sum of open risk ≤ 10% of capital
+    "max_holding_sessions": 21,    # Strict 1-Month Ceiling (21 market sessions / ~30 calendar days)
+    "max_holding_calendar_days": 30, # 30 calendar days maximum holding period
+    "stop_loss_basis": "daily_close", # Daily close basis prevents getting wicked out by intraday volatility
 }
 
 # ─── Sector Relative Strength Dynamic Capital Allocation Multipliers ─────────

@@ -33,160 +33,106 @@ from portfolio.manager import (
 from engine.pipeline import run_pipeline
 from data.broker import is_configured
 from ui.glossary import render_glossary_section
-from ui.crypto_view import render_crypto_section
-from ui.us_view import render_us_section
-from engine.us_engine import get_upcoming_us_holidays, get_us_market_status
 from data.market_calendar import get_market_status, get_upcoming_holidays
 
 logging.basicConfig(level=logging.INFO)
-st.set_page_config(page_title="TraderAI", page_icon="📈", layout="wide")
+st.set_page_config(page_title="TraderAI ⚡ Pure Swing & Super-Mover Engine", page_icon="📈", layout="wide")
 
-st.title("TraderAI ⚡ Quantitative Engine")
+st.title("TraderAI ⚡ Pure Swing & Super-Mover Engine")
 st.caption(
-    "Option C: Cross-Market Multi-Asset Mesh • 🇮🇳 NSE Core (9:15 AM – 3:30 PM IST) ⇄ 🇺🇸 Wall Street (7:00 PM – 1:30 AM IST) • 0% Cash Drag • Read-Only Broker Integration"
+    "Quantitative Indian Equity Swing Trading & Monster Runners • 🇮🇳 NSE Cash Delivery (CNC Only) • Dual-AI Governance • Read-Only Kotak Neo Audit"
 )
 
-# Live Multi-Market Barbell Clocks (Option C: India + US)
+# Live NSE Market Status Clock
 m_status = get_market_status()
-us_status = get_us_market_status()
-
-clock_col1, clock_col2 = st.columns([1, 1])
-with clock_col1:
-    if m_status["is_open"]:
-        st.success(f"🇮🇳 **{m_status['badge']}** — {m_status['detail']}")
-    elif "HOLIDAY" in m_status["status"]:
-        st.warning(f"🇮🇳 **{m_status['badge']}** — {m_status['detail']}")
-    else:
-        st.info(f"🇮🇳 **{m_status['badge']}** — {m_status['detail']}")
-with clock_col2:
-    if us_status["is_open"]:
-        st.success(f"🇺🇸 **{us_status['badge']}** — {us_status['detail']}")
-    elif "HOLIDAY" in us_status["status"]:
-        st.warning(f"🇺🇸 **{us_status['badge']}** — {us_status['detail']}")
-    else:
-        st.info(f"🇺🇸 **{us_status['badge']}** — {us_status['detail']}")
+if m_status["is_open"]:
+    st.success(f"🇮🇳 **{m_status['badge']}** — {m_status['detail']}")
+elif "HOLIDAY" in m_status["status"]:
+    st.warning(f"🇮🇳 **{m_status['badge']}** — {m_status['detail']}")
+else:
+    st.info(f"🇮🇳 **{m_status['badge']}** — {m_status['detail']}")
 
 with st.sidebar:
-    st.header("⚡ TraderAI Engine")
-    if "active_module_selector" not in st.session_state:
-        st.session_state["active_module_selector"] = "📈 NSE Equities Swing (Core ₹30k)"
+    st.header("⚡ Swing Trading Controls")
+    st.success("⚡ **Strategy: High-Velocity Swing & Super-Mover Engine**\n\nOptimized for 1–15 day breakout momentum, institutional volume surges, and uncapped multi-week trailing runners.")
+    timeframe = "short_term"
 
-    active_module = st.radio(
-        "Active Engine",
-        [
-            "📈 NSE Equities Swing (Core ₹30k)",
-            "🇺🇸 US Equities Alpha (INDmoney)",
-            "🪙 Crypto Alpha (Satellite ₹3k)",
-        ],
-        key="active_module_selector",
-        help="Core NSE Equities for main wealth compounding vs US Equities Alpha (INDmoney / DriveWealth) vs Isolated ₹3,000 Crypto Satellite Bucket."
+    profile = st.selectbox(
+        "Risk Profile",
+        options=list(ALLOCATION_PROFILES.keys()),
+        format_func=lambda k: ALLOCATION_PROFILES[k]["label"],
+        index=list(ALLOCATION_PROFILES.keys()).index(DEFAULT_ALLOCATION_PROFILE),
     )
+    st.caption(ALLOCATION_PROFILES[profile]["description"])
+    use_llm = st.checkbox("Analyst + Judge LLMs", value=True)
+    paper_week = st.checkbox("Paper Testing (No Real Money)", value=True)
+    if paper_week:
+        st.caption("Live forward tracking active. Test recommendations safely before investing.")
+    universe = st.selectbox(
+        "Universe to scan",
+        options=["high_beta_rockets", "nifty500", "extended", "nifty100", "nifty50", "midcap", "etfs", "all"],
+        format_func=lambda u: "🚀 High-Beta Rockets (Monster Midcaps)" if u == "high_beta_rockets" else u.upper(),
+        index=0,
+        help="High-Beta Rockets focuses on institutional midcap momentum leaders (Trent, Dixon, Kaynes, Polycab, Suzlon, etc.) that move 30% to 60% in weeks.",
+    )
+    screen_top = st.slider("Deep-score top N after screen", 8, 40, 20)
+    swing_capital = st.number_input(
+        "Swing Trading Capital (INR)",
+        min_value=5000.0,
+        value=float(MONTHLY_STOCK_BUDGET if MONTHLY_STOCK_BUDGET >= 10000 else 50000.0),
+        step=5000.0,
+        help="Total cash capital dedicated to swing trading"
+    )
+    capital_override = st.number_input(
+        "Capital override (INR, 0 = use above capital)",
+        min_value=0.0,
+        value=0.0,
+        step=10000.0,
+    )
+    active_cap = float(capital_override or swing_capital)
+    max_positions = st.slider(
+        "Max Open Swing Positions",
+        min_value=3,
+        max_value=6,
+        value=3 if active_cap <= 25000 else 5,
+        help="3 positions recommended for capital <= ₹25,000 to maximize shares per stock and cut fixed DP exit fees by 40%."
+    )
+    SMALL_CAPITAL_CONFIG["max_concurrent_positions"] = max_positions
+    SMALL_CAPITAL_CONFIG["max_new_stock_names_per_month"] = max_positions
+    sync_broker = st.checkbox("Sync Kotak Neo before run", value=False)
+    totp = ""
+    if sync_broker:
+        st.info("Needs .env Kotak keys. Prefer KOTAK_TOTP_SECRET, or enter TOTP below.")
+        totp = st.text_input("TOTP (if no secret in .env)", type="password")
+        if not is_configured():
+            st.error("Kotak credentials missing in .env")
+
+    run_btn = st.button("⚡ Run Swing Analysis", type="primary", use_container_width=True)
+
     st.divider()
+    st.subheader("Manual Demat Holding")
+    m_ticker = st.text_input("Ticker", value="MPHASIS.NS")
+    m_qty = st.number_input("Qty", min_value=1, value=1)
+    m_avg = st.number_input("Avg buy price", min_value=0.0, value=2450.0)
+    m_tf = "short_term"
+    if st.button("Save Swing Holding"):
+        upsert_holding(m_ticker.strip().upper(), int(m_qty), float(m_avg), timeframe=m_tf)
+        st.success(f"Saved {m_ticker} in Swing Portfolio")
 
-    if active_module == "🇺🇸 US Equities Alpha (INDmoney)":
-        st.subheader("🇺🇸 US Equities Settings")
-        st.info("Operating in US Alpha Mode via INDmoney / DriveWealth.\n\n• **$0 Brokerage**\n• **Fractional Shares** down to $1\n• **SIPC Insured** up to $500,000\n• **RBI LRS Limit:** $250k/year\n• **Evening Session:** 07:00 PM – 01:30 AM IST\n• **10Y Net Return:** **+2,486% (38.4% CAGR)**")
-        with st.expander("📅 US Market Timings & Holidays (IST)", expanded=False):
-            st.markdown("""
-- **Pre-Market:** 01:30 PM – 07:00 PM IST
-- **Regular Session:** 07:00 PM – 01:30 AM IST (Mon–Fri)
-- **After-Hours:** 01:30 AM – 05:30 AM IST
-- **Weekends:** Saturday & Sunday (Closed)
-""")
-            st.markdown("**Upcoming NYSE/NASDAQ Holidays:**")
-            for h in get_upcoming_us_holidays(limit=4):
-                st.write(f"• **{h['formatted']}** ({h['day_name']}): {h['name']} *({h['countdown']})*")
-        run_btn = False
-    elif active_module == "🪙 Crypto Alpha (Satellite ₹3k)":
-        st.subheader("🪙 Crypto Satellite Settings")
-        st.info("Operating in Satellite Convexity Mode.\n\n• Initial Capital: **₹3,000**\n• Feb Capital: **₹6,000**\n• Spot Only (Zero Margin)\n• Main NSE Portfolio: **100% Isolated**")
-        run_btn = False
-    else:
-        st.header("⚡ Swing Trading Controls")
-        st.success("⚡ **Strategy: Pure Swing Trading**\n\nOptimized for 1–15 day breakout momentum, volume surges, and 2:1 Reward-to-Risk profit targets.")
-        timeframe = "short_term"
-
-        profile = st.selectbox(
-            "Risk Profile",
-            options=list(ALLOCATION_PROFILES.keys()),
-            format_func=lambda k: ALLOCATION_PROFILES[k]["label"],
-            index=list(ALLOCATION_PROFILES.keys()).index(DEFAULT_ALLOCATION_PROFILE),
-        )
-        st.caption(ALLOCATION_PROFILES[profile]["description"])
-        use_llm = st.checkbox("Analyst + Judge LLMs", value=True)
-        paper_week = st.checkbox("Paper Testing (No Real Money)", value=True)
-        if paper_week:
-            st.caption("Live forward tracking active. Test recommendations safely before investing.")
-        universe = st.selectbox(
-            "Universe to scan",
-            options=["high_beta_rockets", "nifty500", "extended", "nifty100", "nifty50", "midcap", "etfs", "all"],
-            format_func=lambda u: "🚀 High-Beta Rockets (Monster Midcaps)" if u == "high_beta_rockets" else u.upper(),
-            index=0,
-            help="High-Beta Rockets focuses on institutional midcap momentum leaders (Trent, Dixon, Kaynes, Polycab, Suzlon, etc.) that move 30% to 60% in weeks.",
-        )
-        screen_top = st.slider("Deep-score top N after screen", 8, 40, 20)
-        swing_capital = st.number_input(
-            "Swing Trading Capital (INR)",
-            min_value=5000.0,
-            value=float(MONTHLY_STOCK_BUDGET if MONTHLY_STOCK_BUDGET >= 10000 else 50000.0),
-            step=5000.0,
-            help="Total cash capital dedicated to swing trading"
-        )
-        capital_override = st.number_input(
-            "Capital override (INR, 0 = use above capital)",
-            min_value=0.0,
-            value=0.0,
-            step=10000.0,
-        )
-        active_cap = float(capital_override or swing_capital)
-        max_positions = st.slider(
-            "Max Open Swing Positions",
-            min_value=3,
-            max_value=6,
-            value=3 if active_cap <= 25000 else 5,
-            help="3 positions recommended for capital <= ₹25,000 to maximize shares per stock and cut fixed DP exit fees by 40%."
-        )
-        SMALL_CAPITAL_CONFIG["max_concurrent_positions"] = max_positions
-        SMALL_CAPITAL_CONFIG["max_new_stock_names_per_month"] = max_positions
-        sync_broker = st.checkbox("Sync Kotak Neo before run", value=False)
-        totp = ""
-        if sync_broker:
-            st.info("Needs .env Kotak keys. Prefer KOTAK_TOTP_SECRET, or enter TOTP below.")
-            totp = st.text_input("TOTP (if no secret in .env)", type="password")
-            if not is_configured():
-                st.error("Kotak credentials missing in .env")
-
-        run_btn = st.button("⚡ Run Swing Analysis", type="primary", use_container_width=True)
-
-        st.divider()
-        st.subheader("Manual Demat Holding")
-        m_ticker = st.text_input("Ticker", value="MPHASIS.NS")
-        m_qty = st.number_input("Qty", min_value=1, value=1)
-        m_avg = st.number_input("Avg buy price", min_value=0.0, value=2450.0)
-        m_tf = "short_term"
-        if st.button("Save Swing Holding"):
-            upsert_holding(m_ticker.strip().upper(), int(m_qty), float(m_avg), timeframe=m_tf)
-            st.success(f"Saved {m_ticker} in Swing Portfolio")
-
-        st.divider()
-        with st.expander("📅 NSE Timings & Upcoming Holidays", expanded=False):
-            st.markdown("""
+    st.divider()
+    with st.expander("📅 NSE Timings & Upcoming Holidays", expanded=False):
+        st.markdown("""
 - **Pre-Open Session:** 09:00 AM – 09:15 AM IST
 - **Normal Trading:** 09:15 AM – 03:30 PM IST (Mon–Fri)
 - **Post-Closing:** 03:40 PM – 04:00 PM IST
 - **Weekends:** Saturday & Sunday (Closed)
 """)
-            st.markdown("**Upcoming NSE Holidays:**")
-            upcoming_hols = get_upcoming_holidays(limit=4)
-            for h in upcoming_hols:
-                st.write(f"• **{h['formatted']}** ({h['day_name']}): {h['name']} *({h['countdown']})*")
+        st.markdown("**Upcoming NSE Holidays:**")
+        upcoming_hols = get_upcoming_holidays(limit=4)
+        for h in upcoming_hols:
+            st.write(f"• **{h['formatted']}** ({h['day_name']}): {h['name']} *({h['countdown']})*")
 
-if active_module == "🇺🇸 US Equities Alpha (INDmoney)":
-    render_us_section()
-    st.stop()
-elif active_module == "🪙 Crypto Alpha (Satellite ₹3k)":
-    render_crypto_section()
-    st.stop()
+
 
 # Portfolio panel
 port = portfolio_summary()
@@ -467,9 +413,9 @@ def _rec_table(rows, prefix: str = "rec", show_filters: bool = False):
                         cat_badge = ", ".join(ev.get("categories") or ["event"])
                         st.write(f"• `[{cat_badge.upper()}]` {ev.get('headline', '')}")
 
-            # 4. Multi-Stage Profit Strategy (Why Stop at 15%?)
-            st.markdown("##### 🚀 Multi-Stage Profit Strategy: Why Stop at 15%?")
-            st.caption("Do not artificially truncate upside on high-conviction breakout winners. Use tiered profit stages to lock in capital while letting a runner ride multi-bagger momentum.")
+            # 4. Multi-Stage Profit Strategy (Max 1 Month Holding Window)
+            st.markdown("##### 🚀 Multi-Stage Profit Strategy (Max 1 Month Holding Window)")
+            st.caption("Positions are held strictly for a maximum of 1 month (21 market sessions / ~30 calendar days). At Day 8, flat trades exit; at Day 15, non-runners close; high-velocity runners ride up to Day 21.")
             
             tc1, tc2, tc3 = st.columns(3)
             with tc1:
@@ -477,7 +423,7 @@ def _rec_table(rows, prefix: str = "rec", show_filters: bool = False):
             with tc2:
                 st.markdown(f"**⚡ Stage 2: Extended Target ($T_2$)**\n### ₹{t2_px:,.2f} `(+25% to +35%)`\n*Strong trend continuation. If volume surges through T1, hold majority position for extended swing gains.*")
             with tc3:
-                st.markdown(f"**🚀 Stage 3: Blue-Sky Runner ($T_3$)**\n### ₹{t3_px:,.2f} `(+50%+)`\n*Uncapped runner! When a macro/geopolitical theme ignites, trail peak price with 1.5x ATR without artificial target ceilings.*")
+                st.markdown(f"**🚀 Stage 3: Blue-Sky Runner ($T_3$)**\n### ₹{t3_px:,.2f} `(+50%+)`\n*Uncapped runner! When a macro/geopolitical theme ignites, trail peak price with 1.5x ATR without artificial target ceilings (Max 1 Month).*")
 
             runner_info = analyst.get("runner_strategy") or {}
             if runner_info.get("trail_guidance"):
@@ -500,104 +446,18 @@ def _rec_table(rows, prefix: str = "rec", show_filters: bool = False):
                 st.caption(judge.get("rationale") or "Independent fact-check completed.")
 
             # 6. Sizing & Levels
-            st.markdown("##### 🎯 Planned Order Execution & Sizing")
-            col_l1, col_l2, col_l3, col_l4 = st.columns(4)
+            st.markdown("##### 🎯 Planned Order Execution, Sizing & Time Stop")
+            col_l1, col_l2, col_l3, col_l4, col_l5 = st.columns(5)
             col_l1.write(f"**Current Price**: ₹{cur_px:,.2f}")
             col_l2.write(f"**Planned Stop**: ₹{stop_px:,.2f} `(-{float(r.get('stop_loss_pct') or 5.0):.1f}%)`")
             col_l3.write(f"**Base Target T1**: ₹{t1_px:,.2f} `(+{float(r.get('target_pct') or 12.0):.1f}%)`")
+            col_l4.write(f"**Max Hold Window**: `21 Sessions (1 Mo)`")
             size = r.get("suggested_size") or {}
             if size.get("qty"):
-                col_l4.write(f"**Order Size**: {size['qty']} shares (~₹{size['rupees']:,.0f})")
+                col_l5.write(f"**Order Size**: {size['qty']} shares (~₹{size['rupees']:,.0f})")
             
             if r.get("warnings"):
                 st.warning(" · ".join(r["warnings"]))
-
-
-def _render_cross_market_mesh_panel(brief_obj, is_no_trade_banner: bool = False):
-    """
-    Renders Option C: Cross-Market Multi-Asset Mesh (India Core -> Wall Street Bridge).
-    Dynamically routes idle capital to US Equities via INDmoney when Indian market is in cash defense
-    or when zero Indian setups qualify.
-    """
-    mesh = brief_obj.get("cross_market_bridge")
-    if not mesh:
-        try:
-            from engine.us_engine import get_us_market_status, fetch_us_realtime_data, analyze_us_market
-            us_stat = get_us_market_status()
-            us_data = fetch_us_realtime_data()
-            us_res = analyze_us_market(us_data)
-            mesh = {
-                "active": True,
-                "us_status": us_stat,
-                "macro": us_res.get("macro", {}),
-                "top_candidates": [c for c in us_res.get("candidates", []) if "BUY" in c.get("verdict", "") or "HOLD" in c.get("verdict", "")][:6],
-            }
-        except Exception as e:
-            st.caption(f"US Mesh Bridge offline: {e}")
-            return
-
-    if not mesh:
-        return
-
-    us_stat = mesh.get("us_status") or {}
-    us_macro = mesh.get("macro") or {}
-    top_us = mesh.get("top_candidates") or []
-
-    if is_no_trade_banner:
-        st.markdown("---")
-        st.markdown("### 🌐 Option C: Cross-Market Multi-Asset Mesh (Wall Street Deployment)")
-        st.success(
-            "💡 **Zero-Cash-Drag Dynamic Routing:** Zero Indian breakout setups qualified today due to strict cash-defense risk management. "
-            "Under **Option C**, your idle capital is dynamically redirected to **Wall Street (US Equities Alpha via INDmoney)** during the evening session (**07:00 PM – 01:30 AM IST**) "
-            "to capture global tech momentum with zero cash drag and zero liquidation risk!"
-        )
-
-    m_c1, m_c2, m_c3 = st.columns([2, 2, 1])
-    with m_c1:
-        st.metric("Wall Street Session (IST)", us_stat.get("badge", "Active"), help=us_stat.get("detail", ""))
-    with m_c2:
-        st.metric("Macro Regime Gate", us_macro.get("regime", "SELECTIVE_CHOP"), help=us_macro.get("verdict", ""))
-    with m_c3:
-        st.write("")
-        if st.button("🇺🇸 Open Full US Engine", type="primary", use_container_width=True, key=f"btn_mesh_switch_us_{'banner' if is_no_trade_banner else 'exp'}"):
-            st.session_state["active_module_selector"] = "🇺🇸 US Equities Alpha (INDmoney)"
-            st.rerun()
-
-    if top_us:
-        st.markdown("#### 🚀 Tonight's Top Wall Street Breakout Candidates (INDmoney)")
-        st.caption("Spot Delivery via INDmoney / DriveWealth • Fractional Shares Down to $1 • Uncapped 15 EMA Dynamic Trailing Runner")
-
-        us_disp_rows = []
-        for c in top_us:
-            us_disp_rows.append({
-                "Symbol": c.get("symbol"),
-                "Name": c.get("name"),
-                "Sector": c.get("sector"),
-                "Score (0-100)": c.get("score"),
-                "Verdict": c.get("verdict"),
-                "Price ($)": f"${c.get('price_usd', 0):,.2f}",
-                "Price (₹)": f"₹{c.get('price_inr', 0):,.2f}",
-                "Action Setup": c.get("action"),
-                "Stop Loss ($)": f"${c.get('stop_loss_usd', 0):,.2f} (-5.5%)",
-                "Target 1 ($)": f"${c.get('target1_usd', 0):,.2f} (+18%)",
-                "Target 2 ($)": f"${c.get('target2_usd', 0):,.2f} (+35%)",
-            })
-        st.dataframe(pd.DataFrame(us_disp_rows), use_container_width=True)
-
-        st.markdown("##### ⚡ 1-Click Simulated Paper Allocation (Test Without Real Cash)")
-        p_cols = st.columns(min(len(top_us[:3]), 3))
-        from engine.us_engine import execute_us_shadow_buy
-        for idx, c in enumerate(top_us[:3]):
-            with p_cols[idx]:
-                st.markdown(f"**{c['symbol']}** — {c['name']}")
-                st.caption(f"Price: ${c['price_usd']:.2f} (₹{c['price_inr']:.0f}) | Score: {c['score']}")
-                if st.button(f"🎯 Paper Buy $58 (≈₹5,000) in {c['symbol']}", key=f"quick_paper_us_{c['symbol']}_{'b' if is_no_trade_banner else 'e'}"):
-                    res = execute_us_shadow_buy(c['symbol'], c, allocated_usd=58.0)
-                    if res.get("ok"):
-                        st.success(f"✅ Paper order opened for {c['symbol']} ({res['shares']} shares @ ${c['price_usd']:.2f})!")
-                        st.rerun()
-                    else:
-                        st.warning(res.get("error", "Execution failed"))
 
 
 with tabs[0]:
@@ -607,40 +467,36 @@ with tabs[0]:
     no_trade_today = brief.get("no_trade_today", False)
     no_trade_reason = brief.get("no_trade_reason", "")
 
-    st.markdown("### ⚡ Top Short-Term Swing Buys (1 to 15 Days)")
-    st.caption("Highest-momentum NSE breakout candidates clearing technical momentum, news sentiment, and 2:1 Reward-to-Risk gates.")
+    st.markdown("### ⚡ Top Short-Term Swing Buys & Super-Movers (1 to 15 Days)")
+    st.caption("High-velocity NSE breakout candidates with institutional volume shocks (RVOL ≥ 1.6x), Stage-2 momentum, and 2:1+ Reward-to-Risk.")
 
     if sector_decoupled_active and picks:
-        st.info("⚡ **SELECTIVE SECTOR ALPHA ACTIVE (NIFTY < 50 SMA DECOUPLING)**\n\nBroad NIFTY 50 is trading below its 50-day SMA (broad index caution enforced), but the decoupled leaders below belong to thriving sectors in Stage-2 expansion with heavy institutional volume (RVOL ≥ 1.2x) and positive relative strength.")
-        with st.expander("💡 Beginner's Guide: How to Execute These Top Picks in Your Broker", expanded=True):
+        st.info("⚡ **SELECTIVE SECTOR ALPHA ACTIVE (NIFTY < 50 SMA DECOUPLING)**\n\nBroad NIFTY 50 is trading below its 50-day SMA, but the decoupled leaders below belong to thriving sectors in Stage-2 expansion with heavy institutional volume (RVOL ≥ 1.5x) and positive relative strength.")
+        with st.expander("💡 Execution Plan: How to Trade These Picks in Your Demat Account", expanded=True):
             st.markdown("""
 * **Delivery (CNC) Only**: Buy these shares under **Cash 'n Carry (CNC)** in Kotak Neo or your broker app. Never choose intraday (MIS) or leverage.
 * **GTT Stop-Loss Order**: Immediately place a **GTT Stop-Loss Order** at the exact planned stop price shown on the stock card.
-* **Profit Target**: When the stock rallies to the Target price (+10% to +15%), sell to book your profit!
-* **How Much to Buy**: Spread your money equally across the top 3-5 picks (20% max per stock). See **Tab 1 ('💼 Swing Capital & Sizing')** for exact share quantities.
+* **Two-Tier Exit Policy**:
+  * **Tranche 1 (50% of position)**: Book profit at Target 1 (+12% to +15%).
+  * **Tranche 2 (50% runner)**: Move stop to Breakeven (+1%). Let the runner ride toward +30% to +50% trailing the 10 EMA!
+* **Capital Sizing**: Spread capital equally across top 3-5 picks (max 20% per stock). See **Tab 1 ('💼 Swing Capital & Sizing')** for exact share quantities.
 """)
         _rec_table(picks, prefix="top_picks", show_filters=True)
-        with st.expander("🌐 Cross-Market Multi-Asset Mesh (Option C): Evening Wall Street Watchlist", expanded=False):
-            st.caption("Active barbell compounding: Review tonight's US Equities Alpha setups while holding Indian swing runners:")
-            _render_cross_market_mesh_panel(brief, is_no_trade_banner=False)
     elif regime_gate_active and not picks:
-        st.warning(f"🛡️ **MARKET REGIME GATE ACTIVE: NO NEW TRADES TODAY (CASH PRESERVATION)**\n\n{no_trade_reason}\n\n**Institutional Rule:** When NIFTY 50 trades below its 50-day moving average or market volatility spikes, the probability of long momentum breakouts drops sharply. Sitting in cash preserves capital for high-expectancy market regimes.")
-        _render_cross_market_mesh_panel(brief, is_no_trade_banner=True)
+        st.warning(f"🛡️ **MARKET REGIME GATE ACTIVE: NO NEW TRADES TODAY (CASH PRESERVATION)**\n\n{no_trade_reason}\n\n**Institutional Rule:** When NIFTY 50 trades below its 50-day moving average and no sector is decoupling with volume conviction, sitting in cash preserves capital for high-expectancy market regimes.")
     elif no_trade_today or not picks:
         st.info(f"ℹ️ **NO SWING TRADES TODAY**\n\n{no_trade_reason or 'No stocks in the universe cleared the strict 2:1 Reward-to-Risk and momentum criteria today. Cash preservation active.'}")
-        _render_cross_market_mesh_panel(brief, is_no_trade_banner=True)
     else:
-        with st.expander("💡 Beginner's Guide: How to Execute These Top Picks in Your Broker", expanded=True):
+        with st.expander("💡 Execution Plan: How to Trade These Picks in Your Demat Account", expanded=True):
             st.markdown("""
 * **Delivery (CNC) Only**: Buy these shares under **Cash 'n Carry (CNC)** in Kotak Neo or your broker app. Never choose intraday (MIS) or leverage.
 * **GTT Stop-Loss Order**: Immediately place a **GTT Stop-Loss Order** at the exact planned stop price shown on the stock card.
-* **Profit Target**: When the stock rallies to the Target price (+10% to +15%), sell to book your profit!
-* **How Much to Buy**: Spread your money equally across the top 3-5 picks (20% max per stock). See **Tab 1 ('💼 Swing Capital & Sizing')** for exact share quantities.
+* **Two-Tier Exit Policy**:
+  * **Tranche 1 (50% of position)**: Book profit at Target 1 (+12% to +15%).
+  * **Tranche 2 (50% runner)**: Move stop to Breakeven (+1%). Let the runner ride toward +30% to +50% trailing the 10 EMA!
+* **Capital Sizing**: Spread capital equally across top 3-5 picks (max 20% per stock). See **Tab 1 ('💼 Swing Capital & Sizing')** for exact share quantities.
 """)
         _rec_table(picks, prefix="top_picks", show_filters=True)
-        with st.expander("🌐 Cross-Market Multi-Asset Mesh (Option C): Evening Wall Street Watchlist", expanded=False):
-            st.caption("Active barbell compounding: Review tonight's US Equities Alpha setups while holding Indian swing runners:")
-            _render_cross_market_mesh_panel(brief, is_no_trade_banner=False)
         st.divider()
         st.subheader("⚡ 1-Click Backtest on Today's Top Picks")
         st.caption("Simulate how these exact AI swing picks would have performed historically with dynamic ATR stops and statutory costs.")
@@ -1182,44 +1038,23 @@ with tabs[2]:
         finally:
             conn.close()
 
-        from engine.us_engine import fetch_us_realtime_data, sync_us_paper_trades, USD_TO_INR_APPROX
-        us_cached_data = fetch_us_realtime_data()
-        us_summary = sync_us_paper_trades(us_cached_data)
-        us_open = us_summary.get("open_trades", [])
-
-        us_tot_invested_inr = sum(t.get("allocated_inr", 0.0) for t in us_open)
-        us_tot_pnl_inr = us_summary.get("tot_floating_pnl_inr", 0.0)
-        us_tot_pnl_usd = us_summary.get("tot_floating_pnl_usd", 0.0)
-
         in_tot_invested = sum(float(t.get("entry_price", 0)) * int(t.get("quantity", 1)) for t in open_trades)
         in_tot_pnl = sum(float(marks_map.get(t["id"], {}).get("unrealized_pnl", 0)) for t in open_trades)
+        in_tot_pnl_pct = (in_tot_pnl / (in_tot_invested + 1e-8)) * 100.0 if in_tot_invested > 0 else 0.0
 
-        comb_invested = in_tot_invested + us_tot_invested_inr
-        comb_pnl = in_tot_pnl + us_tot_pnl_inr
-        comb_pnl_pct = (comb_pnl / (comb_invested + 1e-8)) * 100.0 if comb_invested > 0 else 0.0
+        if st.button("🔄 Refresh Live Mark-to-Market (NSE)", type="primary", use_container_width=True, key="btn_refresh_mtm"):
+            with st.spinner("Fetching live NSE quotes and updating paper trades..."):
+                mark_to_market()
+                st.success("Updated paper trades with live market prices & trailing stops!")
+                st.rerun()
 
-        col_btn1, col_btn2 = st.columns([2, 2])
-        with col_btn1:
-            if st.button("🔄 Refresh Live Mark-to-Market (NSE)", type="primary", use_container_width=True, key="btn_refresh_mtm"):
-                with st.spinner("Fetching live NSE quotes and updating paper trades..."):
-                    mark_to_market()
-                    st.success("Updated paper trades with live market prices & trailing stops!")
-                    st.rerun()
-        with col_btn2:
-            if st.button("🇺🇸 Sync US Paper Portfolio Live (Wall St)", type="secondary", use_container_width=True, key="btn_sync_us_mtm"):
-                with st.spinner("Syncing US Equities live quotes from Wall Street..."):
-                    sync_us_paper_trades(fetch_us_realtime_data())
-                    st.success("Synced US paper trades!")
-                    st.rerun()
-
-        st.markdown("#### 🌐 Option C: Global Multi-Asset Cross-Market Dashboard")
-        st.caption("Consolidated forward validation across 🇮🇳 Indian High-Beta Midcaps (NSE) and 🇺🇸 US Growth Titans (INDmoney / DriveWealth):")
-
+        st.markdown("#### 📊 Forward Paper Trading Portfolio Summary")
         gc1, gc2, gc3, gc4 = st.columns(4)
-        gc1.metric("Total Deployed Capital", f"₹{comb_invested:,.0f}", help="Combined paper capital deployed across India and US")
-        gc2.metric("Total Floating P&L", f"₹{comb_pnl:+,.2f} ({comb_pnl_pct:+.2f}%)", help="Net floating P&L across all Indian and US paper positions")
-        gc3.metric("🇮🇳 Indian Paper", f"{len(open_trades)} Active", f"P&L: ₹{in_tot_pnl:+,.2f}")
-        gc4.metric("🇺🇸 US Paper", f"{len(us_open)} Active", f"P&L: ₹{us_tot_pnl_inr:+,.2f} (${us_tot_pnl_usd:+.2f})")
+        gc1.metric("Total Deployed Capital", f"₹{in_tot_invested:,.0f}", help="Total paper capital deployed in active swing positions")
+        gc2.metric("Total Floating P&L", f"₹{in_tot_pnl:+,.2f} ({in_tot_pnl_pct:+.2f}%)", help="Net floating P&L across all active paper positions")
+        gc3.metric("Active Positions", f"{len(open_trades)}", f"Max: {RISK_CONFIG.get('max_open_positions', 5)}")
+        win_rate = stats.get("win_rate", 0.0) if stats else 0.0
+        gc4.metric("Forward Win Rate", f"{win_rate:.1f}%", f"{stats.get('closed_trades', 0)} closed" if stats else "0 closed")
 
         pw = brief.get("paper_week") or {}
         metrics = pw.get("metrics") or {}
@@ -1240,7 +1075,7 @@ with tabs[2]:
                 if stop_px >= entry_px and entry_px > 0:
                     stop_str = f"₹{stop_px:,.2f} 🛡️ (Breakeven)" if abs(stop_px - entry_px) < 1.0 else f"₹{stop_px:,.2f} 🔒 (Profit Locked)"
                 else:
-                    stop_str = f"₹{stop_px:,.2f} (-7%)"
+                    stop_str = f"₹{stop_px:,.2f} (-5%)"
 
                 df_open.append({
                     "Ticker": t.get("ticker"),
@@ -1257,28 +1092,6 @@ with tabs[2]:
             st.dataframe(pd.DataFrame(df_open), use_container_width=True)
         else:
             st.info("No active open Indian paper trades right now. Click 'Run analysis' with 'Paper week' checked to open trades on current recommendations!")
-
-        if us_open:
-            st.markdown("#### 🇺🇸 Active US Open Paper Trades (INDmoney / DriveWealth)")
-            st.caption("Spot Delivery • Fractional Shares • Uncapped 15 EMA Dynamic Trailing Runner")
-            df_us_open = []
-            for ut in us_open:
-                df_us_open.append({
-                    "Symbol": ut.get("symbol"),
-                    "Name": ut.get("name"),
-                    "Sector": ut.get("sector"),
-                    "Shares": f"{ut.get('shares', 0):.4f}",
-                    "Allocated ($)": f"${ut.get('allocated_usd', 0):,.2f}",
-                    "Allocated (₹)": f"₹{ut.get('allocated_inr', 0):,.2f}",
-                    "Entry ($)": f"${ut.get('entry_price_usd', 0):,.2f}",
-                    "Live Price ($)": f"${ut.get('current_price_usd', 0):,.2f}",
-                    "Floating P&L ($)": f"${ut.get('unrealized_pnl_usd', 0):+,.2f}",
-                    "Floating P&L (₹)": f"₹{ut.get('unrealized_pnl_inr', 0):+,.2f}",
-                    "P&L (%)": f"{ut.get('unrealized_pnl_pct', 0):+.2f}%",
-                    "Stop Loss ($)": f"${ut.get('stop_loss_usd', 0):,.2f}",
-                    "Target 1 ($)": f"${ut.get('target_price_usd', 0):,.2f}",
-                })
-            st.dataframe(pd.DataFrame(df_us_open), use_container_width=True)
 
         if closed_trades:
             st.markdown("#### 🏁 Completed / Closed Paper Trades This Week")
@@ -1316,7 +1129,7 @@ with tabs[4]:
     st.caption("Continuous daily health-check of all stocks held in your Demat account. Diagnoses what to exit, trim, hold, or add.")
     with st.expander("💡 Beginner's Guide: How to Manage Your Open Holdings", expanded=False):
         st.markdown("""
-* 🔴 **EXITS (Sell Now)**: The stock dropped to its stop-loss or triggered severe risk. Sell immediately under Delivery (CNC) to protect your capital.
+* 🔴 **EXITS (Sell Now)**: The stock dropped to its stop-loss, reached the **1-Month Maximum Holding Limit (21 market sessions)**, or triggered severe risk. Sell immediately under Delivery (CNC) to protect your capital.
 * 🟡 **TRIMS (Lock In Profits)**: The stock rallied strongly (+15%+). Sell a portion of your shares to lock real cash profit into your account.
 * ⏸️ **HOLD (Do Nothing)**: The stock is healthy, in an uptrend, and compounding. Let your winners run!
 * 🟢 **ADDS (Accumulate)**: High-conviction winner that you can safely add to within your 20% position limit.

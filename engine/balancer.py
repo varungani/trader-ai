@@ -19,6 +19,7 @@ from config import (
     DEFAULT_ALLOCATION_PROFILE,
     RISK_CONFIG,
     TICKER_TO_SECTOR,
+    MIN_DELIVERY_TICKET_RUPEES,
 )
 
 logger = logging.getLogger(__name__)
@@ -150,8 +151,12 @@ def position_size(
     qty = max(0, min(qty_by_risk, qty_by_cap))
     rupees = round(qty * price, 2)
     risk_rupees = round(qty * per_share_risk, 2)
-    binding = "CAPITAL_CAP (20%)" if qty_by_cap <= qty_by_risk else "RISK_BUDGET (2%)"
+    binding = f"CAPITAL_CAP ({int(RISK_CONFIG['max_position_pct']*100)}%)" if qty_by_cap <= qty_by_risk else f"RISK_BUDGET ({int(RISK_CONFIG['risk_per_trade_pct']*100)}%)"
     planned_risk_pct = round((risk_rupees / capital) * 100, 2) if capital else 0.0
+
+    below_min_ticket = bool(0 < rupees < MIN_DELIVERY_TICKET_RUPEES and capital >= MIN_DELIVERY_TICKET_RUPEES)
+    if below_min_ticket:
+        binding += f" | WARNING: Size < ₹{MIN_DELIVERY_TICKET_RUPEES:,.0f} (DP fee friction > 0.45%)"
 
     return {
         "qty": qty,
@@ -160,6 +165,7 @@ def position_size(
         "weight_pct": round(rupees / capital * 100, 2) if capital else 0.0,
         "binding_constraint": binding,
         "planned_risk_pct": planned_risk_pct,
+        "below_min_ticket": below_min_ticket,
     }
 
 

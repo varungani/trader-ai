@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import RISK_CONFIG, TIMEFRAMES
+from config import RISK_CONFIG, TIMEFRAMES, MIN_DELIVERY_TICKET_RUPEES
 from data.db import get_connection, save_backtest_result
 from data.market_data import fetch_stock_history
 from analysis.technical import compute_technical_score
@@ -64,13 +64,13 @@ def run_simple_backtest(
     trades = []
     daily_equity = []
     
-    sl_pct = stop_loss_pct if stop_loss_pct is not None else RISK_CONFIG.get("default_stop_loss_pct", 0.05)
-    tp_pct = target_pct if target_pct is not None else RISK_CONFIG.get("default_target_pct", 0.12)
+    sl_pct = stop_loss_pct if stop_loss_pct is not None else RISK_CONFIG.get("default_stop_loss_pct", 0.07)
+    tp_pct = target_pct if target_pct is not None else RISK_CONFIG.get("default_target_pct", 0.20)
     buy_score_min = min_score_to_buy if min_score_to_buy is not None else RISK_CONFIG.get("min_score_to_buy", 65)
     if max_position_pct is not None:
         max_pos_pct = max_position_pct
     else:
-        max_pos_pct = RISK_CONFIG.get("max_position_pct", 0.20)
+        max_pos_pct = RISK_CONFIG.get("max_position_pct", 0.25)
     
     # Download data for all tickers
     data_by_ticker = {}
@@ -88,9 +88,54 @@ def run_simple_backtest(
     )
     
     open_positions = {}  # ticker -> {entry_price, qty, stop_loss, target, entry_date, peak_price, atr, days_held}
+    pending_buys = []    # list of tuples: (sym, alloc, actual_sl_pct, actual_tp_pct, atr_est)
+    SLIPPAGE_PCT = 0.002 # Realistic 0.20% open execution slippage
     
     for date_str in all_dates:
-        # Check exits first
+        # Step 1: Execute pending buy orders from yesterday at today's OPEN + slippage (Zero Lookahead!)
+        max_open = RISK_CONFIG.get("max_open_positions", 5)
+        if pending_buys:
+            for item in pending_buys:
+                sym, alloc, actual_sl_pct, actual_tp_pct, atr_est = item
+                if sym in open_positions:
+                    continue
+                if len(open_positions) >= max_open:
+                    break
+                df = data_by_ticker.get(sym)
+                if df is None:
+                    continue
+                day_rows = df[df.index.strftime("%Y-%m-%d") == date_str]
+                if day_rows.empty:
+                    continue
+                today_open = float(day_rows["Open"].iloc[0]) if "Open" in day_rows else float(day_rows["Close"].iloc[0])
+                if today_open <= 0 or math.isnan(today_open):
+                    continue
+                
+                # Realistic open fill with 0.20% slippage
+                fill_px = round(today_open * (1.0 + SLIPPAGE_PCT), 2)
+                ticket_floor = min(cash, MIN_DELIVERY_TICKET_RUPEES)
+                trade_alloc = max(alloc, ticket_floor)
+                trade_alloc = min(cash, trade_alloc)
+                qty = int(trade_alloc // fill_px)
+                cost = qty * fill_px
+                if qty > 0 and cash >= cost:
+                    cash -= cost
+                    stop_px = round(fill_px * (1 - actual_sl_pct), 2)
+                    target_px = round(fill_px * (1 + actual_tp_pct), 2)
+                    open_positions[sym] = {
+                        "entry_price": fill_px,
+                        "qty": qty,
+                        "initial_stop": stop_px,
+                        "stop_loss": stop_px,
+                        "target": target_px,
+                        "entry_date": date_str,
+                        "peak_price": fill_px,
+                        "atr": atr_est,
+                        "days_held": 0,
+                    }
+            pending_buys = []
+
+        # Step 2: Check exits on active positions
         to_close = []
         for sym, pos in open_positions.items():
             df = data_by_ticker.get(sym)
@@ -118,30 +163,29 @@ def run_simple_backtest(
             exit_reason = None
             exit_px = close
             
-            # Priority 1: Stop-loss / gap-down hit
-            if low <= pos["stop_loss"]:
+            # Priority 1: Stop-loss / gap-down hit (Daily close basis to avoid intraday wick sweep)
+            if close <= pos["stop_loss"] or low <= (pos["stop_loss"] * 0.96):
                 if pos["stop_loss"] > pos["entry_price"]:
                     exit_reason = "TRAILING_STOP"
                 elif pos["stop_loss"] == pos["entry_price"]:
                     exit_reason = "BREAKEVEN_STOP"
                 else:
                     exit_reason = "STOP_LOSS"
-                # Realistic gap-down fill: min of stop, low, or open
-                exit_px = min(pos["stop_loss"], open_px) if open_px < pos["stop_loss"] else pos["stop_loss"]
+                exit_px = close if close <= pos["stop_loss"] else low
             # Priority 2: Target hit
             elif high >= pos["target"]:
                 if allow_runners and not pos.get("is_runner"):
-                    # Uncapped Runner: Lock in +8% minimum profit, extend target to +60%, and trail with ATR
+                    # Uncapped Runner: Lock in +8% minimum profit, extend target to +50%, and trail with ATR
                     pos["is_runner"] = True
                     pos["stop_loss"] = max(pos["stop_loss"], round(pos["entry_price"] * 1.08, 2))
-                    pos["target"] = round(pos["entry_price"] * 1.60, 2)
+                    pos["target"] = round(pos["entry_price"] * 1.50, 2)
                     continue
                 else:
-                    exit_reason = "RUNNER_TARGET (+60%)" if pos.get("is_runner") else "TARGET"
+                    exit_reason = "RUNNER_TARGET (+50%)" if pos.get("is_runner") else "TARGET"
                     exit_px = pos["target"]
-            # Priority 3: Time stop (20 trading sessions max hold, unless actively running in substantial profit)
-            elif pos["days_held"] >= 20 and not (pos.get("is_runner") and close > pos["entry_price"] * 1.08):
-                exit_reason = "TIME_STOP (20 Sessions)"
+            # Priority 3: Time stop (Strict 1-Month / 21 Sessions Maximum Holding Period)
+            elif pos["days_held"] >= 21:
+                exit_reason = f"MAX_1_MONTH_EXPIRED (21 Sessions, {round(((close - pos['entry_price'])/pos['entry_price'])*100, 1):+.1f}%)"
                 exit_px = close
                 
             if exit_reason:
@@ -178,60 +222,39 @@ def run_simple_backtest(
         for sym in to_close:
             del open_positions[sym]
             
-        # Check potential entries
-        for sym, df in data_by_ticker.items():
-            if sym in open_positions:
-                continue
-            if len(open_positions) >= RISK_CONFIG.get("max_open_positions", 5):
-                break
-                
-            sub_df = df[df.index.strftime("%Y-%m-%d") <= date_str]
-            if len(sub_df) < 50:
-                continue
-                
-            close_px = float(sub_df["Close"].iloc[-1])
-            if math.isnan(close_px) or close_px <= 0:
-                continue
-
-            # Trend filter: only take entries aligned with intermediate 50-day trend
-            if use_trend_filter:
-                sma_50 = sub_df["Close"].rolling(50).mean().iloc[-1]
-                if not math.isnan(sma_50) and close_px < sma_50:
+        # Step 3: EOD Scan for new signals (queued for execution tomorrow at Open)
+        if len(open_positions) < max_open:
+            candidates = []
+            for sym, df in data_by_ticker.items():
+                if sym in open_positions or any(sym == p[0] for p in pending_buys):
                     continue
-
-            # Technical score evaluation
-            tech = compute_technical_score(sub_df.tail(100), ticker=sym)
-            score = float(tech.get("score", 50))
-            
-            if score >= buy_score_min:
-                base_cap = portfolio_value if (portfolio_value and not math.isnan(portfolio_value)) else cash
-                alloc = min(cash, base_cap * max_pos_pct)
-                if math.isnan(alloc) or alloc <= 0:
+                sub_df = df[df.index.strftime("%Y-%m-%d") <= date_str]
+                if len(sub_df) < 50:
                     continue
-                qty = int(alloc // close_px)
-                if qty > 0 and cash >= qty * close_px:
-                    # Dynamic ATR stop calculation
+                close_px = float(sub_df["Close"].iloc[-1])
+                if math.isnan(close_px) or close_px <= 0:
+                    continue
+                if use_trend_filter:
+                    sma_50 = sub_df["Close"].rolling(50).mean().iloc[-1]
+                    if not math.isnan(sma_50) and close_px < sma_50:
+                        continue
+                tech = compute_technical_score(sub_df.tail(100), ticker=sym)
+                score = float(tech.get("score", 50))
+                if score >= buy_score_min:
                     highs = sub_df["High"].tail(14)
                     lows = sub_df["Low"].tail(14)
                     atr_est = float((highs - lows).mean()) if len(highs) >= 14 else (close_px * sl_pct)
                     atr_pct = (atr_est / close_px) * 100.0 if close_px > 0 else 5.0
                     actual_sl_pct = min(0.06, max(0.035, (atr_pct / 100.0) * 2.0))
                     actual_tp_pct = max(tp_pct, actual_sl_pct * 2.0)
-
-                    cost = qty * close_px
-                    cash -= cost
-                    stop_px = round(close_px * (1 - actual_sl_pct), 2)
-                    open_positions[sym] = {
-                        "entry_price": close_px,
-                        "qty": qty,
-                        "initial_stop": stop_px,
-                        "stop_loss": stop_px,
-                        "target": round(close_px * (1 + actual_tp_pct), 2),
-                        "entry_date": date_str,
-                        "peak_price": close_px,
-                        "atr": atr_est,
-                        "days_held": 0,
-                    }
+                    base_cap = portfolio_value if (portfolio_value and not math.isnan(portfolio_value)) else cash
+                    empty_slots = max_open - len(open_positions)
+                    alloc = min(cash / max(1, empty_slots), base_cap * max_pos_pct)
+                    candidates.append((sym, score, alloc, actual_sl_pct, actual_tp_pct, atr_est))
+            
+            candidates.sort(key=lambda x: x[1], reverse=True)
+            for c in candidates[:max_open - len(open_positions)]:
+                pending_buys.append((c[0], c[2], c[3], c[4], c[5]))
                     
         # Daily portfolio mark-to-market
         holdings_value = 0.0
@@ -335,6 +358,7 @@ def run_simple_backtest(
             "wins_count": len(wins),
             "sample_trades": trades[-10:],
         },
+        "all_trades": trades,
     }
     
     # Save to SQLite

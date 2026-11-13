@@ -16,17 +16,17 @@ from typing import Optional, Literal
 
 logger = logging.getLogger(__name__)
 
-POLICY_VERSION = "2.5.0-monster-runner"
+POLICY_VERSION = "3.0.0-apex-super-mover"
 
-# Pure Swing & Performing Runner Constraints
+# Pure Swing & Performing Runner Constraints (Max 1 Month Holding Period)
 DEFAULT_MIN_REWARD_RISK = 2.0  # Minimum 2:1 Reward-to-Risk ratio required for BUY
-HARD_STOP_LOSS_PCT = 6.0       # Hard stop-loss ceiling (6.0% maximum planned stop risk)
-DEFAULT_TARGET_PCT = 15.0      # High-velocity base swing target (+15.0% to +18.0%)
-BASE_HOLDING_DAYS = 15         # Standard swing trading window (15 market sessions)
-MAX_RUNNER_HOLDING_DAYS = 30   # Performing runner extension (30 market sessions / 1 month)
+HARD_STOP_LOSS_PCT = 7.0       # Hard stop-loss ceiling (7.0% Daily Close planned stop risk)
+DEFAULT_TARGET_PCT = 20.0      # High-velocity monster swing target (+20.0%)
+BASE_HOLDING_DAYS = 21         # Standard swing trading window (Strict 1-Month / 21 sessions)
+MAX_RUNNER_HOLDING_DAYS = 21   # Strict 1-Month Maximum Holding Ceiling (21 market sessions / ~30 calendar days)
 FAST_STAGNATION_DAYS = 8       # Fast capital recycling if stock flat (+/- 1.5% in 8 sessions)
-MIN_ATR_STOP_PCT = 3.5         # Minimum dynamic stop (tight 3.5% on calm large caps)
-MAX_ATR_STOP_PCT = 6.0         # Maximum dynamic stop (capped at 6.0%)
+MIN_ATR_STOP_PCT = 4.5         # Minimum dynamic stop (tight 4.5% on calm large caps)
+MAX_ATR_STOP_PCT = 7.0         # Maximum dynamic stop (capped at 7.0%)
 
 
 @dataclass
@@ -68,15 +68,15 @@ def calculate_trade_levels(
     # Calculate stop loss percentage based on volatility
     if atr and atr > 0:
         atr_pct = (atr / entry_px) * 100.0
-        # Dynamic ATR stop: 2.0 * ATR bounded between 3.5% and 6.0%
-        stop_pct = round(min(MAX_ATR_STOP_PCT, max(MIN_ATR_STOP_PCT, atr_pct * 2.0)), 2)
+        # Dynamic ATR stop: 1.8 * ATR bounded between 4.5% and 7.0%
+        stop_pct = round(min(MAX_ATR_STOP_PCT, max(MIN_ATR_STOP_PCT, atr_pct * 1.8)), 2)
     else:
         # Default standard delivery planned stop
-        stop_pct = 5.0
+        stop_pct = 7.0
 
-    # Target percentage: Must guarantee at least 2:1 Reward-to-Risk (aiming for 3:1 on monster runners)
+    # Target percentage: Aiming for 20.0% explosive 1-month targets
     min_required_target = round(stop_pct * (2.5 if is_monster_runner else DEFAULT_MIN_REWARD_RISK), 2)
-    target_pct = max(preferred_target_pct if not is_monster_runner else 15.0, min_required_target)
+    target_pct = max(preferred_target_pct if not is_monster_runner else 20.0, max(20.0, min_required_target))
 
     stop_loss_price = round(entry_px * (1.0 - (stop_pct / 100.0)), 2)
     target_price = round(entry_px * (1.0 + (target_pct / 100.0)), 2)
@@ -139,15 +139,14 @@ def evaluate_trade_exit(
     partial_booked: bool = False,
     allow_runner: bool = False,
     is_runner: bool = False,
+    use_close_for_stops: bool = True,
 ) -> TradeResolution:
     """
     Unified Trade Exit Evaluation with Dynamic Exits & Uncapped Runner Mode:
-    1. Gap-Down / Stop-Loss Protection (Fill at market if gapped down)
-    2. Dynamic Breakeven & ATR Trailing Stop (Ratcheted up after +1R gain)
-    3. Target Hit:
-       - If allow_runner is True: at T1, secure stop at profit (+8%) and let runner ride toward +50%+ with trailing stop!
-       - If allow_runner is False: take profit at target price.
-    4. Time Stop Expiry (Session 15 exit if neither target nor stop reached, unless runner mode is active and thriving)
+    1. Daily-Close Stop-Loss Protection (Prevents intraday wick sweeps in Cash CNC delivery)
+    2. Dynamic Breakeven & ATR Trailing Stop on verified runners
+    3. Target Hit (+20% impulse moves)
+    4. Strict 1-Month Window Expiry (Session 21 / 1 Month Maximum)
     """
     entry_px = float(entry_price or 0.0)
     cur_px = float(current_price or 0.0)
@@ -161,10 +160,7 @@ def evaluate_trade_exit(
     best_price = high_price if high_price is not None else cur_px
     peak_px = max(peak_price or entry_px, best_price)
 
-    # Dynamic Stop Management:
-    # IMPORTANT: Empirical testing proved that ratcheting stops to breakeven at +1R
-    # or trailing prematurely with 1.5 ATR chokes winning trades at +0.55R (only 1.1% of trades
-    # ever reached T1). Positions MUST be given breathing room to reach their 2:1 target.
+    # Dynamic Stop Management
     initial_risk = entry_px - base_sl_px
     effective_stop = base_sl_px
 
@@ -178,9 +174,21 @@ def evaluate_trade_exit(
             effective_stop = max(effective_stop, round(peak_px - (2.0 * atr), 2))
 
     # Priority 1: Stop-Loss (Protection)
-    if worst_price <= effective_stop:
-        # Realistic gap-down fill: min(stop, worst_price)
-        exit_fill = min(effective_stop, worst_price)
+    stop_triggered = False
+    exit_fill = cur_px
+    if use_close_for_stops:
+        if cur_px <= effective_stop:
+            stop_triggered = True
+            exit_fill = cur_px
+        elif worst_price <= (effective_stop * 0.96): # Catastrophic intraday crash protection
+            stop_triggered = True
+            exit_fill = worst_price
+    else:
+        if worst_price <= effective_stop:
+            stop_triggered = True
+            exit_fill = min(effective_stop, worst_price)
+
+    if stop_triggered:
         pnl = round(((exit_fill - entry_px) / entry_px) * 100.0, 2)
         if active_runner:
             reason = f"RUNNER_TRAILING_STOP_HIT (+{pnl}%)"
@@ -230,11 +238,15 @@ def evaluate_trade_exit(
             is_runner=False,
         )
 
-    # Priority 4: Dynamic Time Expiry (15 Sessions baseline, extended up to 30 Sessions / 1 Month for performing runners)
+    # Priority 4: Dynamic Time Expiry (15 Sessions baseline, capped strictly at 21 Sessions / 1 Month maximum)
     is_performing = bool(gain_pct >= 5.0 or (active_runner and cur_px > entry_px * 1.05))
     max_days = MAX_RUNNER_HOLDING_DAYS if is_performing else BASE_HOLDING_DAYS
     if days_held >= max_days:
-        reason_label = f"RUNNER_1_MONTH_EXPIRED ({MAX_RUNNER_HOLDING_DAYS} Sessions, {gain_pct:+.2f}%)" if is_performing else f"SWING_TIME_EXPIRED ({BASE_HOLDING_DAYS} Sessions)"
+        reason_label = (
+            f"MAX_1_MONTH_HOLD_EXPIRED ({MAX_RUNNER_HOLDING_DAYS} Sessions / 1 Month, {gain_pct:+.2f}%)"
+            if is_performing
+            else f"SWING_TIME_EXPIRED ({BASE_HOLDING_DAYS} Sessions, {gain_pct:+.2f}%)"
+        )
         return TradeResolution(
             is_closed=True,
             exit_reason=reason_label,

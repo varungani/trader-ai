@@ -76,6 +76,23 @@ def score_stock(
 
         macro_score = compute_macro_score()
 
+    # ─── DYNAMIC WEIGHT REDISTRIBUTION (Prevents Neutral Score Compression) ───
+    # If auxiliary data streams (news NLP / specific event alerts) have NO_DATA,
+    # we do NOT assign a lukewarm 50 penalty anchor that compresses 80+ breakouts.
+    # We dynamically reallocate their weights to Technical Momentum (ground truth).
+    has_sentiment = bool(sentiment.get("label") != "NO_DATA" and sentiment.get("total_articles", 0) > 0)
+    has_event_risk = bool(event_risk.get("event_matches") or event_risk.get("has_event_data"))
+
+    active_weights = dict(weights)
+    if not has_sentiment and "sentiment" in active_weights:
+        sent_w = active_weights.pop("sentiment")
+        active_weights["technical"] = active_weights.get("technical", 0.45) + sent_w
+
+    if not has_event_risk and "event_risk" in active_weights:
+        ev_w = active_weights.pop("event_risk")
+        active_weights["technical"] = active_weights.get("technical", 0.45) + (ev_w * 0.70)
+        active_weights["fundamental"] = active_weights.get("fundamental", 0.10) + (ev_w * 0.30)
+
     components = {
         "technical": float(technical.get("score", 50)),
         "fundamental": float(fundamental.get("score", 50)),
@@ -86,17 +103,24 @@ def score_stock(
 
     final = 0.0
     used_w = 0.0
-    for key, w in weights.items():
+    for key, w in active_weights.items():
         if key in components:
             final += components[key] * w
             used_w += w
     final_score = final / used_w if used_w else 50.0
 
-    # Sector Relative Strength (RS) Bonus / Penalty
+    # Sector Relative Strength (RS) Bonus / Penalty (with Decoupled Alpha Bypass)
     from analysis.sector_rs import compute_sector_rs
     effective_sector = sector or info.get("sector", "")
     sector_rs_data = compute_sector_rs(effective_sector)
     sector_rs_bonus = float(sector_rs_data.get("bonus_points") or 0.0)
+
+    tech_score = float(technical.get("score", 50))
+    is_ignition = bool((technical.get("indicators") or {}).get("ignition", {}).get("is_ignition"))
+    if sector_rs_bonus < 0 and (is_ignition or tech_score >= 72.0):
+        # Do not penalize decoupled high-momentum leaders for broad sector drag
+        sector_rs_bonus = 0.0
+
     final_score = max(0.0, min(100.0, final_score + sector_rs_bonus))
 
     # Levels

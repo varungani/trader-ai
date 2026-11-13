@@ -239,16 +239,16 @@ def mark_to_market() -> dict:
                     closed.append({"ticker": ticker, "reason": "MOMENTUM_STAGNATION_EXIT", "price": px})
                     continue
 
-                # Lever 5: 15-Day Base vs 30-Day Performing Runner Extension (Up to 1 Month)
-                # If >= 15 sessions: If trade is performing (gain >= +5%), grant 30-session runway!
-                # If trade is flat/losing (gain < +5%), close on Session 15.
+                # Lever 5: 15-Session Base vs 21-Session Strict 1-Month Window
+                # If trade is flat/losing at Session 15, close it to free capital.
+                # If trade is performing, allow running up to Session 21 (1 Month hard ceiling).
                 if sessions_held >= 15 and gain_pct < 5.0:
                     close_paper_trade(conn, t["id"], px, exit_reason="SWING_TIME_EXPIRED (15 Sessions)")
                     closed.append({"ticker": ticker, "reason": "SWING_TIME_EXPIRED", "price": px})
                     continue
-                elif sessions_held >= 30:
-                    close_paper_trade(conn, t["id"], px, exit_reason="RUNNER_1_MONTH_EXPIRED (30 Sessions)")
-                    closed.append({"ticker": ticker, "reason": "RUNNER_1_MONTH_EXPIRED", "price": px})
+                elif sessions_held >= 21:
+                    close_paper_trade(conn, t["id"], px, exit_reason=f"MAX_1_MONTH_EXPIRED (21 Sessions, {gain_pct:+.1f}%)")
+                    closed.append({"ticker": ticker, "reason": "MAX_1_MONTH_EXPIRED", "price": px})
                     continue
 
             if stop and px <= float(stop):

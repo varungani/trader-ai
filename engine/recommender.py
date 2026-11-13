@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from datetime import datetime
 from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -53,48 +54,66 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
         vcp_ratio = float(vcp_info.get("vcp_ratio") or 1.0)
         sweet_info = tech_indicators.get("sweet_spot_rebound") or {}
         is_sweet_spot = bool(sweet_info.get("is_sweet_spot"))
+        ign_info = tech_indicators.get("ignition") or {}
+        is_ignition = bool(ign_info.get("is_ignition") or ema_info.get("is_ignition") or (vol_ratio >= 1.6 and dev_pct >= 2.0))
 
         # Determine Winning Pattern
         setup_pattern = "NONE"
-        if vcp_info.get("is_contracted") and vol_ratio >= 1.2:
+        if is_ignition and vcp_info.get("is_contracted"):
+            setup_pattern = "SUPER_MOVER_COIL_IGNITION"
+        elif is_ignition:
+            setup_pattern = "INSTITUTIONAL_IGNITION"
+        elif vcp_info.get("is_contracted") and vol_ratio >= 1.2:
             setup_pattern = "VCP_BREAKOUT"
         elif is_sweet_spot:
             setup_pattern = "20EMA_SWEET_SPOT"
 
         if not holding:
-            # Gate 1: Strict Zero-Tolerance on Sector Drag
-            if sector_status in ("LAGGING", "SEVERE_DRAG"):
+            # Check for Alpha Decoupling (Stock breaking out despite broad sector/market drag)
+            is_alpha_decoupled = bool(is_ignition or (vol_ratio >= 1.5 and final >= 72) or final >= 78)
+
+            # Gate 1: Sector Drag Gate (with Alpha Decoupling Exception for explosive movers)
+            if sector_status in ("LAGGING", "SEVERE_DRAG") and not is_alpha_decoupled:
                 action = "HOLD"
                 confidence = "LOW"
-                rationale = f"SECTOR_DRAG: Sector {sector_name} is lagging Nifty ({sector_rs_pct:+.2f}% RS). Buying into an underperforming sector has a >65% failure rate; candidate gated to HOLD."
+                rationale = f"SECTOR_DRAG: Sector {sector_name} is lagging Nifty ({sector_rs_pct:+.2f}% RS). Candidate gated to HOLD to prevent fighting sectoral outflows."
             
             # Gate 2: Minervini Stage 2 Trend Template (Must be above long-term moving averages)
-            elif sma_info.get("signal") == "BEARISH":
+            elif sma_info.get("signal") == "BEARISH" and not is_ignition:
                 action = "HOLD"
                 confidence = "LOW"
                 rationale = "NOT_STAGE_2: Stock is below major moving averages (50 SMA < 200 SMA / Stage 3-4 distribution). Prohibits buying against long-term trend."
 
-            # Gate 3: Sweet-Spot Entry Corridor (Must be within -2.5% to +6.0% of 20 EMA)
-            elif dev_pct > 6.0:
+            # Gate 3: Sweet-Spot Corridor & Institutional Ignition / Breakout Exception
+            elif dev_pct > 18.0:
                 action = "HOLD"
                 confidence = "LOW"
-                rationale = f"WAIT_FOR_PULLBACK: Stock is +{dev_pct:.1f}% stretched above its 20 EMA (over-extended > 6.0%). High risk of intraday mean-reversion. Wait for consolidation retest near support."
-            elif dev_pct < -2.5:
+                rationale = f"PARABOLIC_EXHAUSTION: Stock is +{dev_pct:.1f}% above 20 EMA (extreme exhaustion zone > 18.0%). Risk of sharp shakeout; wait for base retest."
+            elif dev_pct > 8.0 and not is_ignition and final < 80:
+                action = "HOLD"
+                confidence = "LOW"
+                rationale = f"WAIT_FOR_PULLBACK: Stock is +{dev_pct:.1f}% stretched above its 20 EMA without institutional volume. Wait for consolidation near support."
+            elif dev_pct > 4.5 and not is_ignition and final < 75:
+                action = "HOLD"
+                confidence = "LOW"
+                rationale = f"WAIT_FOR_PULLBACK: Stock is +{dev_pct:.1f}% stretched above its 20 EMA without institutional ignition volume. Wait for consolidation near support."
+            elif dev_pct < -3.5 and not is_ignition:
                 action = "HOLD"
                 confidence = "LOW"
                 rationale = f"BREAKDOWN_BELOW_EMA: Stock is -{abs(dev_pct):.1f}% below dynamic 20 EMA support line."
 
             # Gate 4: Institutional Volume Confirmation (Must not be dry volume)
-            elif vol_ratio < 1.05 and final < 78:
+            elif vol_ratio < 1.05 and final < 75:
                 action = "HOLD"
                 confidence = "LOW"
                 rationale = f"LOW_INSTITUTIONAL_VOLUME: Volume ratio is only {vol_ratio:.2f}x (< 1.05x 20-day average). Lacks institutional accumulation; high risk of fakeout."
 
             else:
-                action = "STRONG_BUY" if final >= 78 else "BUY"
-                confidence = "HIGH" if final >= 75 else "MEDIUM"
+                action = "STRONG_BUY" if (final >= 78 or is_ignition) else "BUY"
+                confidence = "HIGH" if (final >= 75 or is_ignition) else "MEDIUM"
                 pattern_prefix = f"[{setup_pattern}] " if setup_pattern != "NONE" else ""
-                rationale = f"{pattern_prefix}High-Conviction Fortress BUY: Multi-factor score ({final:.1f}) cleared all 5 institutional edge gates (Stage 2 trend, sector tailwind {sector_name} {sector_rs_pct:+.1f}%, volume expansion)."
+                decouple_tag = " (ALPHA DECOUPLED)" if (sector_status in ("LAGGING", "SEVERE_DRAG") and is_alpha_decoupled) else ""
+                rationale = f"{pattern_prefix}High-Conviction Super-Mover BUY{decouple_tag}: Multi-factor score ({final:.1f}) cleared institutional edge gates with confirmed volume conviction ({vol_ratio:.2f}x RVOL)."
         else:
             action = "STRONG_BUY" if final >= 78 else "BUY"
             confidence = "HIGH" if final >= 75 else "MEDIUM"
@@ -113,7 +132,7 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
         confidence = "MEDIUM"
         rationale = "Score inside hold band — no edge."
 
-    # Portfolio-aware adjustments
+    # Portfolio-aware adjustments (with Strict 1-Month Maximum Holding Rule)
     portfolio_note = ""
     if holding:
         pnl_pct = holding.get("pnl_percent")
@@ -124,7 +143,24 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
         else:
             pnl_pct = float(pnl_pct)
         qty = int(holding.get("quantity") or 0)
-        if pnl_pct <= -6.0:
+
+        # Calculate calendar days held
+        purchase_date_str = holding.get("purchase_date")
+        days_held_cal = 0
+        if purchase_date_str:
+            try:
+                dt = datetime.strptime(str(purchase_date_str).split()[0], "%Y-%m-%d")
+                days_held_cal = (datetime.now() - dt).days
+            except Exception:
+                pass
+
+        # Priority 1: Strict 1-Month Max Holding Window (30 Calendar Days / 21 Sessions Ceiling)
+        if days_held_cal >= 30:
+            action = "SELL"
+            confidence = "HIGH"
+            rationale = f"MAX_1_MONTH_HOLD_REACHED: Position held for {days_held_cal} calendar days (>= 1 month). Pure swing trading capital recycling enforces closing to reallocate."
+            portfolio_note = f"1-month maximum holding period expired ({days_held_cal} days); book trade and rotate capital into fresh momentum setups."
+        elif pnl_pct <= -6.0:
             action = "SELL"
             confidence = "HIGH"
             rationale = "System stop-loss trigger reached (-6.0%)."
@@ -185,10 +221,13 @@ def apply_portfolio_risk_gates(
     sec_rs = float(sector_info.get("relative_strength_pct") or 0.0)
     final_score = float(score_result.get("final_score") or 0.0)
 
-    # Sector Decoupling: Leaders in non-lagging sectors with score >= 65 are exempt from blanket beta shutdown
+    # Sector & Alpha Decoupling: Leaders in thriving sectors, volume ignitions, or high-conviction setups (>=75) are exempt from blanket beta shutdown
+    ign_info = tech_ind.get("ignition") or {}
+    is_ignition = bool(ign_info.get("is_ignition"))
     is_sector_decoupled = bool(
-        final_score >= 65.0 
-        and sec_status not in ("LAGGING", "SEVERE_DRAG")
+        (final_score >= 65.0 and sec_status not in ("LAGGING", "SEVERE_DRAG"))
+        or is_ignition
+        or final_score >= 78.0
     )
 
     if not macro_info.get("is_regime_gate_cleared", True) or macro_info.get("no_trade_today"):
