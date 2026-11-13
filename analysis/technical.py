@@ -212,6 +212,10 @@ def compute_technical_score(df: pd.DataFrame, ticker: str = "") -> dict:
         signals["52w_proximity"] = {"signal": h52_signal, "distance_pct": round(pct_from_52w, 2), "high_52w": round(high_52w, 2)}
         scores.append(("52W Proximity", h52_score, 0.10))
 
+        # Institutional Blast Detection (High RVOL >= 1.8x, Bullish Close >= 70% of Day's Range, within 6% of 52W High)
+        is_institutional_blast = bool(is_institutional_ignition and vol_ratio >= 1.8 and pct_from_52w >= -6.0)
+        signals["ignition"]["is_blast"] = is_institutional_blast
+
         # ─── VOLATILITY & EXPANSION ───────────────────────────
         # Bollinger Bands (Breakout-Friendly Interpretation)
         bb = ta.volatility.BollingerBands(close)
@@ -322,8 +326,10 @@ def compute_technical_score(df: pd.DataFrame, ticker: str = "") -> dict:
         total_weight = sum(weight for _, _, weight in scores)
         final_score = weighted_score / total_weight if total_weight > 0 else 50.0
 
-        # Institutional Ignition Direct Bonus (+5 points for confirmed volume surge near highs)
-        if is_institutional_ignition:
+        # Institutional Ignition / Blast Direct Bonus (+10 points for Blast, +5 points for Ignition)
+        if is_institutional_blast:
+            final_score = min(100.0, final_score + 10.0)
+        elif is_institutional_ignition:
             final_score = min(100.0, final_score + 5.0)
 
         # Determine overall signal

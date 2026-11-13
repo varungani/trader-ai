@@ -143,15 +143,17 @@ def position_size(
     if not stop or math.isnan(stop) or stop >= price or (price - stop) <= 0:
         return {"qty": 0, "rupees": 0.0, "risk_rupees": 0.0, "weight_pct": 0.0}
 
-    risk_budget = capital * RISK_CONFIG["risk_per_trade_pct"]
+    max_pos_pct = float(profile.get("max_position_pct") or RISK_CONFIG["max_position_pct"])
+    risk_per_trade = float(profile.get("risk_per_trade_pct") or max(RISK_CONFIG["risk_per_trade_pct"], max_pos_pct * RISK_CONFIG.get("default_stop_loss_pct", 0.07)))
+    risk_budget = capital * risk_per_trade
     per_share_risk = price - stop
     qty_by_risk = int(risk_budget // per_share_risk) if per_share_risk > 0 else 0
-    max_rupees = capital * RISK_CONFIG["max_position_pct"]
+    max_rupees = capital * max_pos_pct
     qty_by_cap = int(max_rupees // price) if price > 0 else 0
     qty = max(0, min(qty_by_risk, qty_by_cap))
     rupees = round(qty * price, 2)
     risk_rupees = round(qty * per_share_risk, 2)
-    binding = f"CAPITAL_CAP ({int(RISK_CONFIG['max_position_pct']*100)}%)" if qty_by_cap <= qty_by_risk else f"RISK_BUDGET ({int(RISK_CONFIG['risk_per_trade_pct']*100)}%)"
+    binding = f"CAPITAL_CAP ({int(max_pos_pct*100)}%)" if qty_by_cap <= qty_by_risk else f"RISK_BUDGET ({int(risk_per_trade*100)}%)"
     planned_risk_pct = round((risk_rupees / capital) * 100, 2) if capital else 0.0
 
     below_min_ticket = bool(0 < rupees < MIN_DELIVERY_TICKET_RUPEES and capital >= MIN_DELIVERY_TICKET_RUPEES)

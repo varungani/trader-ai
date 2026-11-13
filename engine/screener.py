@@ -169,20 +169,24 @@ def pre_screen(
             day_range = float(high.iloc[-1] - low.iloc[-1]) if len(high) else 1.0
             close_loc = (price - float(low.iloc[-1])) / day_range if day_range > 0 else 0.5
             is_institutional_ignition = bool(rvol >= 1.7 and close_loc >= 0.70 and is_bullish_bar)
+            is_institutional_blast = bool(rvol >= 1.8 and close_loc >= 0.70 and is_bullish_bar and pos >= 0.85)
 
             is_52w_breakout = bool(pos >= 0.85 and rvol >= 1.3 and price >= high_20d * 0.98)
             is_vcp = bool(vcp_ratio <= 0.65 and rvol >= 1.3 and price >= high_20d * 0.98)
             is_sweet_spot = bool(0.0 <= dist_ema20 <= 2.5 and is_bullish_bar)
             is_monster_breakout = bool(
                 rvol >= 1.6
-                and (is_52w_breakout or is_vcp or is_institutional_ignition)
+                and (is_52w_breakout or is_vcp or is_institutional_ignition or is_institutional_blast)
                 and (ret_1m >= 0.03 or pos >= 0.85)
                 and is_bullish_bar
             )
 
             pattern_tag = "NONE"
             pattern_bonus = 0.0
-            if is_monster_breakout or is_institutional_ignition:
+            if is_institutional_blast:
+                pattern_tag = "INSTITUTIONAL_BLAST"
+                pattern_bonus = 20.0
+            elif is_monster_breakout or is_institutional_ignition:
                 pattern_tag = "INSTITUTIONAL_IGNITION" if is_institutional_ignition else "MONSTER_BREAKOUT"
                 pattern_bonus = 15.0
             elif is_52w_breakout:

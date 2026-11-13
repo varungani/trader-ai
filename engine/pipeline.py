@@ -480,6 +480,32 @@ def _persist(brief: dict) -> None:
         conn.close()
 
 
+def run_apex_pipeline(
+    capital: Optional[float] = None,
+    sync_broker: bool = False,
+    persist: bool = True,
+    stock_budget: Optional[float] = None,
+) -> dict:
+    """
+    ⚡ Apex High-Velocity Pipeline:
+      - Universe: high_beta_apex (60+ high-momentum rocket candidates)
+      - Profile: apex_3slot (3 concentrated slots at 33.3% capital each)
+      - Screener: top 10 momentum hits + institutional blast prioritization
+      - Targets: +20% impulse velocity, 7% daily close stop, max 21 sessions
+    """
+    return run_pipeline(
+        timeframe="short_term",
+        universe_preset="high_beta_apex",
+        allocation_profile="apex_3slot",
+        screen_top_n=10,
+        use_screener=True,
+        capital=capital,
+        sync_broker=sync_broker,
+        persist=persist,
+        stock_budget=stock_budget,
+    )
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     result = run_pipeline(max_watchlist=8, persist=True, sync_broker=False)

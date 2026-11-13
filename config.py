@@ -161,6 +161,23 @@ ALLOCATION_PROFILES = {
         "max_high_risk_pct": 0.35,
         "min_low_risk_pct": 0.15,
     },
+    "apex_3slot": {
+        "label": "⚡ Apex High-Velocity (3 Slots - 33.3% Each)",
+        "description": "Ultra-concentrated momentum compounding: 3 slots (33.3% capital each), strict 1-month ceiling (21 sessions), +20% to +25% profit target, daily-close 7% stop.",
+        "cash_pct": 0.00,
+        "stability_pct": 0.00,
+        "growth_pct": 0.70,
+        "opportunistic_pct": 0.30,
+        "timeframe_targets": {
+            "short_term": 1.0,
+            "mid_term": 0.0,
+            "long_term": 0.0,
+        },
+        "max_high_risk_pct": 0.50,
+        "min_low_risk_pct": 0.00,
+        "max_open_positions": 3,
+        "max_position_pct": 0.333,
+    },
 }
 
 DEFAULT_ALLOCATION_PROFILE = "balanced"
@@ -223,13 +240,24 @@ MIDCAP_LIQUID_STOCKS = [
     "SUPREMEIND.NS", "SYNGENE.NS", "TATAELXSI.NS", "UNIONBANK.NS", "YESBANK.NS",
 ]
 
-# High-Velocity Momentum & Monster Runner Universe (High ATR%, Heavy Breakout Velocity)
-HIGH_VELOCITY_STOCKS = [
+# High-Velocity Momentum & Monster Runner Universe (Comprehensive 60+ Indian High-Beta Leaders)
+HIGH_BETA_APEX_STOCKS = [
     "TRENT.NS", "DIXON.NS", "KAYNES.NS", "BSE.NS", "CDSL.NS", 
-    "SONACOMS.NS", "COFORGE.NS", "PERSISTENT.NS", "POLYCAB.NS", "SOLARINDS.NS", 
-    "SUZLON.NS", "BHARTIARTL.NS", "BAJAJ-AUTO.NS", "HAL.NS", "BEL.NS", 
-    "ZOMATO.NS", "PRESTIGE.NS", "TIINDIA.NS", "MCX.NS", "VOLTAS.NS"
+    "ANGELONE.NS", "MAZDOCK.NS", "HAL.NS", "BEL.NS", "COFORGE.NS", 
+    "PERSISTENT.NS", "POLYCAB.NS", "SOLARINDS.NS", "SUZLON.NS", "BHARTIARTL.NS", 
+    "BAJAJ-AUTO.NS", "INDHOTEL.NS", "MCX.NS", "VOLTAS.NS", "MOTILALOFS.NS", 
+    "KPITTECH.NS", "OFSS.NS", "BBOX.NS", "BHARATFORG.NS", "JSWENERGY.NS", 
+    "TATAELXSI.NS", "TATAPOWER.NS", "TIINDIA.NS", "PRESTIGE.NS", "MAXHEALTH.NS", 
+    "KALYANKJIL.NS", "HDFCAMC.NS", "MPHASIS.NS", "AUROPHARMA.NS", "GLENMARK.NS", 
+    "FORTIS.NS", "FEDERALBNK.NS", "CAMPUS.NS", "DELHIVERY.NS", "ASHOKLEY.NS", 
+    "BALKRISIND.NS", "BHEL.NS", "BIOCON.NS", "CROMPTON.NS", "LICI.NS", 
+    "MUTHOOTFIN.NS", "NYKAA.NS", "OBEROIRLTY.NS", "PAYTM.NS", "POLICYBZR.NS", 
+    "SJVN.NS", "SONACOMS.NS", "SUPREMEIND.NS", "SYNGENE.NS", "UNIONBANK.NS", 
+    "YESBANK.NS", "TECHM.NS", "HCLTECH.NS"
 ]
+
+HIGH_VELOCITY_STOCKS = HIGH_BETA_APEX_STOCKS
+HIGH_BETA_ROCKETS = HIGH_BETA_APEX_STOCKS
 
 # Liquid Index, Commodity & Sector ETFs (ideal for cash stability, zero day-trading delivery)
 ETF_COMMODITY_STOCKS = [
@@ -257,15 +285,9 @@ if os.path.exists(_NIFTY500_JSON):
     except Exception:
         NIFTY500_STOCKS = []
 
-HIGH_BETA_ROCKETS = [
-    "TRENT.NS", "DIXON.NS", "KAYNES.NS", "POLYCAB.NS", "SUZLON.NS", "BBOX.NS",
-    "COFORGE.NS", "PERSISTENT.NS", "BHARATFORG.NS", "JSWENERGY.NS", "TATAELXSI.NS",
-    "KPITTECH.NS", "OFSS.NS", "BEL.NS", "HAL.NS", "MAZDOCK.NS", "CDSL.NS",
-    "ANGELONE.NS", "BSE.NS", "MOTILALOFS.NS", "TATAPOWER.NS"
-]
-
 UNIVERSE_PRESETS = {
-    "high_beta_rockets": HIGH_BETA_ROCKETS,
+    "high_beta_apex": HIGH_BETA_APEX_STOCKS,
+    "high_beta_rockets": HIGH_BETA_APEX_STOCKS,
     "nifty500": NIFTY500_STOCKS if NIFTY500_STOCKS else list(dict.fromkeys(NIFTY50_STOCKS + NIFTY_NEXT50_STOCKS + MIDCAP_LIQUID_STOCKS)),
     "nifty50": NIFTY50_STOCKS,
     "nifty100": list(dict.fromkeys(NIFTY50_STOCKS + NIFTY_NEXT50_STOCKS)),

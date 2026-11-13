@@ -70,10 +70,10 @@ with st.sidebar:
         st.caption("Live forward tracking active. Test recommendations safely before investing.")
     universe = st.selectbox(
         "Universe to scan",
-        options=["high_beta_rockets", "nifty500", "extended", "nifty100", "nifty50", "midcap", "etfs", "all"],
-        format_func=lambda u: "🚀 High-Beta Rockets (Monster Midcaps)" if u == "high_beta_rockets" else u.upper(),
+        options=["high_beta_apex", "high_beta_rockets", "nifty500", "extended", "nifty100", "nifty50", "midcap", "etfs", "all"],
+        format_func=lambda u: "⚡ Apex Super-Movers (60+ High-Beta Leaders)" if u == "high_beta_apex" else ("🚀 High-Beta Rockets" if u == "high_beta_rockets" else u.upper()),
         index=0,
-        help="High-Beta Rockets focuses on institutional midcap momentum leaders (Trent, Dixon, Kaynes, Polycab, Suzlon, etc.) that move 30% to 60% in weeks.",
+        help="Apex Super-Movers focuses on 60+ institutional momentum leaders (BSE, Dixon, Kaynes, Trent, Mazagon Dock, HAL, Persistent, etc.) that deliver explosive 20%+ monthly surges.",
     )
     screen_top = st.slider("Deep-score top N after screen", 8, 40, 20)
     swing_capital = st.number_input(

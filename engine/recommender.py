@@ -55,11 +55,16 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
         sweet_info = tech_indicators.get("sweet_spot_rebound") or {}
         is_sweet_spot = bool(sweet_info.get("is_sweet_spot"))
         ign_info = tech_indicators.get("ignition") or {}
-        is_ignition = bool(ign_info.get("is_ignition") or ema_info.get("is_ignition") or (vol_ratio >= 1.6 and dev_pct >= 2.0))
+        is_blast = bool(ign_info.get("is_blast"))
+        is_ignition = bool(is_blast or ign_info.get("is_ignition") or ema_info.get("is_ignition") or (vol_ratio >= 1.6 and dev_pct >= 2.0))
 
         # Determine Winning Pattern
         setup_pattern = "NONE"
-        if is_ignition and vcp_info.get("is_contracted"):
+        if is_blast and vcp_info.get("is_contracted"):
+            setup_pattern = "SUPER_MOVER_COIL_BLAST"
+        elif is_blast:
+            setup_pattern = "INSTITUTIONAL_BLAST"
+        elif is_ignition and vcp_info.get("is_contracted"):
             setup_pattern = "SUPER_MOVER_COIL_IGNITION"
         elif is_ignition:
             setup_pattern = "INSTITUTIONAL_IGNITION"
@@ -70,7 +75,7 @@ def decide_action(score_result: dict, holding: Optional[dict] = None) -> dict:
 
         if not holding:
             # Check for Alpha Decoupling (Stock breaking out despite broad sector/market drag)
-            is_alpha_decoupled = bool(is_ignition or (vol_ratio >= 1.5 and final >= 72) or final >= 78)
+            is_alpha_decoupled = bool(is_blast or is_ignition or (vol_ratio >= 1.5 and final >= 72) or final >= 78)
 
             # Gate 1: Sector Drag Gate (with Alpha Decoupling Exception for explosive movers)
             if sector_status in ("LAGGING", "SEVERE_DRAG") and not is_alpha_decoupled:
@@ -223,7 +228,7 @@ def apply_portfolio_risk_gates(
 
     # Sector & Alpha Decoupling: Leaders in thriving sectors, volume ignitions, or high-conviction setups (>=75) are exempt from blanket beta shutdown
     ign_info = tech_ind.get("ignition") or {}
-    is_ignition = bool(ign_info.get("is_ignition"))
+    is_ignition = bool(ign_info.get("is_ignition") or ign_info.get("is_blast"))
     is_sector_decoupled = bool(
         (final_score >= 65.0 and sec_status not in ("LAGGING", "SEVERE_DRAG"))
         or is_ignition
