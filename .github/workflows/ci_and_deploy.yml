@@ -57,11 +57,13 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action [CI/CD Gated Deploy]"
           
-          echo "CI tests passed on 'develop'! Fast-forwarding 'master' branch..."
+          echo "CI tests passed on 'develop'! Syncing to 'master' branch..."
+          git fetch origin master
           git checkout master
-          git merge --ff-only develop
+          git merge --ff-only develop || git merge develop -m "chore: gated CI deploy from develop [skip ci]"
           git push origin master
           echo "Master branch updated! Streamlit Cloud will now deploy cleanly."
+
 
   deploy-to-production:
     name: 🚀 Sync to Production Branch
