@@ -163,6 +163,7 @@ def portfolio_summary(data: Optional[dict] = None) -> dict:
             "holdings_count": 0,
             "total_invested": 0,
             "total_current_value": 0,
+            "total_value": 0,
             "total_pnl": 0,
             "total_pnl_percent": 0,
             "sector_weights": {},
@@ -170,6 +171,7 @@ def portfolio_summary(data: Optional[dict] = None) -> dict:
             "timeframe_values": {"long_term": 0.0, "mid_term": 0.0, "short_term": 0.0},
             "concentration_flags": [],
         }
+
 
     invested = 0.0
     current = 0.0
@@ -215,7 +217,9 @@ def portfolio_summary(data: Optional[dict] = None) -> dict:
         "holdings_count": len(holdings),
         "total_invested": round(invested, 2),
         "total_current_value": round(current, 2),
+        "total_value": round(current, 2),
         "total_pnl": round(pnl, 2),
+
         "total_pnl_percent": round(pnl / invested * 100, 2) if invested else 0,
         "sector_weights": sector_weights,
         "timeframe_weights": timeframe_weights,

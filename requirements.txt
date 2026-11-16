@@ -28,6 +28,10 @@ finnhub-python>=2.4.19
 streamlit>=1.30.0
 plotly>=5.18.0
 
+# Testing & CI
+pytest>=8.0.0
+
+
 # Broker (Kotak Neo) — install one of:
 #   pip install kotakneoapi
 #   pip install git+https://github.com/kotak-neo/kotak-neo-api-v2

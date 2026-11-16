@@ -92,3 +92,4 @@ if __name__ == "__main__":
         run_daemon(args.interval)
     else:
         run_once()
+
