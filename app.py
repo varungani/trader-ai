@@ -694,6 +694,7 @@ with tabs[2]:
     val_mode = st.radio(
         "Validation View:",
         [
+            "🥊 Option 2 (9:20 AM Confirmation) vs Option 3 (GTT Buy-Stop) Live Duel",
             "🎯 Multi-Strategy Tournament & All-BUY Forward Tracker (₹20k Combinations & Diversification Test)",
             "🔬 Institutional Scorecards & Alpha Audit (Expectancy, Nifty Alpha, Factor Power)",
             "🛡️ Weekly Paper Portfolio Tracker (Trade Log & MTM)",
@@ -704,6 +705,7 @@ with tabs[2]:
 
     from engine.validator import compute_institutional_scorecards, audit_and_resolve_forward_trades
     from engine.paper_week import mark_to_market
+    from engine.dual_tracker import audit_and_update_dual_tracker, log_today_picks, compute_dual_summary
     from data.db import (
         get_connection,
         get_open_paper_trades,
@@ -711,7 +713,116 @@ with tabs[2]:
         get_paper_trade_stats,
     )
 
-    if "Multi-Strategy Tournament" in val_mode:
+    if "Option 2" in val_mode:
+        st.markdown("#### 🥊 Live Execution Duel: Option 2 (9:20 AM Confirmation) vs Option 3 (GTT Buy-Stop)")
+        st.caption("Live forward tracking of both execution styles side-by-side with zero real money. Track win rates, capital growth, and avoided losses week-by-week.")
+
+        duel_col_btn1, duel_col_btn2 = st.columns([1, 1])
+        with duel_col_btn1:
+            if st.button("📸 Snapshot Today's Scan into Dual Tracker", type="primary", use_container_width=True):
+                t1_picks = brief.get("top_picks") or []
+                t2_radar = brief.get("radar_watchlist") or []
+                summary = log_today_picks(t1_picks, t2_radar)
+                st.success(f"Snapshot recorded! Added {len(t1_picks)} Option 2 picks and {len(t2_radar)} Option 3 radar triggers.")
+                st.rerun()
+
+        with duel_col_btn2:
+            if st.button("🔄 Audit Live MTM & Trigger Checks", use_container_width=True):
+                summary = audit_and_update_dual_tracker()
+                st.success("Refreshed live prices, evaluated triggers, and audited trade exits.")
+                st.rerun()
+
+        summary = audit_and_update_dual_tracker()
+        o2 = summary["option_2"]
+        o3 = summary["option_3"]
+
+        st.info(f"### {summary.get('winner', 'TIE')}\n\nLast updated: **{summary.get('updated_at')}** | Initial Corpus: ₹1,00,000 per track")
+
+        # Top Metric Cards Side by Side
+        mcol1, mcol2 = st.columns(2)
+        with mcol1:
+            st.markdown("##### 🟢 Track A: Option 2 (9:20 AM Confirmation Rule)")
+            om1, om2, om3, om4 = st.columns(4)
+            om1.metric("Total P&L", f"₹{o2['total_pnl_inr']:+,.2f}", f"{o2['total_pnl_pct']:+.2f}%")
+            om2.metric("Win Rate", f"{o2['win_rate']:.1f}%")
+            om3.metric("Profit Factor", f"{o2['profit_factor']:.2f}")
+            om4.metric("Active Trades", f"{o2['open_count']} open", f"{o2['aborted_count']} bad gaps blocked")
+
+        with mcol2:
+            st.markdown("##### 🔵 Track B: Option 3 (GTT Buy-Stop Pivot Trigger)")
+            om5, om6, om7, om8 = st.columns(4)
+            om5.metric("Total P&L", f"₹{o3['total_pnl_inr']:+,.2f}", f"{o3['total_pnl_pct']:+.2f}%")
+            om6.metric("Win Rate", f"{o3['win_rate']:.1f}%")
+            om7.metric("Profit Factor", f"{o3['profit_factor']:.2f}")
+            om8.metric("Active Trades", f"{o3['open_count']} open", f"{o3['pending_count']} pending GTT")
+
+        st.divider()
+
+        # Detailed Tables
+        t_col_a, t_col_b = st.columns(2)
+        with t_col_a:
+            st.markdown("###### 📋 Option 2: Active Demat Trades (Tier 1 Picks)")
+            if o2["open_trades"]:
+                df_o2 = pd.DataFrame([
+                    {
+                        "Ticker": t["ticker"].replace(".NS", ""),
+                        "Entry": f"₹{t['entry_price']:,.2f}",
+                        "Current": f"₹{t['current_price']:,.2f}",
+                        "Target (+20%)": f"₹{t['target_price']:,.2f}",
+                        "Stop (-7%)": f"₹{t['stop_loss']:,.2f}",
+                        "MTM P&L": f"{t['pnl_pct']:+.2f}%",
+                        "P&L (₹)": f"₹{t['pnl_rupees']:+,.0f}",
+                        "Days": t.get("days_held", 0),
+                    }
+                    for t in o2["open_trades"]
+                ])
+                st.dataframe(df_o2, use_container_width=True)
+            else:
+                st.write("No active open trades in Option 2.")
+
+            if o2["closed_trades"]:
+                st.markdown("###### 🏁 Option 2: Closed Trade History")
+                st.dataframe(pd.DataFrame(o2["closed_trades"]), use_container_width=True)
+
+        with t_col_b:
+            st.markdown("###### 🎯 Option 3: Pending GTT Triggers & Triggered Trades")
+            if o3["pending_triggers"]:
+                st.caption("⏳ Pending GTT Buy-Stop Orders (₹0 capital risked until breakout):")
+                df_o3_pend = pd.DataFrame([
+                    {
+                        "Ticker": t["ticker"].replace(".NS", ""),
+                        "Scan Px": f"₹{t['scan_price']:,.2f}",
+                        "Pivot Trigger": f"₹{t['pivot_trigger']:,.2f}",
+                        "Target (+20%)": f"₹{t['target_price']:,.2f}",
+                        "Planned INR": f"₹{t['planned_rupees']:,.0f}",
+                        "Setup": t.get("readiness", "COILING"),
+                    }
+                    for t in o3["pending_triggers"]
+                ])
+                st.dataframe(df_o3_pend, use_container_width=True)
+
+            if o3["open_trades"]:
+                st.caption("⚡ Triggered Active Trades (Breakout Confirmed):")
+                df_o3_open = pd.DataFrame([
+                    {
+                        "Ticker": t["ticker"].replace(".NS", ""),
+                        "Fill Px": f"₹{t['entry_price']:,.2f}",
+                        "Current": f"₹{t['current_price']:,.2f}",
+                        "MTM P&L": f"{t['pnl_pct']:+.2f}%",
+                        "P&L (₹)": f"₹{t['pnl_rupees']:+,.0f}",
+                        "Days": t.get("days_held", 0),
+                    }
+                    for t in o3["open_trades"]
+                ])
+                st.dataframe(df_o3_open, use_container_width=True)
+            elif not o3["pending_triggers"]:
+                st.write("No pending or open trades in Option 3.")
+
+            if o3["closed_trades"]:
+                st.markdown("###### 🏁 Option 3: Closed Trade History")
+                st.dataframe(pd.DataFrame(o3["closed_trades"]), use_container_width=True)
+
+    elif "Multi-Strategy Tournament" in val_mode:
         from engine.strategy_tournament import simulate_tournament
         from datetime import datetime
 

@@ -47,3 +47,4 @@ jobs:
           name: daily-apex-picks
           path: daily_scan_output.txt
           retention-days: 7
+
