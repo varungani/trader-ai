@@ -1,0 +1,49 @@
+name: Apex Daily Scan & CI Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+  schedule:
+    # Runs at 10:00 UTC (3:30 PM IST) Monday to Friday (Indian Market Close)
+    - cron: '0 10 * * 1-5'
+  workflow_dispatch: # Allows manual 1-click trigger from GitHub Actions UI
+
+jobs:
+  build-and-test:
+    name: Build, Test & Run Daily Apex Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify Dashboard & Strategy Integrity
+        run: |
+          python -c "import app; print('Streamlit app syntax verified.')"
+          python -c "import config; print('Config verified.')"
+
+      - name: Run Apex High-Velocity Scanner
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          KOTAK_CONSUMER_KEY: ${{ secrets.KOTAK_CONSUMER_KEY }}
+        run: |
+          python engine/apex_engine.py > daily_scan_output.txt
+          cat daily_scan_output.txt
+
+      - name: Upload Daily Scan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-apex-picks
+          path: daily_scan_output.txt
+          retention-days: 7
