@@ -8,6 +8,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Streamlit Cloud Secrets Bridge: Load st.secrets into environment variables
+try:
+    import streamlit as st
+    if hasattr(st, "secrets"):
+        for k, v in st.secrets.items():
+            if isinstance(v, (str, int, float, bool)):
+                os.environ.setdefault(k, str(v))
+except Exception:
+    pass
+
 # ─── API Keys (Cloud LLMs & data fallbacks) ─────────────────
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
