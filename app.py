@@ -295,6 +295,7 @@ with tab_paper:
     dual_summary = audit_and_update_dual_tracker()
     o2 = dual_summary["option_2"]
     o3 = dual_summary["option_3"]
+    oc = dual_summary.get("track_c", {})
 
     r_col1, r_col2 = st.columns([3, 1])
     with r_col1:
@@ -304,45 +305,57 @@ with tab_paper:
             dual_summary = audit_and_update_dual_tracker()
             st.rerun()
 
-    # Scorecard
-    sc1, sc2 = st.columns(2)
+    # 3-Way Parallel Scorecards
+    sc1, sc2, sc3 = st.columns(3)
     with sc1:
         with st.container(border=True):
-            st.markdown("#### 🟢 Track A: Option 2 (9:20 AM Confirmation)")
-            st.caption("Checks opening gap at 9:20 AM. Fills on normal open, blocks bad gap-downs, exits at +20% target or -7% close stop.")
-            c1, c2, c3, c4 = st.columns(4)
+            st.markdown("#### 🟢 Track A: Option 2")
+            st.caption("9:20 AM Confirmation Rule. Fills on normal open, blocks bad gap downs, -7% stop, +20% target.")
+            c1, c2 = st.columns(2)
             c1.metric("Total P&L", f"₹{o2['total_pnl_inr']:+,.2f}", f"{o2['total_pnl_pct']:+.2f}%")
             c2.metric("Win Rate", f"{o2['win_rate']:.1f}%")
+            c3, c4 = st.columns(2)
             c3.metric("Profit Factor", f"{o2['profit_factor']:.2f}")
-            c4.metric("Active Trades", f"{o2['open_count']} open", f"{o2['aborted_count']} bad gaps blocked")
+            c4.metric("Active Trades", f"{o2['open_count']} open", f"{o2['aborted_count']} blocked")
 
     with sc2:
         with st.container(border=True):
-            st.markdown("#### 🔵 Track B: Option 3 (GTT Buy-Stop Trigger)")
-            st.caption("Sets GTT Buy-Stop at consolidation pivot. Fills ONLY when breakout fires. If flat, zero risk & zero capital deployed.")
-            c5, c6, c7, c8 = st.columns(4)
+            st.markdown("#### 🔵 Track B: Option 3")
+            st.caption("GTT Buy-Stop Trigger. Fills only when breakout fires. If flat, zero risk & capital preserved. +20% target.")
+            c5, c6 = st.columns(2)
             c5.metric("Total P&L", f"₹{o3['total_pnl_inr']:+,.2f}", f"{o3['total_pnl_pct']:+.2f}%")
             c6.metric("Win Rate", f"{o3['win_rate']:.1f}%")
+            c7, c8 = st.columns(2)
             c7.metric("Profit Factor", f"{o3['profit_factor']:.2f}")
-            c8.metric("Active Trades", f"{o3['open_count']} open", f"{o3['pending_count']} pending GTT")
+            c8.metric("Active Trades", f"{o3['open_count']} open", f"{o3['pending_count']} pending")
+
+    with sc3:
+        with st.container(border=True):
+            st.markdown("#### ⚡ Track C: Benchmark Sniper")
+            st.caption("High-Velocity Benchmark. GTT Pivot entry, expanded +25% target, -6% stop, 72h velocity kill on dead money.")
+            c9, c10 = st.columns(2)
+            c9.metric("Total P&L", f"₹{oc.get('total_pnl_inr', 0.0):+,.2f}", f"{oc.get('total_pnl_pct', 0.0):+.2f}%")
+            c10.metric("Win Rate", f"{oc.get('win_rate', 0.0):.1f}%")
+            c11, c12 = st.columns(2)
+            c11.metric("Profit Factor", f"{oc.get('profit_factor', 1.0):.2f}")
+            c12.metric("Active Trades", f"{oc.get('open_count', 0)} open", f"{oc.get('pending_count', 0)} pending")
 
     st.divider()
 
-    # Active Trades Side by Side
-    col_t1, col_t2 = st.columns(2)
+    # Active Trades 3 Columns Side by Side
+    col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
-        st.markdown("##### 📋 Option 2: Active Open Demat Trades")
+        st.markdown("##### 📋 Track A: Active Trades")
         if o2["open_trades"]:
             df_o2 = pd.DataFrame([
                 {
                     "Ticker": t["ticker"].replace(".NS", ""),
                     "Entry": f"₹{t['entry_price']:,.2f}",
-                    "Current": f"₹{t['current_price']:,.2f}",
-                    "Target (+20%)": f"₹{t['target_price']:,.2f}",
-                    "Stop (-7%)": f"₹{t['stop_loss']:,.2f}",
-                    "MTM P&L": f"{t['pnl_pct']:+.2f}%",
-                    "P&L (₹)": f"₹{t['pnl_rupees']:+,.0f}",
-                    "Days": t.get("days_held", 0),
+                    "Cur": f"₹{t['current_price']:,.2f}",
+                    "Target": f"₹{t['target_price']:,.2f}",
+                    "Stop": f"₹{t['stop_loss']:,.2f}",
+                    "MTM": f"{t['pnl_pct']:+.2f}%",
+                    "P&L": f"₹{t['pnl_rupees']:+,.0f}",
                 }
                 for t in o2["open_trades"]
             ])
@@ -351,46 +364,72 @@ with tab_paper:
             st.write("No active open trades in Option 2.")
 
         if o2["closed_trades"]:
-            st.markdown("##### 🏁 Option 2: Closed Trades History")
+            st.markdown("##### 🏁 Track A History")
             st.dataframe(pd.DataFrame(o2["closed_trades"]), use_container_width=True)
 
     with col_t2:
-        st.markdown("##### 🎯 Option 3: Pending GTT Triggers & Triggered Trades")
+        st.markdown("##### 🎯 Track B: GTT & Active")
         if o3["pending_triggers"]:
-            st.caption("⏳ Pending GTT Buy-Stop Triggers (₹0 capital risked until breakout):")
+            st.caption("⏳ Pending GTT Buy-Stop Triggers:")
             df_pend = pd.DataFrame([
                 {
                     "Ticker": t["ticker"].replace(".NS", ""),
-                    "Scan Px": f"₹{t['scan_price']:,.2f}",
-                    "Pivot Trigger": f"₹{t['pivot_trigger']:,.2f}",
+                    "Scan": f"₹{t['scan_price']:,.2f}",
+                    "Trigger": f"₹{t['pivot_trigger']:,.2f}",
                     "Target (+20%)": f"₹{t['target_price']:,.2f}",
-                    "Planned INR": f"₹{t['planned_rupees']:,.0f}",
-                    "Setup": t.get("readiness", "COILING"),
                 }
                 for t in o3["pending_triggers"]
             ])
             st.dataframe(df_pend, use_container_width=True)
 
         if o3["open_trades"]:
-            st.caption("⚡ Triggered Active Trades (Breakout Confirmed):")
+            st.caption("⚡ Triggered Active Trades:")
             df_o3_open = pd.DataFrame([
                 {
                     "Ticker": t["ticker"].replace(".NS", ""),
-                    "Fill Px": f"₹{t['entry_price']:,.2f}",
-                    "Current": f"₹{t['current_price']:,.2f}",
-                    "MTM P&L": f"{t['pnl_pct']:+.2f}%",
-                    "P&L (₹)": f"₹{t['pnl_rupees']:+,.0f}",
-                    "Days": t.get("days_held", 0),
+                    "Fill": f"₹{t['entry_price']:,.2f}",
+                    "Cur": f"₹{t['current_price']:,.2f}",
+                    "MTM": f"{t['pnl_pct']:+.2f}%",
+                    "P&L": f"₹{t['pnl_rupees']:+,.0f}",
                 }
                 for t in o3["open_trades"]
             ])
             st.dataframe(df_o3_open, use_container_width=True)
         elif not o3["pending_triggers"]:
-            st.write("No pending or open trades in Option 3.")
+            st.write("No active trades in Option 3.")
 
-        if o3["closed_trades"]:
-            st.markdown("##### 🏁 Option 3: Closed Trades History")
-            st.dataframe(pd.DataFrame(o3["closed_trades"]), use_container_width=True)
+    with col_t3:
+        st.markdown("##### ⚡ Track C: Benchmark Sniper")
+        if oc.get("pending_triggers"):
+            st.caption("⏳ Pending Benchmark Triggers (+25% Target):")
+            df_c_pend = pd.DataFrame([
+                {
+                    "Ticker": t["ticker"].replace(".NS", ""),
+                    "Trigger": f"₹{t['pivot_trigger']:,.2f}",
+                    "Target (+25%)": f"₹{t['target_price']:,.2f}",
+                    "Stop (-6%)": f"₹{t['stop_loss']:,.2f}",
+                }
+                for t in oc["pending_triggers"]
+            ])
+            st.dataframe(df_c_pend, use_container_width=True)
+
+        if oc.get("open_trades"):
+            st.caption("⚡ Active Velocity Trades:")
+            df_c_open = pd.DataFrame([
+                {
+                    "Ticker": t["ticker"].replace(".NS", ""),
+                    "Fill": f"₹{t['entry_price']:,.2f}",
+                    "Cur": f"₹{t['current_price']:,.2f}",
+                    "MTM": f"{t['pnl_pct']:+.2f}%",
+                    "P&L": f"₹{t['pnl_rupees']:+,.0f}",
+                    "Days": t.get("days_held", 0),
+                }
+                for t in oc["open_trades"]
+            ])
+            st.dataframe(df_c_open, use_container_width=True)
+        elif not oc.get("pending_triggers"):
+            st.write("No active trades in Track C.")
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TAB 3: DEMAT HOLDINGS & SIZING CALCULATOR

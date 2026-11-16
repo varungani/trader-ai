@@ -34,13 +34,14 @@ def run_once() -> dict:
     
     o2 = summary["option_2"]
     o3 = summary["option_3"]
+    oc = summary.get("track_c", {})
     
     print("\n" + "="*70)
-    print(f"📊 AUTOMATED PAPER TRADING UPDATE — {summary.get('updated_at')}")
+    print(f"📊 AUTOMATED 3-WAY PAPER TOURNAMENT — {summary.get('updated_at')}")
     print("="*70)
     print(f"🏆 Current Performance Leader: {summary.get('winner')}")
     print("-" * 70)
-    print(f"🟢 Option 2 (9:20 AM Confirmation):")
+    print(f"🟢 Track A: Option 2 (9:20 AM Confirmation):")
     print(f"   • Open Trades   : {o2['open_count']} active")
     print(f"   • Closed Trades : {o2['closed_count']} completed")
     print(f"   • Win Rate      : {o2['win_rate']:.1f}%")
@@ -52,12 +53,33 @@ def run_once() -> dict:
             print(f"     - {t['name']:<12} Entry: ₹{t['entry_price']:<9.2f} Cur: ₹{t['current_price']:<9.2f} PnL: {t['pnl_pct']:+.2f}% (₹{t['pnl_rupees']:+,.0f})")
             
     print("-" * 70)
-    print(f"🔵 Option 3 (GTT Buy-Stop Pivot Trigger):")
+    print(f"🔵 Track B: Option 3 (GTT Buy-Stop Pivot Trigger):")
     print(f"   • Pending GTT   : {o3['pending_count']} awaiting breakout")
     print(f"   • Open Trades   : {o3['open_count']} triggered & active")
     print(f"   • Closed Trades : {o3['closed_count']} completed")
     print(f"   • Win Rate      : {o3['win_rate']:.1f}%")
     print(f"   • Profit Factor : {o3['profit_factor']:.2f}")
+    print(f"   • Net P&L (INR) : ₹{o3['total_pnl_inr']:+,.2f} ({o3['total_pnl_pct']:+.2f}%)")
+    if o3["open_trades"]:
+        print("   Active Positions:")
+        for t in o3["open_trades"]:
+            print(f"     - {t['name']:<12} Entry: ₹{t['entry_price']:<9.2f} Cur: ₹{t['current_price']:<9.2f} PnL: {t['pnl_pct']:+.2f}% (₹{t['pnl_rupees']:+,.0f})")
+
+    if oc:
+        print("-" * 70)
+        print(f"⚡ Track C: Benchmark Velocity Sniper (Target +25%, SL -6%, 72h Gate):")
+        print(f"   • Pending GTT   : {oc.get('pending_count', 0)} awaiting breakout")
+        print(f"   • Open Trades   : {oc.get('open_count', 0)} triggered & active")
+        print(f"   • Closed Trades : {oc.get('closed_count', 0)} completed")
+        print(f"   • Win Rate      : {oc.get('win_rate', 0.0):.1f}%")
+        print(f"   • Profit Factor : {oc.get('profit_factor', 1.0):.2f}")
+        print(f"   • Net P&L (INR) : ₹{oc.get('total_pnl_inr', 0.0):+,.2f} ({oc.get('total_pnl_pct', 0.0):+.2f}%)")
+        if oc.get("open_trades"):
+            print("   Active Positions:")
+            for t in oc["open_trades"]:
+                print(f"     - {t['name']:<12} Entry: ₹{t['entry_price']:<9.2f} Cur: ₹{t['current_price']:<9.2f} PnL: {t['pnl_pct']:+.2f}% (₹{t['pnl_rupees']:+,.0f})")
+    print("="*70 + "\n")
+
     print(f"   • Net P&L (INR) : ₹{o3['total_pnl_inr']:+,.2f} ({o3['total_pnl_pct']:+.2f}%)")
     if o3["open_trades"]:
         print("   Active Positions:")
