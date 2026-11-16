@@ -194,7 +194,7 @@ def audit_and_update_dual_tracker() -> dict:
 
         if is_closed:
             costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=exit_px, quantity=shares)
-            net_pnl_inr = round((exit_px - entry_px) * shares - costs.total_friction, 2)
+            net_pnl_inr = round((exit_px - entry_px) * shares - costs.total_friction_rupees, 2)
             net_pnl_pct = round(net_pnl_inr / (entry_px * shares) * 100.0, 2) if (entry_px * shares) > 0 else 0.0
             
             tracker["option_2"]["closed_trades"].append({
@@ -204,7 +204,7 @@ def audit_and_update_dual_tracker() -> dict:
                 "exit_reason": exit_reason,
                 "net_pnl_inr": net_pnl_inr,
                 "net_pnl_pct": net_pnl_pct,
-                "friction_inr": costs.total_friction,
+                "friction_inr": costs.total_friction_rupees,
                 "status": "CLOSED",
             })
         else:
@@ -306,7 +306,7 @@ def audit_and_update_dual_tracker() -> dict:
 
         if is_closed:
             costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=exit_px, quantity=shares)
-            net_pnl_inr = round((exit_px - entry_px) * shares - costs.total_friction, 2)
+            net_pnl_inr = round((exit_px - entry_px) * shares - costs.total_friction_rupees, 2)
             net_pnl_pct = round(net_pnl_inr / (entry_px * shares) * 100.0, 2) if (entry_px * shares) > 0 else 0.0
 
             tracker["option_3"]["closed_trades"].append({
@@ -316,7 +316,7 @@ def audit_and_update_dual_tracker() -> dict:
                 "exit_reason": exit_reason,
                 "net_pnl_inr": net_pnl_inr,
                 "net_pnl_pct": net_pnl_pct,
-                "friction_inr": costs.total_friction,
+                "friction_inr": costs.total_friction_rupees,
                 "status": "CLOSED",
             })
         else:
