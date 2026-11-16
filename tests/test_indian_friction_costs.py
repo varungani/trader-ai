@@ -48,3 +48,4 @@ def test_zero_quantity_or_flat_trade():
     assert costs.gross_pnl_rupees == 0.0
     assert costs.net_pnl_rupees < 0.0  # Net loss due to DP charges & STT
     assert costs.total_friction_rupees > 0.0
+

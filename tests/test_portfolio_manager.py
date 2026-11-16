@@ -44,3 +44,4 @@ def test_portfolio_summary_structure():
     assert "total_value" in summary
     assert "holdings_count" in summary
     assert "total_pnl" in summary
+

@@ -50,3 +50,4 @@ def test_broker_configuration_check():
     from data.broker import is_configured
     configured = is_configured()
     assert isinstance(configured, bool)
+

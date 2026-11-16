@@ -116,3 +116,4 @@ def test_compute_dual_summary_with_closed_trades():
     assert summary["option_3"]["win_rate"] == 100.0
     assert summary["option_3"]["total_pnl_inr"] == 6000.0
     assert "Option 3" in summary["winner"]
+

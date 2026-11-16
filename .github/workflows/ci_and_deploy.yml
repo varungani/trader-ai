@@ -2,7 +2,7 @@ name: CI & Gated Production Deployment
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ develop, master, main ]
   pull_request:
     branches: [ master, main ]
   workflow_dispatch:
@@ -40,8 +40,31 @@ jobs:
         run: |
           pytest tests/ -v --tb=short
 
+  deploy-to-master:
+    name: 🚀 Gated Deploy to Master (When Pushing to Develop)
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fast-Forward Sync to Master Branch
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action [CI/CD Gated Deploy]"
+          
+          echo "CI tests passed on 'develop'! Fast-forwarding 'master' branch..."
+          git checkout master
+          git merge --ff-only develop
+          git push origin master
+          echo "Master branch updated! Streamlit Cloud will now deploy cleanly."
+
   deploy-to-production:
-    name: 🚀 Gated Deploy to Production (Streamlit Cloud)
+    name: 🚀 Sync to Production Branch
     needs: test
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
@@ -57,8 +80,7 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action [CI/CD Gated Deploy]"
           
-          echo "CI tests passed with 100% success. Fast-forwarding to 'production' branch..."
+          echo "CI tests passed! Updating 'production' branch..."
           git checkout -B production
           git merge --ff-only ${{ github.ref_name }}
           git push -f origin production
-          echo "Production branch updated successfully! Streamlit Cloud will now deploy."
