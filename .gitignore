@@ -13,3 +13,6 @@ portfolio/portfolio.json
 portfolio/paper_week.json
 data/cache/*.pkl
 data/cache/*.csv
+logs/
+*.log
+
