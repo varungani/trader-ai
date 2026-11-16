@@ -114,48 +114,23 @@ with st.sidebar:
 # ─── Run Pipeline / Load Cached Scan ─────────────────────────────────────────
 if run_btn:
     with st.spinner("Scanning 86+ high-beta leaders, institutional volume & relative strength…"):
-        brief = run_pipeline(
-            timeframe="short_term",
-            include_holdings=True,
-            sync_broker=sync_broker,
-            totp=totp or None,
-            persist=True,
-            allocation_profile=profile,
-            capital=swing_capital,
-            universe_preset=universe,
-            screen_top_n=25,
-            use_screener=True,
-            stock_budget=swing_capital,
-            mf_budget=0.0,
-        )
-        st.session_state["brief"] = brief
-
-        # 🤖 AUTOMATIC PAPER TEST TRACKING:
-        # Every pick is automatically logged into the paper test journal with zero manual clicks!
-        t1_picks = brief.get("top_picks") or []
-        t2_radar = brief.get("radar_watchlist") or []
+        res = run_apex_scan(capital=swing_capital, top_slots=3, radar_slots=12)
+        st.session_state["brief"] = res
+        t1_picks = res.get("picks") or res.get("top_picks") or []
+        t2_radar = res.get("radar_watchlist") or []
         if t1_picks or t2_radar:
             log_today_picks(t1_picks, t2_radar)
 
 brief = st.session_state.get("brief")
-if not brief:
-    # Run instantaneous initial scan if first visit
+if not brief or not (brief.get("picks") or brief.get("top_picks")):
     with st.spinner("Loading live Apex market intelligence…"):
-        brief = run_pipeline(
-            timeframe="short_term",
-            include_holdings=True,
-            persist=False,
-            allocation_profile="apex_3slot",
-            capital=swing_capital,
-            universe_preset="high_beta_apex",
-            screen_top_n=25,
-            use_screener=True,
-            stock_budget=swing_capital,
-            mf_budget=0.0,
-        )
-        st.session_state["brief"] = brief
-        # Auto-log on initial load
-        log_today_picks(brief.get("top_picks") or [], brief.get("radar_watchlist") or [])
+        res = run_apex_scan(capital=swing_capital, top_slots=3, radar_slots=12)
+        st.session_state["brief"] = res
+        brief = res
+        t1_picks = res.get("picks") or res.get("top_picks") or []
+        t2_radar = res.get("radar_watchlist") or []
+        if t1_picks or t2_radar:
+            log_today_picks(t1_picks, t2_radar)
 
 # ─── Streamlined 3-Tab Interface ─────────────────────────────────────────────
 tab_picks, tab_paper, tab_portfolio = st.tabs([
@@ -168,10 +143,14 @@ tab_picks, tab_paper, tab_portfolio = st.tabs([
 # TAB 1: APEX PICKS & RADAR (EXECUTION)
 # ─────────────────────────────────────────────────────────────────────────────
 with tab_picks:
-    picks = brief.get("top_picks") or []
+    picks = brief.get("picks") or brief.get("top_picks") or []
     radar = brief.get("radar_watchlist") or []
-    macro = brief.get("macro") or {}
+    macro = brief.get("macro") or {
+        "regime": brief.get("regime", "BULLISH"),
+        "is_regime_gate_cleared": brief.get("nifty_cleared", True),
+    }
     leading_secs = brief.get("leading_sectors") or []
+
 
     # 1. Macro Regime & Institutional Leading Sector Banner
     b_col1, b_col2 = st.columns([1, 2])
