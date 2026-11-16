@@ -386,3 +386,4 @@ def compute_dual_summary(tracker: Optional[dict] = None) -> dict:
         "option_3": s3,
         "winner": winner,
     }
+
