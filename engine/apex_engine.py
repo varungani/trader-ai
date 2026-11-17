@@ -37,6 +37,7 @@ def run_apex_scan(
     capital: float = 100000.0,
     top_slots: int = 3,
     radar_slots: int = 12,
+    universe_preset: str = "nifty500",
     force_live: bool = False,
 ) -> dict:
     """
@@ -46,7 +47,7 @@ def run_apex_scan(
       - radar_watchlist: Top 10-15 coiled setups with exact pivot triggers to eliminate the shortlisting bottleneck
       - leading_sectors: Top institutional sectors with leadership tailwinds
     """
-    logger.info(f"Running Apex High-Velocity Scan on {len(HIGH_BETA_APEX_STOCKS)} stocks (Capital: ₹{capital:,.2f})")
+    logger.info(f"Running Apex High-Velocity Scan on {universe_preset} (Capital: ₹{capital:,.2f})")
 
     # 1. Macro Regime Check
     macro = compute_macro_score()
@@ -57,9 +58,9 @@ def run_apex_scan(
     # 2. Sector Leadership Matrix
     top_sectors = get_top_leading_sectors(top_n=3)
 
-    # 3. High-Velocity Pre-Screen across full Nifty 500 universe (499 stocks)
+    # 3. High-Velocity Pre-Screen across selected universe
     from engine.screener import get_universe
-    scan_universe = get_universe("nifty500")
+    scan_universe = get_universe(universe_preset)
     screen_hits = pre_screen(
         tickers=scan_universe,
         top_n=50,

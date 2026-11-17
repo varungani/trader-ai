@@ -105,8 +105,12 @@ with st.sidebar:
 
     universe = st.selectbox(
         "Universe",
-        options=["high_beta_apex", "high_beta_rockets", "nifty500"],
-        format_func=lambda u: "⚡ Apex Super-Movers (86+ High-Beta Leaders)" if u == "high_beta_apex" else u.upper(),
+        options=["nifty500", "high_beta_apex", "nifty50"],
+        format_func=lambda u: {
+            "nifty500": "⚡ Nifty 500 (Recommended — Mid/SmallCap Rockets)",
+            "high_beta_apex": "🎯 Apex Super-Movers (86+ High-Beta Leaders)",
+            "nifty50": "🏛️ Nifty 50 (Large-Cap Bluechips Only)",
+        }.get(u, u.upper()),
         index=0,
     )
 
@@ -131,8 +135,8 @@ with st.sidebar:
 
 # ─── Run Pipeline / Load Cached Scan ─────────────────────────────────────────
 if run_btn:
-    with st.spinner("Scanning 86+ high-beta leaders, institutional volume & relative strength…"):
-        res = run_apex_scan(capital=swing_capital, top_slots=3, radar_slots=12)
+    with st.spinner(f"Scanning {universe.upper()} for institutional volume, breakout pivots & relative strength…"):
+        res = run_apex_scan(capital=swing_capital, top_slots=3, radar_slots=12, universe_preset=universe)
         st.session_state["brief"] = res
         t1_picks = res.get("picks") or res.get("top_picks") or []
         t2_radar = res.get("radar_watchlist") or []
@@ -142,7 +146,7 @@ if run_btn:
 brief = st.session_state.get("brief")
 if not brief or not (brief.get("picks") or brief.get("top_picks")):
     with st.spinner("Loading live Apex market intelligence…"):
-        res = run_apex_scan(capital=swing_capital, top_slots=3, radar_slots=12)
+        res = run_apex_scan(capital=swing_capital, top_slots=3, radar_slots=12, universe_preset=universe)
         st.session_state["brief"] = res
         brief = res
         t1_picks = res.get("picks") or res.get("top_picks") or []
