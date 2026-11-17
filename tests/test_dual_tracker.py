@@ -19,6 +19,15 @@ from engine.dual_tracker import (
 )
 
 
+@pytest.fixture(autouse=True)
+def isolate_tracker_file(tmp_path, monkeypatch):
+    """Ensure all dual_tracker tests run against an isolated temporary tracker file."""
+    import engine.dual_tracker as dt
+    test_tracker_path = str(tmp_path / "dual_tracker.json")
+    monkeypatch.setattr(dt, "TRACKER_FILE", test_tracker_path)
+    return test_tracker_path
+
+
 @pytest.fixture
 def sample_picks():
     t1_picks = [
@@ -55,6 +64,7 @@ def test_tracker_structure():
     assert "option_2" in data
     assert "option_3" in data
     assert "open_trades" in data["option_2"]
+    assert "pending_confirmations" in data["option_2"]
     assert "pending_triggers" in data["option_3"]
 
 
@@ -140,13 +150,24 @@ def test_can_trigger_breakout_market_rules():
 
 
 def test_log_today_picks_sets_shortlist_and_fill_dates(sample_picks):
-    """Verify that logging picks establishes shortlist_date and fill_date."""
+    """Verify that logging picks establishes shortlist_date and pending confirmation."""
     t1_picks, t2_radar = sample_picks
     summary = log_today_picks(t1_picks, t2_radar)
     
     tracker = _load_tracker()
-    # Track A active trades have shortlist_date and fill_date
-    for t in tracker["option_2"]["open_trades"]:
+    # Track A candidates logged outside market hours are in pending_confirmations awaiting 9:20 AM
+    assert len(tracker["option_2"]["pending_confirmations"]) > 0
+    for p in tracker["option_2"]["pending_confirmations"]:
+        assert "shortlist_date" in p
+        assert "scheduled_date" in p
+        assert "fill_date" in p
+        assert "Awaiting" in p["fill_date"]
+
+    # When market open is forced (simulation), they promote to open_trades
+    audit_and_update_dual_tracker(force_market_open=True)
+    tracker_audited = _load_tracker()
+    assert len(tracker_audited["option_2"]["open_trades"]) > 0
+    for t in tracker_audited["option_2"]["open_trades"]:
         assert "shortlist_date" in t
         assert "fill_date" in t
 

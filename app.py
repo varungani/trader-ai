@@ -333,7 +333,7 @@ with tab_paper:
             c2.metric("Win Rate", f"{o2['win_rate']:.1f}%")
             c3, c4 = st.columns(2)
             c3.metric("Profit Factor", f"{o2['profit_factor']:.2f}")
-            c4.metric("Active Trades", f"{o2['open_count']} open", f"{o2['aborted_count']} blocked")
+            c4.metric("Active Trades", f"{o2['open_count']} open", f"{o2.get('pending_count', 0)} pending")
 
     with sc2:
         with st.container(border=True):
@@ -362,8 +362,25 @@ with tab_paper:
     # Active Trades 3 Columns Side by Side
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
-        st.markdown("##### 📋 Track A: Active Trades")
-        if o2["open_trades"]:
+        st.markdown("##### 📋 Track A: 9:20 AM Confirmation")
+        if o2.get("pending_confirmations"):
+            st.caption("⏳ Pending 9:20 AM Confirmation (Awaiting Open):")
+            df_o2_pend = pd.DataFrame([
+                {
+                    "Ticker": t["ticker"].replace(".NS", ""),
+                    "Shortlisted": format_display_date(t.get("shortlist_date", "")),
+                    "Open Date": format_display_date(t.get("scheduled_date", "")),
+                    "Scan Px": f"₹{t['scan_price']:,.2f}",
+                    "Target (+20%)": f"₹{t['target_price']:,.2f}",
+                    "Stop (-7%)": f"₹{t['stop_loss']:,.2f}",
+                    "Status": "⏳ Awaiting 09:20 Open",
+                }
+                for t in o2["pending_confirmations"]
+            ])
+            st.dataframe(df_o2_pend, use_container_width=True)
+
+        if o2.get("open_trades"):
+            st.caption("⚡ Active Confirmed Trades (Filled at 09:20 AM):")
             df_o2 = pd.DataFrame([
                 {
                     "Ticker": t["ticker"].replace(".NS", ""),
@@ -379,8 +396,23 @@ with tab_paper:
                 for t in o2["open_trades"]
             ])
             st.dataframe(df_o2, use_container_width=True)
-        else:
-            st.write("No active open trades in Option 2.")
+        elif not o2.get("pending_confirmations"):
+            st.write("No active open trades in Track A.")
+
+        if o2.get("aborted_trades"):
+            st.caption("🚫 Aborted Trades (Gap Down Blocked):")
+            df_o2_abort = pd.DataFrame([
+                {
+                    "Ticker": t["ticker"].replace(".NS", ""),
+                    "Shortlisted": format_display_date(t.get("shortlist_date", "")),
+                    "Scan Px": f"₹{t.get('scan_price', 0):,.2f}",
+                    "Open Px": f"₹{t.get('open_price', 0):,.2f}",
+                    "Gap": f"{t.get('gap_pct', 0):+.2f}%",
+                    "Reason": t.get("reason", "Gap down"),
+                }
+                for t in o2["aborted_trades"]
+            ])
+            st.dataframe(df_o2_abort, use_container_width=True)
 
         if o2["closed_trades"]:
             st.markdown("##### 🏁 Track A History")

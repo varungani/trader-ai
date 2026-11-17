@@ -14,13 +14,13 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, time as dtime
 from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from data.market_data import fetch_live_quote, _get_cached_history
 from data.costs import compute_indian_delivery_costs
-from data.market_calendar import get_market_status, is_trading_day, get_ist_now
+from data.market_calendar import get_market_status, is_trading_day, get_ist_now, get_next_trading_day
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ def _default_tracker_state() -> dict:
             "name": "Track A: Option 2 (9:20 AM Confirmation)",
             "description": "Checks open at 9:20 AM. Fills on normal open (-0.5% to +1.5%), aborts bad gap downs (<-1.5%). -7% daily close stop, +20% target.",
             "capital": 100000.0,
+            "pending_confirmations": [],
             "open_trades": [],
             "closed_trades": [],
             "aborted_trades": [],
@@ -67,6 +68,8 @@ def _load_tracker() -> dict:
                 data = json.load(f)
                 if "track_c" not in data:
                     data["track_c"] = default_state["track_c"]
+                if "pending_confirmations" not in data.get("option_2", {}):
+                    data.setdefault("option_2", {})["pending_confirmations"] = []
                 # Migration: ensure shortlist_date & fill_date exist on all trades
                 for trk in ["option_2", "option_3", "track_c"]:
                     if trk in data:
@@ -140,10 +143,28 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
       - Track C (Benchmark Sniper): Top 2 highest-RS rockets (+25% target, -6% stop, 72h gate)
     """
     tracker = _load_tracker()
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    now = get_ist_now()
+    today_date = now.date()
+    today_str = now.strftime("%Y-%m-%d")
+    is_td, _ = is_trading_day(today_date)
 
-    # 1. Log Option 2 Candidates
-    existing_o2_tickers = {t["ticker"] for t in tracker["option_2"]["open_trades"] + tracker["option_2"]["aborted_trades"]}
+    # 1. Option 2 Candidates (Track A: 9:20 AM Confirmation Rule)
+    # If today is a trading day and current time < 09:20 AM, scheduled for today's 09:20 AM open.
+    # Otherwise (scanned after 09:20 AM, evening scan, weekend, or holiday), scheduled for next trading day's open.
+    if is_td and now.time() < dtime(9, 20):
+        scheduled_date = today_date
+    else:
+        scheduled_date, _ = get_next_trading_day(today_date)
+    scheduled_str = scheduled_date.strftime("%Y-%m-%d")
+    scheduled_disp = scheduled_date.strftime("%d %b")
+
+    existing_o2_tickers = {
+        t["ticker"] for t in (
+            tracker["option_2"].get("pending_confirmations", []) +
+            tracker["option_2"]["open_trades"] +
+            tracker["option_2"]["aborted_trades"]
+        )
+    }
     for p in tier1_picks:
         ticker = p.get("ticker")
         if not ticker or ticker in existing_o2_tickers:
@@ -154,19 +175,19 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
         stop_px = float(p.get("stop_loss") or (cur_px * 0.93))
         shares = int(p.get("shares") or (33333 // cur_px if cur_px > 0 else 0))
 
-        tracker["option_2"]["open_trades"].append({
+        tracker["option_2"].setdefault("pending_confirmations", []).append({
             "ticker": ticker,
             "name": ticker.replace(".NS", ""),
             "shortlist_date": today_str,
-            "fill_date": f"{today_str} 09:20",
-            "entry_date": today_str,
+            "scheduled_date": scheduled_str,
+            "fill_date": f"Awaiting {scheduled_disp} 09:20",
             "scan_price": cur_px,
             "entry_price": cur_px,
             "target_price": target_px,
             "stop_loss": stop_px,
             "shares": shares,
-            "allocated_rupees": round(shares * cur_px, 2),
-            "status": "CONFIRMED_ACTIVE",
+            "planned_rupees": round(shares * cur_px, 2),
+            "status": "AWAITING_920_OPEN",
             "current_price": cur_px,
             "pnl_pct": 0.0,
             "pnl_rupees": 0.0,
@@ -253,10 +274,70 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
     Strictly simulates Indian market hours (09:15-15:30 IST) for trigger executions.
     """
     tracker = _load_tracker()
-    today = datetime.now().date()
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    now = get_ist_now()
+    today = now.date()
+    today_str = now.strftime("%Y-%m-%d")
+    is_td, _ = is_trading_day(today)
 
     # --- AUDIT TRACK A: OPTION 2 (9:20 AM CONFIRMATION) ---
+    # 1. Audit pending 9:20 AM confirmations
+    can_evaluate_920 = force_market_open or (is_td and now.time() >= dtime(9, 20))
+    still_pending_o2 = []
+    for pend in tracker["option_2"].get("pending_confirmations", []):
+        sched_d_str = pend.get("scheduled_date", pend.get("shortlist_date", today_str))
+        try:
+            sched_d = datetime.strptime(sched_d_str, "%Y-%m-%d").date()
+        except Exception:
+            sched_d = today
+
+        if can_evaluate_920 and (today >= sched_d or force_market_open):
+            ticker = pend["ticker"]
+            scan_px = float(pend["scan_price"])
+            quote = fetch_live_quote(ticker)
+            open_px = float(quote.get("open") or quote.get("price") or scan_px)
+            if open_px <= 0:
+                df = _get_cached_history(ticker, "5d")
+                if not df.empty:
+                    df.columns = [str(c).title() for c in df.columns]
+                    open_px = float(df["Open"].iloc[-1])
+                else:
+                    open_px = scan_px
+
+            gap_pct = ((open_px - scan_px) / scan_px) * 100.0 if scan_px > 0 else 0.0
+
+            # Abort bad gap down (<-1.5%)
+            if gap_pct < -1.5:
+                logger.info(f"🚫 [Track A Aborted] {ticker}: Gap down {gap_pct:.2f}% (Scan: ₹{scan_px:.2f}, Open: ₹{open_px:.2f})")
+                tracker["option_2"]["aborted_trades"].append({
+                    **pend,
+                    "abort_date": today_str,
+                    "open_price": open_px,
+                    "gap_pct": round(gap_pct, 2),
+                    "status": "ABORTED_GAP_DOWN",
+                    "reason": f"Bad gap down ({gap_pct:.2f}% < -1.5%). Capital preserved.",
+                })
+            else:
+                fill_ts = f"{today_str} 09:20"
+                shares = int(33333 // open_px) if open_px > 0 else pend["shares"]
+                logger.info(f"✅ [Track A Filled] {ticker} @ ₹{open_px:.2f} (Gap: {gap_pct:+.2f}%) on {fill_ts}")
+                tracker["option_2"]["open_trades"].append({
+                    **pend,
+                    "entry_date": today_str,
+                    "fill_date": fill_ts,
+                    "entry_price": open_px,
+                    "target_price": round(open_px * 1.20, 2),
+                    "stop_loss": round(open_px * 0.93, 2),
+                    "shares": shares,
+                    "allocated_rupees": round(shares * open_px, 2),
+                    "status": "CONFIRMED_ACTIVE",
+                    "current_price": open_px,
+                    "gap_pct": round(gap_pct, 2),
+                })
+        else:
+            still_pending_o2.append(pend)
+    tracker["option_2"]["pending_confirmations"] = still_pending_o2
+
+    # 2. Audit open trades
     still_open_o2 = []
     for trade in tracker["option_2"]["open_trades"]:
         ticker = trade["ticker"]
@@ -595,6 +676,8 @@ def compute_dual_summary(tracker: Optional[dict] = None) -> dict:
         closed = track.get("closed_trades", [])
         aborted = track.get("aborted_trades", [])
         pending = track.get("pending_triggers", [])
+        pending_conf = track.get("pending_confirmations", [])
+        total_pending = len(pending) + len(pending_conf)
 
         floating_pnl_inr = sum(t.get("pnl_rupees", 0.0) for t in opens)
         realized_pnl_inr = sum(t.get("net_pnl_inr", 0.0) for t in closed)
@@ -614,7 +697,7 @@ def compute_dual_summary(tracker: Optional[dict] = None) -> dict:
         return {
             "open_count": len(opens),
             "closed_count": len(closed),
-            "pending_count": len(pending),
+            "pending_count": total_pending,
             "aborted_count": len(aborted),
             "floating_pnl_inr": round(floating_pnl_inr, 2),
             "realized_pnl_inr": round(realized_pnl_inr, 2),
@@ -627,6 +710,7 @@ def compute_dual_summary(tracker: Optional[dict] = None) -> dict:
             "open_trades": opens,
             "closed_trades": closed,
             "pending_triggers": pending,
+            "pending_confirmations": pending_conf,
             "aborted_trades": aborted,
         }
 
