@@ -57,10 +57,12 @@ def run_apex_scan(
     # 2. Sector Leadership Matrix
     top_sectors = get_top_leading_sectors(top_n=3)
 
-    # 3. High-Velocity Pre-Screen across expanded universe
+    # 3. High-Velocity Pre-Screen across full Nifty 500 universe (499 stocks)
+    from engine.screener import get_universe
+    scan_universe = get_universe("nifty500")
     screen_hits = pre_screen(
-        tickers=list(HIGH_BETA_APEX_STOCKS),
-        top_n=35,
+        tickers=scan_universe,
+        top_n=50,
         period="6mo",
         min_price=15.0,
         min_avg_value_cr=2.0,
