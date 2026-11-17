@@ -79,13 +79,6 @@ def run_once() -> dict:
             for t in oc["open_trades"]:
                 print(f"     - {t['name']:<12} Entry: ₹{t['entry_price']:<9.2f} Cur: ₹{t['current_price']:<9.2f} PnL: {t['pnl_pct']:+.2f}% (₹{t['pnl_rupees']:+,.0f})")
     print("="*70 + "\n")
-
-    print(f"   • Net P&L (INR) : ₹{o3['total_pnl_inr']:+,.2f} ({o3['total_pnl_pct']:+.2f}%)")
-    if o3["open_trades"]:
-        print("   Active Positions:")
-        for t in o3["open_trades"]:
-            print(f"     - {t['name']:<12} Entry: ₹{t['entry_price']:<9.2f} Cur: ₹{t['current_price']:<9.2f} PnL: {t['pnl_pct']:+.2f}% (₹{t['pnl_rupees']:+,.0f})")
-    print("="*70 + "\n")
     return summary
 
 

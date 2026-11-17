@@ -20,7 +20,7 @@ from typing import Optional
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from data.market_data import fetch_live_quote, _get_cached_history
 from data.costs import compute_indian_delivery_costs
-from data.market_calendar import get_market_status, is_trading_day, get_ist_now, get_next_trading_day
+from data.market_calendar import get_market_status, is_trading_day, get_ist_now, get_next_trading_day, count_trading_days
 
 logger = logging.getLogger(__name__)
 
@@ -205,8 +205,8 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
 
         cur_px = float(r.get("current_price") or 0.0)
         pivot_trigger = float(r.get("pivot_buy_stop") or (cur_px * 1.015))
-        target_px = float(r.get("target_price") or (pivot_trigger * 1.20))
-        stop_px = float(r.get("stop_loss") or (pivot_trigger * 0.93))
+        target_px = round(pivot_trigger * 1.20, 2)
+        stop_px = round(pivot_trigger * 0.93, 2)
         shares = int(33333 // pivot_trigger) if pivot_trigger > 0 else 0
 
         tracker["option_3"]["pending_triggers"].append({
@@ -354,21 +354,24 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
 
         quote = fetch_live_quote(ticker)
         cur_px = float(quote.get("price") or 0.0)
+        high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
         if cur_px <= 0:
             df = _get_cached_history(ticker, "5d")
             if not df.empty:
                 df.columns = [str(c).title() for c in df.columns]
                 cur_px = float(df["Close"].iloc[-1])
+                high_px = float(df["High"].iloc[-1])
             else:
                 cur_px = entry_px
+                high_px = entry_px
 
         trade["current_price"] = cur_px
-        trade["pnl_pct"] = round(((cur_px - entry_px) / entry_px) * 100.0, 2)
+        trade["pnl_pct"] = round(((cur_px - entry_px) / entry_px) * 100.0, 2) if entry_px > 0 else 0.0
         trade["pnl_rupees"] = round((cur_px - entry_px) * shares, 2)
 
         try:
             entry_d = datetime.strptime(trade["entry_date"][:10], "%Y-%m-%d").date()
-            trade["days_held"] = (today - entry_d).days
+            trade["days_held"] = count_trading_days(entry_d, today)
         except Exception:
             trade["days_held"] = 1
 
@@ -376,7 +379,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
         exit_reason = ""
         exit_px = cur_px
 
-        if cur_px >= target_px:
+        if high_px >= target_px or cur_px >= target_px:
             is_closed = True
             exit_reason = "TARGET_HIT (+20%)"
             exit_px = target_px
@@ -417,7 +420,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
         
         quote = fetch_live_quote(ticker)
         cur_px = float(quote.get("price") or 0.0)
-        high_px = float(quote.get("high") or cur_px)
+        high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
         if cur_px <= 0:
             df = _get_cached_history(ticker, "5d")
             if not df.empty:
@@ -445,7 +448,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 "stop_loss": pending["stop_loss"],
                 "shares": shares,
                 "allocated_rupees": round(shares * trigger_px, 2),
-                "pnl_pct": round(((cur_px - trigger_px) / trigger_px) * 100.0, 2),
+                "pnl_pct": round(((cur_px - trigger_px) / trigger_px) * 100.0, 2) if trigger_px > 0 else 0.0,
                 "pnl_rupees": round((cur_px - trigger_px) * shares, 2),
                 "pattern": pending.get("pattern", "COIL"),
                 "sector": pending.get("sector", "General"),
@@ -474,21 +477,24 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
 
         quote = fetch_live_quote(ticker)
         cur_px = float(quote.get("price") or 0.0)
+        high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
         if cur_px <= 0:
             df = _get_cached_history(ticker, "5d")
             if not df.empty:
                 df.columns = [str(c).title() for c in df.columns]
                 cur_px = float(df["Close"].iloc[-1])
+                high_px = float(df["High"].iloc[-1])
             else:
                 cur_px = entry_px
+                high_px = entry_px
 
         trade["current_price"] = cur_px
-        trade["pnl_pct"] = round(((cur_px - entry_px) / entry_px) * 100.0, 2)
+        trade["pnl_pct"] = round(((cur_px - entry_px) / entry_px) * 100.0, 2) if entry_px > 0 else 0.0
         trade["pnl_rupees"] = round((cur_px - entry_px) * shares, 2)
 
         try:
             entry_d = datetime.strptime(trade["entry_date"][:10], "%Y-%m-%d").date()
-            trade["days_held"] = (today - entry_d).days
+            trade["days_held"] = count_trading_days(entry_d, today)
         except Exception:
             trade["days_held"] = 1
 
@@ -496,7 +502,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
         exit_reason = ""
         exit_px = cur_px
 
-        if cur_px >= target_px:
+        if high_px >= target_px or cur_px >= target_px:
             is_closed = True
             exit_reason = "TARGET_HIT (+20%)"
             exit_px = target_px
@@ -538,7 +544,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
 
             quote = fetch_live_quote(ticker)
             cur_px = float(quote.get("price") or 0.0)
-            high_px = float(quote.get("high") or cur_px)
+            high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
             if cur_px <= 0:
                 df = _get_cached_history(ticker, "5d")
                 if not df.empty:
@@ -566,7 +572,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                     "stop_loss": pending["stop_loss"],
                     "shares": shares,
                     "allocated_rupees": round(shares * trigger_px, 2),
-                    "pnl_pct": round(((cur_px - trigger_px) / trigger_px) * 100.0, 2),
+                    "pnl_pct": round(((cur_px - trigger_px) / trigger_px) * 100.0, 2) if trigger_px > 0 else 0.0,
                     "pnl_rupees": round((cur_px - trigger_px) * shares, 2),
                     "pattern": pending.get("pattern", "SNIPER"),
                     "sector": pending.get("sector", "General"),
@@ -594,21 +600,24 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
 
             quote = fetch_live_quote(ticker)
             cur_px = float(quote.get("price") or 0.0)
+            high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
             if cur_px <= 0:
                 df = _get_cached_history(ticker, "5d")
                 if not df.empty:
                     df.columns = [str(c).title() for c in df.columns]
                     cur_px = float(df["Close"].iloc[-1])
+                    high_px = float(df["High"].iloc[-1])
                 else:
                     cur_px = entry_px
+                    high_px = entry_px
 
             trade["current_price"] = cur_px
-            trade["pnl_pct"] = round(((cur_px - entry_px) / entry_px) * 100.0, 2)
+            trade["pnl_pct"] = round(((cur_px - entry_px) / entry_px) * 100.0, 2) if entry_px > 0 else 0.0
             trade["pnl_rupees"] = round((cur_px - entry_px) * shares, 2)
 
             try:
                 entry_d = datetime.strptime(trade["entry_date"][:10], "%Y-%m-%d").date()
-                trade["days_held"] = (today - entry_d).days
+                trade["days_held"] = count_trading_days(entry_d, today)
             except Exception:
                 trade["days_held"] = 1
 
@@ -617,7 +626,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
             exit_px = cur_px
 
             # 1. Target Hit (+25%)
-            if cur_px >= target_px:
+            if high_px >= target_px or cur_px >= target_px:
                 is_closed = True
                 exit_reason = "EXPANDED_TARGET_HIT (+25%)"
                 exit_px = target_px

@@ -176,3 +176,34 @@ def test_log_today_picks_sets_shortlist_and_fill_dates(sample_picks):
         assert "shortlist_date" in p
 
 
+def test_option_3_target_and_stop_anchored_to_pivot_trigger():
+    """Verify Option 3 target (+20%) and stop (-7%) are strictly anchored to pivot_trigger."""
+    t2_radar = [{
+        "ticker": "TRIGGER_TEST.NS",
+        "name": "TRIGGER_TEST",
+        "current_price": 100.0,
+        "pivot_buy_stop": 110.0,
+        "target_price": 120.0,  # 100 * 1.20 (old flawed anchor)
+        "stop_loss": 93.0,       # 100 * 0.93 (old flawed anchor)
+        "readiness": "COILING",
+        "pattern": "COIL",
+        "sector": "Infra",
+    }]
+    log_today_picks([], t2_radar)
+    tracker = _load_tracker()
+    item = next(p for p in tracker["option_3"]["pending_triggers"] if p["ticker"] == "TRIGGER_TEST.NS")
+    # Must be 110 * 1.20 = 132.0, NOT 120.0
+    assert item["target_price"] == 132.0
+    # Must be 110 * 0.93 = 102.3, NOT 93.0
+    assert item["stop_loss"] == 102.3
+
+
+def test_days_held_uses_trading_days():
+    """Verify that days_held counts actual NSE trading days rather than calendar days."""
+    from data.market_calendar import count_trading_days
+    # Friday to Monday = 3 calendar days, but exactly 1 trading day
+    friday = "2026-11-13"
+    monday = "2026-11-16"
+    assert count_trading_days(friday, monday) == 1
+
+
