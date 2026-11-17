@@ -117,3 +117,41 @@ def test_compute_dual_summary_with_closed_trades():
     assert summary["option_3"]["total_pnl_inr"] == 6000.0
     assert "Option 3" in summary["winner"]
 
+
+def test_can_trigger_breakout_market_rules():
+    """Verify that GTT breakout triggers strictly simulate Indian market hours."""
+    from engine.dual_tracker import _can_trigger_breakout
+    from datetime import datetime, timedelta
+
+    # 1. Force market open override (used in testing/simulation)
+    can_exec, ts = _can_trigger_breakout("2026-11-16", force_market_open=True)
+    assert can_exec is True
+    assert len(ts) >= 10
+
+    # 2. Same-day evening scan (shortlisted today) cannot trigger when market is closed
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    # Outside market hours, a stock shortlisted today should not trigger
+    # Note: If test runs outside market hours, this returns False
+    from data.market_calendar import get_market_status
+    mkt = get_market_status()
+    if not mkt.get("is_open"):
+        can_exec_today, _ = _can_trigger_breakout(today_str, force_market_open=False)
+        assert can_exec_today is False
+
+
+def test_log_today_picks_sets_shortlist_and_fill_dates(sample_picks):
+    """Verify that logging picks establishes shortlist_date and fill_date."""
+    t1_picks, t2_radar = sample_picks
+    summary = log_today_picks(t1_picks, t2_radar)
+    
+    tracker = _load_tracker()
+    # Track A active trades have shortlist_date and fill_date
+    for t in tracker["option_2"]["open_trades"]:
+        assert "shortlist_date" in t
+        assert "fill_date" in t
+
+    # Track B pending triggers have shortlist_date
+    for p in tracker["option_3"]["pending_triggers"]:
+        assert "shortlist_date" in p
+
+

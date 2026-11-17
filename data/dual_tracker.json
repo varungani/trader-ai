@@ -1,6 +1,6 @@
 {
   "created_at": "2026-11-16 18:55:32",
-  "updated_at": "2026-11-16 20:27:19",
+  "updated_at": "2026-11-17 19:19:38",
   "option_2": {
     "name": "Option 2: 9:20 AM Confirmation Rule (Tier 1 Picks)",
     "description": "Checks open at 9:20 AM. Fills on normal open (-0.5% to +1.5%), aborts bad gap downs (<-1.5%), waits on huge gaps (>+3%). -7% daily close stop, +20% target.",
@@ -22,7 +22,9 @@
         "pnl_rupees": 0.0,
         "pattern": "ULTRA_ALPHA_LEADER",
         "sector": "IT",
-        "days_held": 0
+        "days_held": 1,
+        "shortlist_date": "2026-11-16",
+        "fill_date": "2026-11-16"
       },
       {
         "ticker": "PERSISTENT.NS",
@@ -40,7 +42,9 @@
         "pnl_rupees": 0.0,
         "pattern": "INSTITUTIONAL_BLAST",
         "sector": "IT",
-        "days_held": 0
+        "days_held": 1,
+        "shortlist_date": "2026-11-16",
+        "fill_date": "2026-11-16"
       },
       {
         "ticker": "INDHOTEL.NS",
@@ -58,6 +62,28 @@
         "pnl_rupees": 0.0,
         "pattern": "INSTITUTIONAL_BLAST",
         "sector": "General",
+        "days_held": 1,
+        "shortlist_date": "2026-11-16",
+        "fill_date": "2026-11-16"
+      },
+      {
+        "ticker": "TEST1.NS",
+        "name": "TEST1",
+        "shortlist_date": "2026-11-17",
+        "fill_date": "2026-11-17 09:20",
+        "entry_date": "2026-11-17",
+        "scan_price": 1000.0,
+        "entry_price": 1000.0,
+        "target_price": 1200.0,
+        "stop_loss": 930.0,
+        "shares": 33,
+        "allocated_rupees": 33000.0,
+        "status": "CONFIRMED_ACTIVE",
+        "current_price": 1000.0,
+        "pnl_pct": 0.0,
+        "pnl_rupees": 0.0,
+        "pattern": "BREAKOUT",
+        "sector": "IT",
         "days_held": 0
       }
     ],
@@ -82,7 +108,8 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "PRE_IGNITION_COIL",
         "readiness": "\u23f3 COILING AT 52W HIGH (Awaiting Blast)",
-        "sector": "IT"
+        "sector": "IT",
+        "shortlist_date": "2026-11-16"
       },
       {
         "ticker": "TATAELXSI.NS",
@@ -97,7 +124,8 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "INSTITUTIONAL_IGNITION",
         "readiness": "\u26a1 FIRING TODAY (Volume Surge Active)",
-        "sector": "IT"
+        "sector": "IT",
+        "shortlist_date": "2026-11-16"
       },
       {
         "ticker": "BHARTIARTL.NS",
@@ -112,7 +140,8 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "INSTITUTIONAL_IGNITION",
         "readiness": "\u26a1 FIRING TODAY (Volume Surge Active)",
-        "sector": "General"
+        "sector": "General",
+        "shortlist_date": "2026-11-16"
       },
       {
         "ticker": "DLF.NS",
@@ -127,7 +156,8 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "20EMA_SWEET_SPOT",
         "readiness": "\ud83c\udfaf 20 EMA SPRINGBOARD (Dip Support)",
-        "sector": "Infra"
+        "sector": "Infra",
+        "shortlist_date": "2026-11-16"
       },
       {
         "ticker": "MPHASIS.NS",
@@ -142,7 +172,8 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "MONSTER_BREAKOUT",
         "readiness": "\u26a1 FIRING TODAY (Volume Surge Active)",
-        "sector": "IT"
+        "sector": "IT",
+        "shortlist_date": "2026-11-16"
       },
       {
         "ticker": "PRESTIGE.NS",
@@ -157,7 +188,8 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "20EMA_SWEET_SPOT",
         "readiness": "\ud83c\udfaf 20 EMA SPRINGBOARD (Dip Support)",
-        "sector": "Infra"
+        "sector": "Infra",
+        "shortlist_date": "2026-11-16"
       },
       {
         "ticker": "PNB.NS",
@@ -172,7 +204,8 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "20EMA_SWEET_SPOT",
         "readiness": "\ud83c\udfaf 20 EMA SPRINGBOARD (Dip Support)",
-        "sector": "Banking"
+        "sector": "Banking",
+        "shortlist_date": "2026-11-16"
       },
       {
         "ticker": "FEDERALBNK.NS",
@@ -187,7 +220,8 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "20EMA_SWEET_SPOT",
         "readiness": "\u26a1 FIRING TODAY (Volume Surge Active)",
-        "sector": "Banking"
+        "sector": "Banking",
+        "shortlist_date": "2026-11-16"
       },
       {
         "ticker": "HCLTECH.NS",
@@ -202,7 +236,8 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "52W_HIGH_BREAKOUT",
         "readiness": "\ud83d\udc40 STAGE-2 EXPANSION (High Relative Strength)",
-        "sector": "IT"
+        "sector": "IT",
+        "shortlist_date": "2026-11-16"
       },
       {
         "ticker": "CAMPUS.NS",
@@ -217,7 +252,8 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "INSTITUTIONAL_IGNITION",
         "readiness": "\u26a1 FIRING TODAY (Volume Surge Active)",
-        "sector": "General"
+        "sector": "General",
+        "shortlist_date": "2026-11-16"
       },
       {
         "ticker": "LICI.NS",
@@ -232,7 +268,24 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "20EMA_SWEET_SPOT",
         "readiness": "\ud83c\udfaf 20 EMA SPRINGBOARD (Dip Support)",
-        "sector": "General"
+        "sector": "General",
+        "shortlist_date": "2026-11-16"
+      },
+      {
+        "ticker": "TEST2.NS",
+        "name": "TEST2",
+        "shortlist_date": "2026-11-17",
+        "log_date": "2026-11-17",
+        "scan_price": 500.0,
+        "pivot_trigger": 510.0,
+        "target_price": 612.0,
+        "stop_loss": 474.3,
+        "shares": 65,
+        "planned_rupees": 33150.0,
+        "status": "PENDING_BREAKOUT_TRIGGER",
+        "pattern": "COIL",
+        "readiness": "COILING",
+        "sector": "Infra"
       }
     ],
     "open_trades": [
@@ -251,7 +304,9 @@
         "pattern": "52W_HIGH_BREAKOUT",
         "sector": "Infra",
         "status": "TRIGGERED_ACTIVE",
-        "days_held": 0
+        "days_held": 1,
+        "shortlist_date": "2026-11-16",
+        "fill_date": "2026-11-16"
       }
     ],
     "closed_trades": []
@@ -274,7 +329,8 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "BENCHMARK_SNIPER",
         "readiness": "\u23f3 COILING AT 52W HIGH (Awaiting Blast)",
-        "sector": "IT"
+        "sector": "IT",
+        "shortlist_date": "2026-11-16"
       },
       {
         "ticker": "TATAELXSI.NS",
@@ -289,7 +345,8 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "BENCHMARK_SNIPER",
         "readiness": "\u26a1 FIRING TODAY (Volume Surge Active)",
-        "sector": "IT"
+        "sector": "IT",
+        "shortlist_date": "2026-11-16"
       },
       {
         "ticker": "BHARTIARTL.NS",
@@ -304,7 +361,24 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "BENCHMARK_SNIPER",
         "readiness": "\u26a1 FIRING TODAY (Volume Surge Active)",
-        "sector": "General"
+        "sector": "General",
+        "shortlist_date": "2026-11-16"
+      },
+      {
+        "ticker": "TEST2.NS",
+        "name": "TEST2",
+        "shortlist_date": "2026-11-17",
+        "log_date": "2026-11-17",
+        "scan_price": 500.0,
+        "pivot_trigger": 510.0,
+        "target_price": 637.5,
+        "stop_loss": 479.4,
+        "shares": 65,
+        "planned_rupees": 33150.0,
+        "status": "PENDING_BREAKOUT_TRIGGER",
+        "pattern": "BENCHMARK_SNIPER",
+        "readiness": "COILING",
+        "sector": "Infra"
       }
     ],
     "open_trades": [],

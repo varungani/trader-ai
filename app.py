@@ -52,6 +52,24 @@ st.set_page_config(
 # 🔄 30-Minute Auto-Refresh Meta Tag for Live Market Tracking
 st.markdown('<meta http-equiv="refresh" content="1800">', unsafe_allow_html=True)
 
+
+def format_display_date(d_str: str) -> str:
+    """Format dates/timestamps into clean human-readable tags like '16 Nov' or '17 Nov 09:35'."""
+    if not d_str:
+        return "—"
+    try:
+        s = str(d_str).strip()
+        if len(s) >= 16 and " " in s:
+            dt = datetime.strptime(s[:16], "%Y-%m-%d %H:%M")
+            return dt.strftime("%d %b %H:%M")
+        elif len(s) >= 10:
+            dt = datetime.strptime(s[:10], "%Y-%m-%d")
+            return dt.strftime("%d %b")
+    except Exception:
+        pass
+    return str(d_str)
+
+
 # ─── Top Header & Market Status ──────────────────────────────────────────────
 h_col1, h_col2 = st.columns([3, 1])
 with h_col1:
@@ -212,6 +230,7 @@ with tab_picks:
         radar_table = [
             {
                 "Ticker": r["ticker"].replace(".NS", ""),
+                "Shortlisted": format_display_date(r.get("shortlist_date", datetime.now().strftime("%Y-%m-%d"))),
                 "Current Price": f"₹{r['current_price']:,.2f}",
                 "Pivot Trigger (GTT Buy-Stop)": f"₹{r['pivot_buy_stop']:,.2f}",
                 "Target (+20%)": f"₹{r['target_price']:,.2f}",
@@ -219,13 +238,13 @@ with tab_picks:
                 "Setup Stage": r.get("readiness", "COILING"),
                 "RS vs Nifty": f"{r.get('rs_vs_nifty', 0):+.1f}%",
                 "RVOL": f"{r.get('rvol', 1.0):.2f}x",
-                "Est Delivery %": f"{r.get('est_delivery_pct', 50):.1f}%",
-                "Sector": f"{r.get('sector', 'General')}",
+                "Order Type": "GTT Buy-Stop (Pending)",
                 "Action Plan": r.get("action_plan", "Track for breakout"),
             }
             for r in radar[:10]
         ]
         st.dataframe(pd.DataFrame(radar_table), use_container_width=True)
+        st.info("💡 **Execution Guide**: Place a **GTT Buy-Stop** order overnight in your broker app (Zerodha, Kotak Neo, Groww) at the **Pivot Trigger** under **CNC / Delivery**. The order will **ONLY execute during live market hours (09:15 AM – 03:30 PM IST)** if the price breaks above the trigger. If it doesn't break out, you risk zero capital!")
 
     st.divider()
 
@@ -284,6 +303,19 @@ with tab_paper:
             dual_summary = audit_and_update_dual_tracker()
             st.rerun()
 
+    # 📖 Order & Table Guide for User Clarity
+    with st.expander("📖 Order Guide: How to Read Tables & When to Place Orders", expanded=True):
+        g1, g2, g3 = st.columns(3)
+        with g1:
+            st.markdown("##### 1️⃣ Shortlisted Date (Radar)")
+            st.caption("When the AI algorithm discovered the setup. Pending triggers sit on radar awaiting breakout confirmation.")
+        with g2:
+            st.markdown("##### 2️⃣ When to Place GTT Orders")
+            st.caption("Place **GTT Buy-Stop** orders on Zerodha / Kotak Neo in the evening at the specified **Trigger Price** under **CNC / Delivery**.")
+        with g3:
+            st.markdown("##### 3️⃣ Bought On (Market Hours Fill)")
+            st.caption("Orders **ONLY execute during live NSE hours (09:15 AM – 03:30 PM IST)** when price crosses the trigger. If flat, zero risk & zero loss!")
+
     # 3-Way Parallel Scorecards
     sc1, sc2, sc3 = st.columns(3)
     with sc1:
@@ -291,7 +323,7 @@ with tab_paper:
             st.markdown("#### 🟢 Track A: Option 2")
             st.caption("9:20 AM Confirmation Rule. Fills on normal open, blocks bad gap downs, -7% stop, +20% target.")
             c1, c2 = st.columns(2)
-            c1.metric("Total P&L", f"₹{o2['total_pnl_inr']:+,.2f}", f"{o2['total_pnl_pct']:+.2f}%")
+            c1.metric("Total P&L", f"₹{o2['total_pnl_inr']:+,.0f}", f"{o2['total_pnl_pct']:+.2f}%")
             c2.metric("Win Rate", f"{o2['win_rate']:.1f}%")
             c3, c4 = st.columns(2)
             c3.metric("Profit Factor", f"{o2['profit_factor']:.2f}")
@@ -302,7 +334,7 @@ with tab_paper:
             st.markdown("#### 🔵 Track B: Option 3")
             st.caption("GTT Buy-Stop Trigger. Fills only when breakout fires. If flat, zero risk & capital preserved. +20% target.")
             c5, c6 = st.columns(2)
-            c5.metric("Total P&L", f"₹{o3['total_pnl_inr']:+,.2f}", f"{o3['total_pnl_pct']:+.2f}%")
+            c5.metric("Total P&L", f"₹{o3['total_pnl_inr']:+,.0f}", f"{o3['total_pnl_pct']:+.2f}%")
             c6.metric("Win Rate", f"{o3['win_rate']:.1f}%")
             c7, c8 = st.columns(2)
             c7.metric("Profit Factor", f"{o3['profit_factor']:.2f}")
@@ -313,7 +345,7 @@ with tab_paper:
             st.markdown("#### ⚡ Track C: Benchmark Sniper")
             st.caption("High-Velocity Benchmark. GTT Pivot entry, expanded +25% target, -6% stop, 72h velocity kill on dead money.")
             c9, c10 = st.columns(2)
-            c9.metric("Total P&L", f"₹{oc.get('total_pnl_inr', 0.0):+,.2f}", f"{oc.get('total_pnl_pct', 0.0):+.2f}%")
+            c9.metric("Total P&L", f"₹{oc.get('total_pnl_inr', 0.0):+,.0f}", f"{oc.get('total_pnl_pct', 0.0):+.2f}%")
             c10.metric("Win Rate", f"{oc.get('win_rate', 0.0):.1f}%")
             c11, c12 = st.columns(2)
             c11.metric("Profit Factor", f"{oc.get('profit_factor', 1.0):.2f}")
@@ -329,6 +361,8 @@ with tab_paper:
             df_o2 = pd.DataFrame([
                 {
                     "Ticker": t["ticker"].replace(".NS", ""),
+                    "Shortlisted": format_display_date(t.get("shortlist_date", t.get("entry_date", ""))),
+                    "Bought On": format_display_date(t.get("fill_date", t.get("entry_date", ""))),
                     "Entry": f"₹{t['entry_price']:,.2f}",
                     "Cur": f"₹{t['current_price']:,.2f}",
                     "Target": f"₹{t['target_price']:,.2f}",
@@ -349,25 +383,31 @@ with tab_paper:
     with col_t2:
         st.markdown("##### 🎯 Track B: GTT & Active")
         if o3["pending_triggers"]:
-            st.caption("⏳ Pending GTT Buy-Stop Triggers:")
+            st.caption("⏳ Pending GTT Buy-Stop Triggers (Awaiting Breakout):")
             df_pend = pd.DataFrame([
                 {
                     "Ticker": t["ticker"].replace(".NS", ""),
-                    "Scan": f"₹{t['scan_price']:,.2f}",
-                    "Trigger": f"₹{t['pivot_trigger']:,.2f}",
+                    "Shortlisted": format_display_date(t.get("shortlist_date", t.get("log_date", ""))),
+                    "Scan Px": f"₹{t['scan_price']:,.2f}",
+                    "Trigger Px": f"₹{t['pivot_trigger']:,.2f}",
                     "Target (+20%)": f"₹{t['target_price']:,.2f}",
+                    "Stop (-7%)": f"₹{t['stop_loss']:,.2f}",
                 }
                 for t in o3["pending_triggers"]
             ])
             st.dataframe(df_pend, use_container_width=True)
 
         if o3["open_trades"]:
-            st.caption("⚡ Triggered Active Trades:")
+            st.caption("⚡ Triggered Active Trades (Bought during Market Hours):")
             df_o3_open = pd.DataFrame([
                 {
                     "Ticker": t["ticker"].replace(".NS", ""),
-                    "Fill": f"₹{t['entry_price']:,.2f}",
-                    "Cur": f"₹{t['current_price']:,.2f}",
+                    "Shortlisted": format_display_date(t.get("shortlist_date", t.get("log_date", t.get("entry_date", "")))),
+                    "Bought On": format_display_date(t.get("fill_date", t.get("entry_date", ""))),
+                    "Fill Px": f"₹{t['entry_price']:,.2f}",
+                    "Cur Px": f"₹{t['current_price']:,.2f}",
+                    "Target": f"₹{t['target_price']:,.2f}",
+                    "Stop": f"₹{t['stop_loss']:,.2f}",
                     "MTM": f"{t['pnl_pct']:+.2f}%",
                     "P&L": f"₹{t['pnl_rupees']:+,.0f}",
                 }
@@ -384,7 +424,8 @@ with tab_paper:
             df_c_pend = pd.DataFrame([
                 {
                     "Ticker": t["ticker"].replace(".NS", ""),
-                    "Trigger": f"₹{t['pivot_trigger']:,.2f}",
+                    "Shortlisted": format_display_date(t.get("shortlist_date", t.get("log_date", ""))),
+                    "Trigger Px": f"₹{t['pivot_trigger']:,.2f}",
                     "Target (+25%)": f"₹{t['target_price']:,.2f}",
                     "Stop (-6%)": f"₹{t['stop_loss']:,.2f}",
                 }
@@ -393,12 +434,16 @@ with tab_paper:
             st.dataframe(df_c_pend, use_container_width=True)
 
         if oc.get("open_trades"):
-            st.caption("⚡ Active Velocity Trades:")
+            st.caption("⚡ Active Velocity Trades (Bought during Market Hours):")
             df_c_open = pd.DataFrame([
                 {
                     "Ticker": t["ticker"].replace(".NS", ""),
-                    "Fill": f"₹{t['entry_price']:,.2f}",
-                    "Cur": f"₹{t['current_price']:,.2f}",
+                    "Shortlisted": format_display_date(t.get("shortlist_date", t.get("log_date", t.get("entry_date", "")))),
+                    "Bought On": format_display_date(t.get("fill_date", t.get("entry_date", ""))),
+                    "Fill Px": f"₹{t['entry_price']:,.2f}",
+                    "Cur Px": f"₹{t['current_price']:,.2f}",
+                    "Target": f"₹{t['target_price']:,.2f}",
+                    "Stop": f"₹{t['stop_loss']:,.2f}",
                     "MTM": f"{t['pnl_pct']:+.2f}%",
                     "P&L": f"₹{t['pnl_rupees']:+,.0f}",
                     "Days": t.get("days_held", 0),

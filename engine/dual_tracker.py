@@ -20,6 +20,7 @@ from typing import Optional
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from data.market_data import fetch_live_quote, _get_cached_history
 from data.costs import compute_indian_delivery_costs
+from data.market_calendar import get_market_status, is_trading_day, get_ist_now
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,22 @@ def _load_tracker() -> dict:
                 data = json.load(f)
                 if "track_c" not in data:
                     data["track_c"] = default_state["track_c"]
+                # Migration: ensure shortlist_date & fill_date exist on all trades
+                for trk in ["option_2", "option_3", "track_c"]:
+                    if trk in data:
+                        for t in data[trk].get("open_trades", []):
+                            if "shortlist_date" not in t:
+                                t["shortlist_date"] = t.get("entry_date", "2026-11-16")
+                            if "fill_date" not in t:
+                                t["fill_date"] = t.get("entry_date", "2026-11-16")
+                        for t in data[trk].get("pending_triggers", []):
+                            if "shortlist_date" not in t:
+                                t["shortlist_date"] = t.get("log_date", "2026-11-16")
+                        for t in data[trk].get("closed_trades", []):
+                            if "shortlist_date" not in t:
+                                t["shortlist_date"] = t.get("entry_date", "2026-11-16")
+                            if "fill_date" not in t:
+                                t["fill_date"] = t.get("entry_date", "2026-11-16")
                 return data
         except Exception as e:
             logger.warning(f"Failed to load dual_tracker.json: {e}")
@@ -77,6 +94,42 @@ def _save_tracker(data: dict) -> None:
     os.makedirs(os.path.dirname(TRACKER_FILE), exist_ok=True)
     with open(TRACKER_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, default=str)
+
+
+def _can_trigger_breakout(shortlist_date_str: str, force_market_open: bool = False) -> tuple[bool, str]:
+    """
+    Determines whether a pending GTT breakout trigger is allowed to execute based on NSE/BSE trading rules.
+    Returns: (can_execute, fill_timestamp_str)
+    
+    Strict Indian Market Execution Rules:
+      1. force_market_open=True: Manual force/unit test override.
+      2. Market is OPEN (09:15 - 15:30 IST on a trading day):
+         - Breakouts are executed live in real-time as prices cross triggers.
+         - fill_timestamp = current live timestamp (e.g. '2026-11-17 11:45').
+      3. Market is CLOSED:
+         - A pending trigger CANNOT execute if it was shortlisted today after market hours (it is pending for tomorrow's session).
+         - It CAN only be confirmed as triggered if:
+           a) Today was a trading day.
+           b) The stock was shortlisted on a previous day (shortlist_date_str < today_str).
+           c) fill_timestamp = today_str + ' 15:30' (filled during today's market session).
+    """
+    if force_market_open:
+        return True, datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    now = get_ist_now()
+    today_str = now.strftime("%Y-%m-%d")
+    mkt = get_market_status(now)
+    
+    # 1. Market is live and trading right now
+    if mkt.get("is_open", False):
+        return True, now.strftime("%Y-%m-%d %H:%M")
+        
+    # 2. Market is currently closed: verify if today was a trading day and order was pre-placed
+    is_td, _ = is_trading_day(now.date())
+    if is_td and shortlist_date_str and str(shortlist_date_str) < today_str:
+        return True, f"{today_str} 15:30"
+        
+    return False, ""
 
 
 def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
@@ -104,6 +157,8 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
         tracker["option_2"]["open_trades"].append({
             "ticker": ticker,
             "name": ticker.replace(".NS", ""),
+            "shortlist_date": today_str,
+            "fill_date": f"{today_str} 09:20",
             "entry_date": today_str,
             "scan_price": cur_px,
             "entry_price": cur_px,
@@ -136,6 +191,7 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
         tracker["option_3"]["pending_triggers"].append({
             "ticker": ticker,
             "name": ticker.replace(".NS", ""),
+            "shortlist_date": today_str,
             "log_date": today_str,
             "scan_price": cur_px,
             "pivot_trigger": pivot_trigger,
@@ -172,6 +228,7 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
         tracker["track_c"]["pending_triggers"].append({
             "ticker": ticker,
             "name": ticker.replace(".NS", ""),
+            "shortlist_date": today_str,
             "log_date": today_str,
             "scan_price": cur_px,
             "pivot_trigger": pivot_trigger,
@@ -189,13 +246,15 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
     return audit_and_update_dual_tracker()
 
 
-def audit_and_update_dual_tracker() -> dict:
+def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
     """
     Update live prices, evaluate trigger activations, check target & stop exits,
     and compute live 3-way side-by-side performance metrics.
+    Strictly simulates Indian market hours (09:15-15:30 IST) for trigger executions.
     """
     tracker = _load_tracker()
     today = datetime.now().date()
+    today_str = datetime.now().strftime("%Y-%m-%d")
 
     # --- AUDIT TRACK A: OPTION 2 (9:20 AM CONFIRMATION) ---
     still_open_o2 = []
@@ -205,6 +264,12 @@ def audit_and_update_dual_tracker() -> dict:
         stop_px = float(trade["stop_loss"])
         target_px = float(trade["target_price"])
         shares = int(trade["shares"])
+        
+        # Ensure dates exist
+        if "shortlist_date" not in trade:
+            trade["shortlist_date"] = trade.get("entry_date", today_str)
+        if "fill_date" not in trade:
+            trade["fill_date"] = trade.get("entry_date", today_str)
 
         quote = fetch_live_quote(ticker)
         cur_px = float(quote.get("price") or 0.0)
@@ -221,7 +286,7 @@ def audit_and_update_dual_tracker() -> dict:
         trade["pnl_rupees"] = round((cur_px - entry_px) * shares, 2)
 
         try:
-            entry_d = datetime.strptime(trade["entry_date"], "%Y-%m-%d").date()
+            entry_d = datetime.strptime(trade["entry_date"][:10], "%Y-%m-%d").date()
             trade["days_held"] = (today - entry_d).days
         except Exception:
             trade["days_held"] = 1
@@ -267,6 +332,7 @@ def audit_and_update_dual_tracker() -> dict:
     for pending in tracker["option_3"]["pending_triggers"]:
         ticker = pending["ticker"]
         trigger_px = float(pending["pivot_trigger"])
+        shortlist_d = pending.get("shortlist_date") or pending.get("log_date") or today_str
         
         quote = fetch_live_quote(ticker)
         cur_px = float(quote.get("price") or 0.0)
@@ -278,15 +344,20 @@ def audit_and_update_dual_tracker() -> dict:
                 cur_px = float(df["Close"].iloc[-1])
                 high_px = float(df["High"].iloc[-1])
             else:
-                cur_px = float(pending["scan_price"])
+                cur_px = float(pending.get("scan_price", 0.0))
                 high_px = cur_px
 
-        if high_px >= trigger_px:
+        can_exec, fill_timestamp = _can_trigger_breakout(shortlist_d, force_market_open)
+
+        # Trigger ONLY during market hours when price hit or crossed pivot resistance
+        if can_exec and high_px >= trigger_px:
             shares = int(pending["shares"])
             tracker["option_3"]["open_trades"].append({
                 "ticker": ticker,
                 "name": pending["name"],
-                "entry_date": datetime.now().strftime("%Y-%m-%d"),
+                "shortlist_date": shortlist_d,
+                "fill_date": fill_timestamp,
+                "entry_date": fill_timestamp[:10],
                 "entry_price": trigger_px,
                 "current_price": cur_px,
                 "target_price": pending["target_price"],
@@ -295,12 +366,13 @@ def audit_and_update_dual_tracker() -> dict:
                 "allocated_rupees": round(shares * trigger_px, 2),
                 "pnl_pct": round(((cur_px - trigger_px) / trigger_px) * 100.0, 2),
                 "pnl_rupees": round((cur_px - trigger_px) * shares, 2),
-                "pattern": pending["pattern"],
-                "sector": pending["sector"],
+                "pattern": pending.get("pattern", "COIL"),
+                "sector": pending.get("sector", "General"),
                 "status": "TRIGGERED_ACTIVE",
                 "days_held": 0,
             })
         else:
+            pending["shortlist_date"] = shortlist_d
             still_pending_o3.append(pending)
 
     tracker["option_3"]["pending_triggers"] = still_pending_o3
@@ -312,6 +384,12 @@ def audit_and_update_dual_tracker() -> dict:
         stop_px = float(trade["stop_loss"])
         target_px = float(trade["target_price"])
         shares = int(trade["shares"])
+        
+        # Ensure dates exist
+        if "shortlist_date" not in trade:
+            trade["shortlist_date"] = trade.get("log_date") or trade.get("entry_date", today_str)
+        if "fill_date" not in trade:
+            trade["fill_date"] = trade.get("entry_date", today_str)
 
         quote = fetch_live_quote(ticker)
         cur_px = float(quote.get("price") or 0.0)
@@ -328,7 +406,7 @@ def audit_and_update_dual_tracker() -> dict:
         trade["pnl_rupees"] = round((cur_px - entry_px) * shares, 2)
 
         try:
-            entry_d = datetime.strptime(trade["entry_date"], "%Y-%m-%d").date()
+            entry_d = datetime.strptime(trade["entry_date"][:10], "%Y-%m-%d").date()
             trade["days_held"] = (today - entry_d).days
         except Exception:
             trade["days_held"] = 1
@@ -375,6 +453,7 @@ def audit_and_update_dual_tracker() -> dict:
         for pending in tracker["track_c"].get("pending_triggers", []):
             ticker = pending["ticker"]
             trigger_px = float(pending["pivot_trigger"])
+            shortlist_d = pending.get("shortlist_date") or pending.get("log_date") or today_str
 
             quote = fetch_live_quote(ticker)
             cur_px = float(quote.get("price") or 0.0)
@@ -386,15 +465,20 @@ def audit_and_update_dual_tracker() -> dict:
                     cur_px = float(df["Close"].iloc[-1])
                     high_px = float(df["High"].iloc[-1])
                 else:
-                    cur_px = float(pending["scan_price"])
+                    cur_px = float(pending.get("scan_price", 0.0))
                     high_px = cur_px
 
-            if high_px >= trigger_px:
+            can_exec, fill_timestamp = _can_trigger_breakout(shortlist_d, force_market_open)
+
+            # Trigger ONLY during market hours when price hit or crossed pivot resistance
+            if can_exec and high_px >= trigger_px:
                 shares = int(pending["shares"])
                 tracker["track_c"]["open_trades"].append({
                     "ticker": ticker,
                     "name": pending["name"],
-                    "entry_date": datetime.now().strftime("%Y-%m-%d"),
+                    "shortlist_date": shortlist_d,
+                    "fill_date": fill_timestamp,
+                    "entry_date": fill_timestamp[:10],
                     "entry_price": trigger_px,
                     "current_price": cur_px,
                     "target_price": pending["target_price"],
@@ -409,6 +493,7 @@ def audit_and_update_dual_tracker() -> dict:
                     "days_held": 0,
                 })
             else:
+                pending["shortlist_date"] = shortlist_d
                 still_pending_c.append(pending)
         tracker["track_c"]["pending_triggers"] = still_pending_c
 
@@ -419,6 +504,12 @@ def audit_and_update_dual_tracker() -> dict:
             stop_px = float(trade["stop_loss"])
             target_px = float(trade["target_price"])
             shares = int(trade["shares"])
+            
+            # Ensure dates exist
+            if "shortlist_date" not in trade:
+                trade["shortlist_date"] = trade.get("log_date") or trade.get("entry_date", today_str)
+            if "fill_date" not in trade:
+                trade["fill_date"] = trade.get("entry_date", today_str)
 
             quote = fetch_live_quote(ticker)
             cur_px = float(quote.get("price") or 0.0)
@@ -435,7 +526,7 @@ def audit_and_update_dual_tracker() -> dict:
             trade["pnl_rupees"] = round((cur_px - entry_px) * shares, 2)
 
             try:
-                entry_d = datetime.strptime(trade["entry_date"], "%Y-%m-%d").date()
+                entry_d = datetime.strptime(trade["entry_date"][:10], "%Y-%m-%d").date()
                 trade["days_held"] = (today - entry_d).days
             except Exception:
                 trade["days_held"] = 1
