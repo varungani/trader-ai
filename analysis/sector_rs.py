@@ -46,11 +46,16 @@ def _compute_offline_constituent_sector_rs() -> dict:
     n_ret_3m = 0.0
     if not nifty_df.empty:
         nifty_df.columns = [str(c).title() for c in nifty_df.columns]
-        if "Close" in nifty_df.columns and len(nifty_df) >= 22:
+        if "Close" in nifty_df.columns:
             n_close = nifty_df["Close"].dropna()
-            n_ret_1m = float(n_close.iloc[-1] / n_close.iloc[-22] - 1)
+            if len(n_close) >= 22:
+                n_ret_1m = float(n_close.iloc[-1] / n_close.iloc[-22] - 1)
+            elif len(n_close) > 1:
+                n_ret_1m = float(n_close.iloc[-1] / n_close.iloc[0] - 1)
             if len(n_close) >= 66:
                 n_ret_3m = float(n_close.iloc[-1] / n_close.iloc[-66] - 1)
+            elif len(n_close) > 1:
+                n_ret_3m = float(n_close.iloc[-1] / n_close.iloc[0] - 1)
 
     raw_results = {}
     for sector, tickers in SECTOR_MAP.items():
@@ -60,12 +65,18 @@ def _compute_offline_constituent_sector_rs() -> dict:
             df = _get_cached_history(t, period="3mo")
             if not df.empty:
                 df.columns = [str(c).title() for c in df.columns]
-                if "Close" in df.columns and len(df) >= 22:
+                if "Close" in df.columns:
                     c = df["Close"].dropna()
-                    r1 = float(c.iloc[-1] / c.iloc[-22] - 1)
-                    rets_1m.append(r1)
+                    if len(c) >= 22:
+                        r1 = float(c.iloc[-1] / c.iloc[-22] - 1)
+                        rets_1m.append(r1)
+                    elif len(c) > 1:
+                        r1 = float(c.iloc[-1] / c.iloc[0] - 1)
+                        rets_1m.append(r1)
                     if len(c) >= 66:
                         rets_3m.append(float(c.iloc[-1] / c.iloc[-66] - 1))
+                    elif len(c) > 1:
+                        rets_3m.append(float(c.iloc[-1] / c.iloc[0] - 1))
 
         if rets_1m:
             med_1m = float(np.median(rets_1m))
