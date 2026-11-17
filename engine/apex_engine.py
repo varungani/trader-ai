@@ -144,6 +144,7 @@ def run_apex_scan(
         cur_px = float(rec.get("current_price") or 0.0)
         stop_px = float(rec.get("stop_loss") or (cur_px * 0.93))
         target_px = float(rec.get("target_price") or (cur_px * 1.20))
+        pivot_px = float(rec.get("pivot_buy_stop") or (cur_px * 1.015))
         
         shares = int(slot_capital // cur_px) if cur_px > 0 else 0
         allocated_inr = round(shares * cur_px, 2)
@@ -161,6 +162,7 @@ def run_apex_scan(
             "sector": rec.get("sector", "General"),
             "sector_status": rec.get("sector_status", "NEUTRAL"),
             "current_price": cur_px,
+            "pivot_buy_stop": pivot_px,
             "target_price": target_px,
             "target_pct": round((target_px - cur_px) / cur_px * 100, 2) if cur_px > 0 else 20.0,
             "stop_loss": stop_px,

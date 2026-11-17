@@ -206,7 +206,13 @@ with tab_picks:
                     st.markdown(f"### Slot {idx+1}: **{p.get('name', p['ticker'].replace('.NS',''))}**")
                     st.caption(f"Pattern: **{p.get('pattern', 'BREAKOUT')}** | Sector: **{p.get('sector', 'General')}**")
                     
-                    st.metric("Entry Price", f"₹{p['current_price']:,.2f}")
+                    pivot_trigger = float(p.get("pivot_buy_stop") or (float(p.get("current_price", 0.0)) * 1.015))
+                    cur_px = float(p.get("current_price", 0.0))
+                    
+                    c_p1, c_p2 = st.columns(2)
+                    c_p1.metric("Breakout Trigger (GTT)", f"₹{pivot_trigger:,.2f}", "Pivot Buy-Stop")
+                    c_p2.metric("Scan Base Px", f"₹{cur_px:,.2f}", "Consolidation")
+                    
                     st.metric("Target (+20%)", f"₹{p['target_price']:,.2f}", f"+{p.get('target_pct', 20.0):.1f}%")
                     st.metric("Stop Loss (-7%)", f"₹{p['stop_loss']:,.2f}", f"-{p.get('stop_loss_pct', 7.0):.1f}% (Close)", delta_color="inverse")
                     
@@ -216,7 +222,7 @@ with tab_picks:
                     st.write(f"• **RVOL**: `{p.get('rvol', 1.0):.2f}x` | **RS vs Nifty**: `{p.get('rs_vs_nifty', 0):+.1f}%`")
                     st.write(f"• **Est Delivery**: `{p.get('est_delivery_pct', 50):.1f}%`")
                     
-                    st.info("💡 **Execution Rule**: Buy under **CNC / Delivery**. Immediately place a **GTT Stop Loss** at planned stop.")
+                    st.info("💡 **Execution Rule**: Set a **GTT Buy-Stop** at the **Breakout Trigger** under **CNC / Delivery**. Fills ONLY during market hours when breakout fires!")
     else:
         st.info("🛡️ No Tier-1 stocks cleared the strict momentum gate today. Capital preserved in cash.")
 
