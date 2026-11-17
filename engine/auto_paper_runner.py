@@ -82,8 +82,8 @@ def run_once() -> dict:
     return summary
 
 
-def run_daemon(interval_seconds: int = 1800) -> None:
-    """Continuously audit paper trades every interval (default 30 mins = 1800s)."""
+def run_daemon(interval_seconds: int = 300) -> None:
+    """Continuously audit paper trades every interval (default 5 mins = 300s)."""
     logger.info(f"Starting paper trade daemon. Audit cycle every {interval_seconds // 60} minutes.")
     while True:
         try:
@@ -99,8 +99,8 @@ def run_daemon(interval_seconds: int = 1800) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TraderAI Autonomous Paper Runner")
-    parser.add_argument("--daemon", action="store_true", help="Run continuously every 30 minutes")
-    parser.add_argument("--interval", type=int, default=1800, help="Interval in seconds (default: 1800)")
+    parser.add_argument("--daemon", action="store_true", help="Run continuously every 5 minutes")
+    parser.add_argument("--interval", type=int, default=300, help="Interval in seconds (default: 300 = 5 mins)")
     args = parser.parse_args()
 
     if args.daemon:

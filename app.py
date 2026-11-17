@@ -49,8 +49,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# 🔄 30-Minute Auto-Refresh Meta Tag for Live Market Tracking
-st.markdown('<meta http-equiv="refresh" content="1800">', unsafe_allow_html=True)
+# 🔄 5-Minute Auto-Refresh Default for Live Market Tracking (Configurable in Sidebar)
+st.markdown('<meta http-equiv="refresh" content="300">', unsafe_allow_html=True)
 
 
 def format_display_date(d_str: str) -> str:
@@ -113,6 +113,22 @@ with st.sidebar:
         }.get(u, u.upper()),
         index=0,
     )
+
+    refresh_option = st.selectbox(
+        "Live Price & Portfolio Refresh",
+        options=["5m", "1m", "15m", "off"],
+        format_func=lambda x: {
+            "5m": "⚡ Every 5 Minutes (Active)",
+            "1m": "🚀 Every 1 Minute (Ultra-Fast)",
+            "15m": "⏱️ Every 15 Minutes",
+            "off": "⏸️ Manual Only",
+        }.get(x, x),
+        index=0,
+        help="Controls how frequently the dashboard audits open paper positions, trigger prices, and live MTM",
+    )
+    refresh_seconds = {"1m": 60, "5m": 300, "15m": 900, "off": None}.get(refresh_option, 300)
+    if refresh_seconds and refresh_seconds != 300:
+        st.markdown(f'<meta http-equiv="refresh" content="{refresh_seconds}">', unsafe_allow_html=True)
 
     run_btn = st.button("⚡ Run Live Market Scan", type="primary", use_container_width=True)
 
