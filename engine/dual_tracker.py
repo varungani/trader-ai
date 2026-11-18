@@ -114,7 +114,7 @@ def _can_trigger_breakout(shortlist_date_str: str, force_market_open: bool = Fal
          - It CAN only be confirmed as triggered if:
            a) Today was a trading day.
            b) The stock was shortlisted on a previous day (shortlist_date_str < today_str).
-           c) fill_timestamp = today_str + ' 15:30' (filled during today's market session).
+           c) fill_timestamp = today_str + ' (Intraday)' (triggered during today's market session).
     """
     if force_market_open:
         return True, datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -130,7 +130,7 @@ def _can_trigger_breakout(shortlist_date_str: str, force_market_open: bool = Fal
     # 2. Market is currently closed: verify if today was a trading day and order was pre-placed
     is_td, _ = is_trading_day(now.date())
     if is_td and shortlist_date_str and str(shortlist_date_str) < today_str:
-        return True, f"{today_str} 15:30"
+        return True, f"{today_str} (Intraday)"
         
     return False, ""
 

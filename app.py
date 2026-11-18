@@ -54,12 +54,15 @@ st.markdown('<meta http-equiv="refresh" content="300">', unsafe_allow_html=True)
 
 
 def format_display_date(d_str: str) -> str:
-    """Format dates/timestamps into clean human-readable tags like '16 Nov' or '17 Nov 09:35'."""
+    """Format dates/timestamps into clean human-readable tags like '16 Nov', '17 Nov 09:35', or '18 Nov (Intraday)'."""
     if not d_str:
         return "—"
     try:
         s = str(d_str).strip()
-        if len(s) >= 16 and " " in s:
+        if "15:30" in s or "Intraday" in s:
+            dt = datetime.strptime(s[:10], "%Y-%m-%d")
+            return f"{dt.strftime('%d %b')} (Intraday)"
+        elif len(s) >= 16 and " " in s:
             dt = datetime.strptime(s[:16], "%Y-%m-%d %H:%M")
             return dt.strftime("%d %b %H:%M")
         elif len(s) >= 10:
@@ -350,9 +353,11 @@ with tab_paper:
             st.caption("9:20 AM Confirmation Rule. Fills on normal open, blocks bad gap downs, -7% stop, +20% target.")
             c1, c2 = st.columns(2)
             c1.metric("Total P&L", f"₹{o2['total_pnl_inr']:+,.0f}", f"{o2['total_pnl_pct']:+.2f}%")
-            c2.metric("Win Rate", f"{o2['win_rate']:.1f}%")
+            wr_label_o2 = f"{o2['win_rate']:.1f}%" if o2.get("closed_count", 0) > 0 else "— (0 Closed)"
+            c2.metric("Win Rate", wr_label_o2)
             c3, c4 = st.columns(2)
-            c3.metric("Profit Factor", f"{o2['profit_factor']:.2f}")
+            pf_label_o2 = f"{o2['profit_factor']:.2f}" if o2.get("closed_count", 0) > 0 else "—"
+            c3.metric("Profit Factor", pf_label_o2)
             c4.metric("Active Trades", f"{o2['open_count']} open", f"{o2.get('pending_count', 0)} pending")
 
     with sc2:
@@ -361,9 +366,11 @@ with tab_paper:
             st.caption("GTT Buy-Stop Trigger. Fills only when breakout fires. If flat, zero risk & capital preserved. +20% target.")
             c5, c6 = st.columns(2)
             c5.metric("Total P&L", f"₹{o3['total_pnl_inr']:+,.0f}", f"{o3['total_pnl_pct']:+.2f}%")
-            c6.metric("Win Rate", f"{o3['win_rate']:.1f}%")
+            wr_label_o3 = f"{o3['win_rate']:.1f}%" if o3.get("closed_count", 0) > 0 else "— (0 Closed)"
+            c6.metric("Win Rate", wr_label_o3)
             c7, c8 = st.columns(2)
-            c7.metric("Profit Factor", f"{o3['profit_factor']:.2f}")
+            pf_label_o3 = f"{o3['profit_factor']:.2f}" if o3.get("closed_count", 0) > 0 else "—"
+            c7.metric("Profit Factor", pf_label_o3)
             c8.metric("Active Trades", f"{o3['open_count']} open", f"{o3['pending_count']} pending")
 
     with sc3:
@@ -372,9 +379,11 @@ with tab_paper:
             st.caption("High-Velocity Benchmark. GTT Pivot entry, expanded +25% target, -6% stop, 72h velocity kill on dead money.")
             c9, c10 = st.columns(2)
             c9.metric("Total P&L", f"₹{oc.get('total_pnl_inr', 0.0):+,.0f}", f"{oc.get('total_pnl_pct', 0.0):+.2f}%")
-            c10.metric("Win Rate", f"{oc.get('win_rate', 0.0):.1f}%")
+            wr_label_oc = f"{oc.get('win_rate', 0.0):.1f}%" if oc.get("closed_count", 0) > 0 else "— (0 Closed)"
+            c10.metric("Win Rate", wr_label_oc)
             c11, c12 = st.columns(2)
-            c11.metric("Profit Factor", f"{oc.get('profit_factor', 1.0):.2f}")
+            pf_label_oc = f"{oc.get('profit_factor', 1.0):.2f}" if oc.get("closed_count", 0) > 0 else "—"
+            c11.metric("Profit Factor", pf_label_oc)
             c12.metric("Active Trades", f"{oc.get('open_count', 0)} open", f"{oc.get('pending_count', 0)} pending")
 
     st.divider()

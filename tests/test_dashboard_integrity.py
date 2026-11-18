@@ -51,3 +51,14 @@ def test_broker_configuration_check():
     configured = is_configured()
     assert isinstance(configured, bool)
 
+
+def test_format_display_date_behavior():
+    """Verify format_display_date formats post-market audit fills and standard dates cleanly."""
+    from app import format_display_date
+    assert format_display_date("2026-11-18 15:30") == "18 Nov (Intraday)"
+    assert format_display_date("2026-11-18 (Intraday)") == "18 Nov (Intraday)"
+    assert format_display_date("2026-11-18 09:20") == "18 Nov 09:20"
+    assert format_display_date("2026-11-18") == "18 Nov"
+    assert format_display_date("") == "—"
+
+
