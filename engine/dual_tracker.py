@@ -316,9 +316,20 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                     "status": "ABORTED_GAP_DOWN",
                     "reason": f"Bad gap down ({gap_pct:.2f}% < -1.5%). Capital preserved.",
                 })
+            elif gap_pct > 2.5:
+                logger.info(f"🚫 [Track A Aborted] {ticker}: Gapped up {gap_pct:+.2f}% beyond buy zone (+2.5% max). Chasing avoided.")
+                tracker["option_2"]["aborted_trades"].append({
+                    **pend,
+                    "abort_date": today_str,
+                    "open_price": open_px,
+                    "gap_pct": round(gap_pct, 2),
+                    "status": "ABORTED_EXTENDED_GAP",
+                    "reason": f"Extended beyond +2.5% buy zone (gapped {gap_pct:+.2f}%). Avoided chasing peak.",
+                })
             else:
                 fill_ts = f"{today_str} 09:20"
                 shares = int(pend.get("shares") or (20000 // open_px if open_px > 0 else 0))
+                stop_loss_px = float(pend.get("stop_loss") or round(open_px * 0.95, 2))
                 logger.info(f"✅ [Track A Filled] {ticker} @ ₹{open_px:.2f} (Gap: {gap_pct:+.2f}%) on {fill_ts}")
                 tracker["option_2"]["open_trades"].append({
                     **pend,
@@ -326,7 +337,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                     "fill_date": fill_ts,
                     "entry_price": open_px,
                     "target_price": round(open_px * 1.20, 2),
-                    "stop_loss": round(open_px * 0.93, 2),
+                    "stop_loss": stop_loss_px,
                     "shares": shares,
                     "allocated_rupees": round(shares * open_px, 2),
                     "status": "CONFIRMED_ACTIVE",
@@ -385,8 +396,12 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
             exit_px = target_px
         elif cur_px <= stop_px:
             is_closed = True
-            exit_reason = "STOP_LOSS_HIT (-7% Daily Close)"
+            exit_reason = "STOP_LOSS_HIT (Daily Close)"
             exit_px = stop_px
+        elif trade["days_held"] >= 3 and trade.get("pnl_pct", 0.0) < 2.0:
+            is_closed = True
+            exit_reason = "72H_VELOCITY_KILL (Dead Money)"
+            exit_px = cur_px
         elif trade["days_held"] >= 21:
             is_closed = True
             exit_reason = "TIME_EXPIRY (21 Sessions)"
@@ -508,8 +523,12 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
             exit_px = target_px
         elif cur_px <= stop_px:
             is_closed = True
-            exit_reason = "STOP_LOSS_HIT (-7% Daily Close)"
+            exit_reason = "STOP_LOSS_HIT (Daily Close)"
             exit_px = stop_px
+        elif trade["days_held"] >= 3 and trade.get("pnl_pct", 0.0) < 2.0:
+            is_closed = True
+            exit_reason = "72H_VELOCITY_KILL (Dead Money)"
+            exit_px = cur_px
         elif trade["days_held"] >= 21:
             is_closed = True
             exit_reason = "TIME_EXPIRY (21 Sessions)"

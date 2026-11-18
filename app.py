@@ -231,21 +231,25 @@ with tab_picks:
                     
                     pivot_trigger = float(p.get("pivot_buy_stop") or (float(p.get("current_price", 0.0)) * 1.015))
                     cur_px = float(p.get("current_price", 0.0))
+                    max_buy = float(p.get("max_buy_zone") or round(pivot_trigger * 1.025, 2))
+                    stop_pct = float(p.get("stop_loss_pct", 5.0))
+                    rr_ratio = float(p.get("reward_risk", 4.0))
                     
                     c_p1, c_p2 = st.columns(2)
                     c_p1.metric("Breakout Trigger (GTT)", f"₹{pivot_trigger:,.2f}", "Pivot Buy-Stop")
-                    c_p2.metric("Scan Base Px", f"₹{cur_px:,.2f}", "Consolidation")
+                    c_p2.metric("Buy-Zone Max (Ceiling)", f"₹{max_buy:,.2f}", "Do Not Chase >")
                     
-                    st.metric("Target (+20%)", f"₹{p['target_price']:,.2f}", f"+{p.get('target_pct', 20.0):.1f}%")
-                    st.metric("Stop Loss (-7%)", f"₹{p['stop_loss']:,.2f}", f"-{p.get('stop_loss_pct', 7.0):.1f}% (Close)", delta_color="inverse")
+                    c_t1, c_t2 = st.columns(2)
+                    c_t1.metric("Target (+20%)", f"₹{p['target_price']:,.2f}", f"+{p.get('target_pct', 20.0):.1f}%")
+                    c_t2.metric(f"Stop Loss (-{stop_pct:.1f}%)", f"₹{p['stop_loss']:,.2f}", f"R:R {rr_ratio:.1f}:1", delta_color="inverse")
                     
                     st.divider()
                     st.markdown(f"**Recommended Allocation:**")
                     st.write(f"• **{p.get('shares', 0)} shares** = **₹{p.get('allocated_rupees', 0):,.2f}** ({p.get('weight_pct', 20.0)}% of corpus)")
                     st.write(f"• **RVOL**: `{p.get('rvol', 1.0):.2f}x` | **RS vs Nifty**: `{p.get('rs_vs_nifty', 0):+.1f}%`")
-                    st.write(f"• **Est Delivery**: `{p.get('est_delivery_pct', 50):.1f}%`")
+                    st.write(f"• **Est Delivery**: `{p.get('est_delivery_pct', 50):.1f}%` | **72H Gate**: Active")
                     
-                    st.info("💡 **Execution Rule**: Set a **GTT Buy-Stop** at the **Breakout Trigger** under **CNC / Delivery**. Fills ONLY during market hours when breakout fires!")
+                    st.info("💡 **Execution Rule**: Set a **GTT Buy-Stop** at the **Breakout Trigger** under **CNC / Delivery**. If opening price > Buy-Zone Max, do NOT chase!")
     else:
         st.info("🛡️ No Tier-1 stocks cleared the strict momentum gate today. Capital preserved in cash.")
 

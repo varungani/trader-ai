@@ -180,6 +180,30 @@ def pre_screen(
             is_delivery_confirmed = bool(est_delivery_pct >= 45.0 and close_loc >= 0.68)
             is_wick_shakeout = bool(rvol >= 1.6 and close_loc < 0.38)  # Intraday wick dump
 
+            # Stan Weinstein Stage-2 Institutional Trend Template
+            ema50 = float(close.ewm(span=50, adjust=False).mean().iloc[-1]) if len(close) >= 50 else price
+            ema150 = float(close.ewm(span=150, adjust=False).mean().iloc[-1]) if len(close) >= 120 else ema50
+            is_stage2 = bool(price >= ema50 and (ema50 >= ema150 * 0.98 if len(close) >= 120 else True) and ret_3m >= -0.02)
+            is_downtrend_knife = bool(price < ema50 and ema50 < ema150 and ret_3m < -0.08)
+
+            # Precise Institutional Breakout Pivot Trigger & Dynamic Asymmetric Base Stop Loss
+            base_high = high_5d
+            base_low = low_5d
+            
+            # Institutional Breakout Pivot Trigger (+0.15% clearance through base resistance, aligned with NSE ₹0.05 tick size)
+            pivot_buy_stop = round(round((base_high * 1.0015) / 0.05) * 0.05, 2)
+            
+            # Max Buy Zone Ceiling (+2.5% max - do not chase above this!)
+            max_buy_zone = round(round((pivot_buy_stop * 1.025) / 0.05) * 0.05, 2)
+            
+            # Dynamic Asymmetric Stop Loss anchored strictly to Base Support Floor (capped at -5.0%, floor at -3.5%)
+            raw_base_stop = round(round((base_low * 0.995) / 0.05) * 0.05, 2)
+            max_stop_px = round(pivot_buy_stop * 0.95, 2)   # max -5.0% risk ceiling
+            min_stop_px = round(pivot_buy_stop * 0.965, 2)  # min -3.5% risk floor
+            calculated_stop = max(max_stop_px, min(min_stop_px, raw_base_stop))
+            calculated_stop_pct = round(((pivot_buy_stop - calculated_stop) / pivot_buy_stop) * 100.0, 1)
+            rr_ratio = round(20.0 / calculated_stop_pct, 1) if calculated_stop_pct > 0 else 4.0
+
             is_institutional_ignition = bool(rvol >= 1.7 and close_loc >= 0.70 and is_bullish_bar)
             is_institutional_blast = bool(rvol >= 1.8 and close_loc >= 0.70 and is_bullish_bar and pos >= 0.85 and is_delivery_confirmed)
             
@@ -235,6 +259,12 @@ def pre_screen(
             if is_wick_shakeout:
                 pattern_bonus -= 15.0
 
+            # Stage-2 Institutional Trend vs Downtrend Adjustments
+            if is_stage2:
+                pattern_bonus += 10.0
+            elif is_downtrend_knife:
+                pattern_bonus -= 25.0
+
             # Score 0-100: Momentum (25%), RVOL Volume Expansion (20%), Range (15%), Liquidity (15%), Volatility (10%) + Pattern Bonus + Sector Bonus
             mom = 50 + ret_1m * 80 + ret_3m * 40
             if pos >= 0.85:
@@ -273,7 +303,12 @@ def pre_screen(
                     "vcp_ratio": round(vcp_ratio, 2),
                     "setup_pattern": pattern_tag,
                     "est_delivery_pct": est_delivery_pct,
-                    "pivot_buy_stop": round(high_5d, 2),
+                    "pivot_buy_stop": pivot_buy_stop,
+                    "max_buy_zone": max_buy_zone,
+                    "stop_loss": calculated_stop,
+                    "stop_loss_pct": calculated_stop_pct,
+                    "reward_risk_ratio": rr_ratio,
+                    "is_stage2": is_stage2,
                     "sector": sec_name,
                     "sector_status": sec_status,
                     "is_runner_candidate": bool(pattern_tag in ("MONSTER_BREAKOUT", "52W_HIGH_BREAKOUT", "PRE_IGNITION_COIL") or (pattern_tag == "VCP_BREAKOUT" and rvol >= 1.5)),
