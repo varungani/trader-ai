@@ -155,7 +155,7 @@ with st.sidebar:
 # ─── Run Pipeline / Load Cached Scan ─────────────────────────────────────────
 if run_btn:
     with st.spinner(f"Scanning {universe.upper()} for institutional volume, breakout pivots & relative strength…"):
-        res = run_apex_scan(capital=swing_capital, top_slots=3, radar_slots=12, universe_preset=universe)
+        res = run_apex_scan(capital=swing_capital, top_slots=5, radar_slots=20, universe_preset=universe)
         st.session_state["brief"] = res
         t1_picks = res.get("picks") or res.get("top_picks") or []
         t2_radar = res.get("radar_watchlist") or []
@@ -165,7 +165,7 @@ if run_btn:
 brief = st.session_state.get("brief")
 if not brief or not (brief.get("picks") or brief.get("top_picks")):
     with st.spinner("Loading live Apex market intelligence…"):
-        res = run_apex_scan(capital=swing_capital, top_slots=3, radar_slots=12, universe_preset=universe)
+        res = run_apex_scan(capital=swing_capital, top_slots=5, radar_slots=20, universe_preset=universe)
         st.session_state["brief"] = res
         brief = res
         t1_picks = res.get("picks") or res.get("top_picks") or []
@@ -217,13 +217,13 @@ with tab_picks:
 
     st.divider()
 
-    # 2. Tier 1: Active 3-Slot Execution Cards
-    st.subheader("⚡ Tier 1: High-Conviction Execution Cards (33.3% Capital Each)")
-    st.caption("Active breakouts firing today with heavy institutional volume (RVOL ≥ 1.6x), Stage-2 momentum, and 2:1+ Reward-to-Risk.")
+    # 2. Tier 1: Active 5-Slot Execution Cards
+    st.subheader("⚡ Tier 1: High-Conviction Execution Cards (5 Slots • 20% Capital Each)")
+    st.caption("Active breakouts firing today with heavy institutional volume (RVOL ≥ 1.5x), Stage-2 momentum, and 2:1+ Reward-to-Risk.")
 
     if picks:
-        p_cols = st.columns(len(picks[:3]))
-        for idx, p in enumerate(picks[:3]):
+        p_cols = st.columns(len(picks[:5]))
+        for idx, p in enumerate(picks[:5]):
             with p_cols[idx]:
                 with st.container(border=True):
                     st.markdown(f"### Slot {idx+1}: **{p.get('name', p['ticker'].replace('.NS',''))}**")
@@ -241,7 +241,7 @@ with tab_picks:
                     
                     st.divider()
                     st.markdown(f"**Recommended Allocation:**")
-                    st.write(f"• **{p.get('shares', 0)} shares** = **₹{p.get('allocated_rupees', 0):,.2f}** ({p.get('weight_pct', 33.3)}% of corpus)")
+                    st.write(f"• **{p.get('shares', 0)} shares** = **₹{p.get('allocated_rupees', 0):,.2f}** ({p.get('weight_pct', 20.0)}% of corpus)")
                     st.write(f"• **RVOL**: `{p.get('rvol', 1.0):.2f}x` | **RS vs Nifty**: `{p.get('rs_vs_nifty', 0):+.1f}%`")
                     st.write(f"• **Est Delivery**: `{p.get('est_delivery_pct', 50):.1f}%`")
                     

@@ -186,8 +186,8 @@ def pre_screen(
             rs_21 = (ret_1m - nifty_ret_1m) * 100.0
             is_ultra_alpha = bool(rs_21 >= 15.0 and pos >= 0.88 and rvol >= 1.8 and is_bullish_bar and is_delivery_confirmed)
 
-            # Pre-Ignition Coil Pattern: Coiling within 4% of 52W high, RS >= 10%, tight VCP <= 0.65, calm volume
-            is_pre_ignition_coil = bool(pos >= 0.88 and vcp_ratio <= 0.65 and rs_21 >= 10.0 and 0.6 <= rvol <= 1.45)
+            # Pre-Ignition Coil Pattern: Coiling in upper range, RS positive vs Nifty, tight VCP contraction, calm volume
+            is_pre_ignition_coil = bool(pos >= 0.78 and vcp_ratio <= 0.75 and rs_21 >= 5.0 and 0.4 <= rvol <= 1.6)
 
             is_52w_breakout = bool(pos >= 0.85 and rvol >= 1.3 and price >= high_20d * 0.98)
             is_vcp = bool(vcp_ratio <= 0.65 and rvol >= 1.3 and price >= high_20d * 0.98)
@@ -238,9 +238,14 @@ def pre_screen(
             # Score 0-100: Momentum (25%), RVOL Volume Expansion (20%), Range (15%), Liquidity (15%), Volatility (10%) + Pattern Bonus + Sector Bonus
             mom = 50 + ret_1m * 80 + ret_3m * 40
             if pos >= 0.85:
-                range_score = 85 if rvol >= 1.3 else 40
+                if rvol >= 1.3:
+                    range_score = 85
+                elif is_pre_ignition_coil or vcp_ratio <= 0.70:
+                    range_score = 80  # Minervini VCP quiet consolidation near highs
+                else:
+                    range_score = 65
             elif 0.35 <= pos < 0.85:
-                range_score = 70
+                range_score = 75 if is_pre_ignition_coil else 65
             else:
                 range_score = 45 if pos >= 0.15 else 30
             liq_score = min(100, 40 + avg_value_cr * 2)

@@ -35,16 +35,16 @@ logger = logging.getLogger(__name__)
 
 def run_apex_scan(
     capital: float = 100000.0,
-    top_slots: int = 3,
-    radar_slots: int = 12,
+    top_slots: int = 5,
+    radar_slots: int = 20,
     universe_preset: str = "nifty500",
     force_live: bool = False,
 ) -> dict:
     """
     Run the end-to-end Apex High-Velocity Scan:
     Returns:
-      - picks: Top 3 immediate execution slots (33.3% capital each)
-      - radar_watchlist: Top 10-15 coiled setups with exact pivot triggers to eliminate the shortlisting bottleneck
+      - picks: Top 5 immediate execution slots (20.0% capital each)
+      - radar_watchlist: Top 20 coiled setups with exact pivot triggers to eliminate the shortlisting bottleneck
       - leading_sectors: Top institutional sectors with leadership tailwinds
     """
     logger.info(f"Running Apex High-Velocity Scan on {universe_preset} (Capital: ₹{capital:,.2f})")
@@ -63,7 +63,7 @@ def run_apex_scan(
     scan_universe = get_universe(universe_preset)
     screen_hits = pre_screen(
         tickers=scan_universe,
-        top_n=50,
+        top_n=150,
         period="6mo",
         min_price=15.0,
         min_avg_value_cr=2.0,
@@ -80,11 +80,11 @@ def run_apex_scan(
             "capital": capital,
         }
 
-    # 4. Deep Multi-Factor Scoring
+    # 4. Deep Multi-Factor Scoring across top momentum hits
     scored = []
     screen_map = {h["ticker"]: h for h in screen_hits}
 
-    for hit in screen_hits[:25]:
+    for hit in screen_hits[:60]:
         ticker = hit["ticker"]
         try:
             score_data = score_stock(ticker, timeframe="short_term", macro_score=macro)
@@ -130,10 +130,10 @@ def run_apex_scan(
         reverse=True,
     )
 
-    # 6. Tier 1: Concentrated Immediate Execution Slots (Top 3, 33.3% Capital)
+    # 6. Tier 1: Immediate Execution Slots (5 Slots, 20% Capital Each)
     slot_allocation_pct = round(1.0 / top_slots, 3)
     slot_capital = capital * slot_allocation_pct
-    profile = ALLOCATION_PROFILES.get("apex_3slot", {})
+    profile = ALLOCATION_PROFILES.get("apex_5slot", ALLOCATION_PROFILES.get("apex_3slot", {}))
 
     top_picks = []
     total_deployed = 0.0

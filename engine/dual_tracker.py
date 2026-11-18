@@ -173,7 +173,7 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
         cur_px = float(p.get("current_price") or 0.0)
         target_px = float(p.get("target_price") or (cur_px * 1.20))
         stop_px = float(p.get("stop_loss") or (cur_px * 0.93))
-        shares = int(p.get("shares") or (33333 // cur_px if cur_px > 0 else 0))
+        shares = int(p.get("shares") or (20000 // cur_px if cur_px > 0 else 0))
 
         tracker["option_2"].setdefault("pending_confirmations", []).append({
             "ticker": ticker,
@@ -207,7 +207,7 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
         pivot_trigger = float(r.get("pivot_buy_stop") or (cur_px * 1.015))
         target_px = round(pivot_trigger * 1.20, 2)
         stop_px = round(pivot_trigger * 0.93, 2)
-        shares = int(33333 // pivot_trigger) if pivot_trigger > 0 else 0
+        shares = int(20000 // pivot_trigger) if pivot_trigger > 0 else 0
 
         tracker["option_3"]["pending_triggers"].append({
             "ticker": ticker,
@@ -244,7 +244,7 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
         pivot_trigger = float(c.get("pivot_buy_stop") or cur_px)
         target_25 = round(pivot_trigger * 1.25, 2)
         stop_6 = round(pivot_trigger * 0.94, 2)
-        shares = int(33333 // pivot_trigger) if pivot_trigger > 0 else 0
+        shares = int(20000 // pivot_trigger) if pivot_trigger > 0 else 0
 
         tracker["track_c"]["pending_triggers"].append({
             "ticker": ticker,
@@ -318,7 +318,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 })
             else:
                 fill_ts = f"{today_str} 09:20"
-                shares = int(33333 // open_px) if open_px > 0 else pend["shares"]
+                shares = int(pend.get("shares") or (20000 // open_px if open_px > 0 else 0))
                 logger.info(f"✅ [Track A Filled] {ticker} @ ₹{open_px:.2f} (Gap: {gap_pct:+.2f}%) on {fill_ts}")
                 tracker["option_2"]["open_trades"].append({
                     **pend,

@@ -188,6 +188,23 @@ ALLOCATION_PROFILES = {
         "max_open_positions": 3,
         "max_position_pct": 0.333,
     },
+    "apex_5slot": {
+        "label": "⚡ Apex High-Velocity (5 Slots - 20% Each)",
+        "description": "5 focused high-momentum execution slots (20% capital each), strict 1-month ceiling (21 sessions), +20% profit target, daily-close 7% stop.",
+        "cash_pct": 0.00,
+        "stability_pct": 0.00,
+        "growth_pct": 0.70,
+        "opportunistic_pct": 0.30,
+        "timeframe_targets": {
+            "short_term": 1.0,
+            "mid_term": 0.0,
+            "long_term": 0.0,
+        },
+        "max_high_risk_pct": 0.50,
+        "min_low_risk_pct": 0.00,
+        "max_open_positions": 5,
+        "max_position_pct": 0.20,
+    },
 }
 
 DEFAULT_ALLOCATION_PROFILE = "balanced"

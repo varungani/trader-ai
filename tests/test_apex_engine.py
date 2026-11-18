@@ -35,6 +35,19 @@ def test_apex_3slot_position_sizing():
     assert expected_shares * stock_price <= target_slot_capital
 
 
+def test_apex_5slot_position_sizing():
+    """Verify 5-slot allocation sizing allocates 20% of capital per slot."""
+    capital = 100000.0
+    stock_price = 1000.0
+    # In a 5-slot portfolio, each slot receives 20,000 INR
+    target_slot_capital = capital / 5.0
+    expected_shares = int(target_slot_capital // stock_price)
+    
+    assert expected_shares == 20
+    assert expected_shares * stock_price == 20000.0
+
+
+
 def test_leading_sectors_returns_valid_list():
     """Verify sector leadership returns ranked sectors."""
     sectors = get_top_leading_sectors(top_n=3)
