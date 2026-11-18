@@ -177,7 +177,7 @@ def test_log_today_picks_sets_shortlist_and_fill_dates(sample_picks):
 
 
 def test_option_3_target_and_stop_anchored_to_pivot_trigger():
-    """Verify Option 3 target (+20%) and stop (-7%) are strictly anchored to pivot_trigger."""
+    """Verify Option 3 target (+12%) and stop (-4%) are strictly anchored to pivot_trigger."""
     t2_radar = [{
         "ticker": "TRIGGER_TEST.NS",
         "name": "TRIGGER_TEST",
@@ -192,10 +192,10 @@ def test_option_3_target_and_stop_anchored_to_pivot_trigger():
     log_today_picks([], t2_radar)
     tracker = _load_tracker()
     item = next(p for p in tracker["option_3"]["pending_triggers"] if p["ticker"] == "TRIGGER_TEST.NS")
-    # Must be 110 * 1.20 = 132.0, NOT 120.0
-    assert item["target_price"] == 132.0
-    # Must be 110 * 0.93 = 102.3, NOT 93.0
-    assert item["stop_loss"] == 102.3
+    # Must be 110 * 1.12 = 123.2, NOT 120.0
+    assert item["target_price"] == 123.2
+    # Must be 110 * 0.96 = 105.6, NOT 93.0
+    assert item["stop_loss"] == 105.6
 
 
 def test_days_held_uses_trading_days():

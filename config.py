@@ -190,7 +190,7 @@ ALLOCATION_PROFILES = {
     },
     "apex_5slot": {
         "label": "⚡ Apex High-Velocity (5 Slots - 20% Each)",
-        "description": "5 focused high-momentum execution slots (20% capital each), strict 1-month ceiling (21 sessions), +20% profit target, daily-close 7% stop.",
+        "description": "5 focused high-momentum execution slots (20% capital each), 3-7 day velocity window (7 sessions max), +12% profit target, +5% breakeven lock, daily-close 4% base stop.",
         "cash_pct": 0.00,
         "stability_pct": 0.00,
         "growth_pct": 0.70,

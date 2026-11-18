@@ -196,13 +196,17 @@ def pre_screen(
             # Max Buy Zone Ceiling (+2.5% max - do not chase above this!)
             max_buy_zone = round(round((pivot_buy_stop * 1.025) / 0.05) * 0.05, 2)
             
-            # Dynamic Asymmetric Stop Loss anchored strictly to Base Support Floor (capped at -5.0%, floor at -3.5%)
+            # Dynamic Asymmetric Stop Loss anchored strictly to Base Support Floor (capped at -4.0%, floor at -3.0%)
             raw_base_stop = round(round((base_low * 0.995) / 0.05) * 0.05, 2)
-            max_stop_px = round(pivot_buy_stop * 0.95, 2)   # max -5.0% risk ceiling
-            min_stop_px = round(pivot_buy_stop * 0.965, 2)  # min -3.5% risk floor
+            max_stop_px = round(pivot_buy_stop * 0.96, 2)   # max -4.0% risk ceiling
+            min_stop_px = round(pivot_buy_stop * 0.97, 2)   # min -3.0% risk floor
             calculated_stop = max(max_stop_px, min(min_stop_px, raw_base_stop))
             calculated_stop_pct = round(((pivot_buy_stop - calculated_stop) / pivot_buy_stop) * 100.0, 1)
-            rr_ratio = round(20.0 / calculated_stop_pct, 1) if calculated_stop_pct > 0 else 4.0
+
+            # High-Velocity Target (+12.0%) and Breakeven Lock Trigger (+5.0%)
+            velocity_target = round(round((pivot_buy_stop * 1.12) / 0.05) * 0.05, 2)
+            breakeven_lock = round(round((pivot_buy_stop * 1.05) / 0.05) * 0.05, 2)
+            rr_ratio = round(12.0 / calculated_stop_pct, 1) if calculated_stop_pct > 0 else 3.0
 
             is_institutional_ignition = bool(rvol >= 1.7 and close_loc >= 0.70 and is_bullish_bar)
             is_institutional_blast = bool(rvol >= 1.8 and close_loc >= 0.70 and is_bullish_bar and pos >= 0.85 and is_delivery_confirmed)
@@ -305,6 +309,8 @@ def pre_screen(
                     "est_delivery_pct": est_delivery_pct,
                     "pivot_buy_stop": pivot_buy_stop,
                     "max_buy_zone": max_buy_zone,
+                    "target_price": velocity_target,
+                    "breakeven_lock": breakeven_lock,
                     "stop_loss": calculated_stop,
                     "stop_loss_pct": calculated_stop_pct,
                     "reward_risk_ratio": rr_ratio,

@@ -98,9 +98,11 @@ def run_apex_scan(
             rec["est_delivery_pct"] = hit.get("est_delivery_pct", 50.0)
             rec["pivot_buy_stop"] = hit.get("pivot_buy_stop") or float(rec.get("current_price") or 0.0)
             rec["max_buy_zone"] = hit.get("max_buy_zone") or round(rec["pivot_buy_stop"] * 1.025, 2)
-            rec["stop_loss"] = hit.get("stop_loss") or round(rec["pivot_buy_stop"] * 0.95, 2)
-            rec["stop_loss_pct"] = hit.get("stop_loss_pct") or 5.0
-            rec["reward_risk"] = hit.get("reward_risk_ratio") or 4.0
+            rec["target_price"] = hit.get("target_price") or round(rec["pivot_buy_stop"] * 1.12, 2)
+            rec["breakeven_lock"] = hit.get("breakeven_lock") or round(rec["pivot_buy_stop"] * 1.05, 2)
+            rec["stop_loss"] = hit.get("stop_loss") or round(rec["pivot_buy_stop"] * 0.96, 2)
+            rec["stop_loss_pct"] = hit.get("stop_loss_pct") or 4.0
+            rec["reward_risk"] = hit.get("reward_risk_ratio") or 3.0
             rec["sector"] = hit.get("sector") or TICKER_TO_SECTOR.get(ticker, "General")
             rec["sector_status"] = hit.get("sector_status", "NEUTRAL")
             rec["range_position"] = hit.get("range_position", 0.5)
@@ -152,11 +154,13 @@ def run_apex_scan(
         cur_px = float(rec.get("current_price") or 0.0)
         pivot_px = float(rec.get("pivot_buy_stop") or (cur_px * 1.002))
         max_buy_px = float(rec.get("max_buy_zone") or round(pivot_px * 1.025, 2))
-        target_px = float(rec.get("target_price") or round(pivot_px * 1.20, 2))
-        stop_px = float(rec.get("stop_loss") or round(pivot_px * 0.95, 2))
+        target_px = float(rec.get("target_price") or round(pivot_px * 1.12, 2))
+        stop_px = float(rec.get("stop_loss") or round(pivot_px * 0.96, 2))
+        be_lock_px = float(rec.get("breakeven_lock") or round(pivot_px * 1.05, 2))
         
-        stop_pct = round(((pivot_px - stop_px) / pivot_px) * 100.0, 1) if pivot_px > 0 else 5.0
-        rr_val = round((target_px - pivot_px) / (pivot_px - stop_px), 2) if (pivot_px - stop_px) > 0 else 4.0
+        stop_pct = round(((pivot_px - stop_px) / pivot_px) * 100.0, 1) if pivot_px > 0 else 4.0
+        target_pct = round(((target_px - pivot_px) / pivot_px) * 100.0, 1) if pivot_px > 0 else 12.0
+        rr_val = round((target_px - pivot_px) / (pivot_px - stop_px), 2) if (pivot_px - stop_px) > 0 else 3.0
 
         shares = int(slot_capital // cur_px) if cur_px > 0 else 0
         allocated_inr = round(shares * cur_px, 2)
@@ -177,14 +181,15 @@ def run_apex_scan(
             "pivot_buy_stop": pivot_px,
             "max_buy_zone": max_buy_px,
             "target_price": target_px,
-            "target_pct": round((target_px - pivot_px) / pivot_px * 100, 2) if pivot_px > 0 else 20.0,
+            "target_pct": target_pct,
+            "breakeven_lock": be_lock_px,
             "stop_loss": stop_px,
             "stop_loss_pct": stop_pct,
             "reward_risk": rr_val,
             "shares": shares,
             "allocated_rupees": allocated_inr,
             "weight_pct": round(allocated_inr / capital * 100, 2) if capital > 0 else 20.0,
-            "holding_window": "Max 21 Sessions (72H Velocity Kill)",
+            "holding_window": "3 to 7 Sessions (Velocity Gate)",
             "stop_basis": "Daily Close Base Support",
             "tier": "TIER_1_EXECUTION",
             "rationale": rec.get("action_rationale"),
