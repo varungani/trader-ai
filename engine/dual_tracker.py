@@ -130,7 +130,7 @@ def _can_trigger_breakout(shortlist_date_str: str, force_market_open: bool = Fal
     # 2. Market is currently closed: verify if today was a trading day and order was pre-placed
     is_td, _ = is_trading_day(now.date())
     if is_td and shortlist_date_str and str(shortlist_date_str) < today_str:
-        return True, f"{today_str} (Intraday)"
+        return True, f"{today_str} (Market Hours)"
         
     return False, ""
 
@@ -207,14 +207,14 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
 
         cur_px = float(r.get("current_price") or 0.0)
         pivot_trigger = float(r.get("pivot_buy_stop") or (cur_px * 1.002))
-        target_px = round(pivot_trigger * 1.12, 2)
-        if "stop_loss_pct" in r:
-            stop_px = round(pivot_trigger * (1.0 - float(r["stop_loss_pct"]) / 100.0), 2)
-        elif "stop_loss" in r and float(r["stop_loss"]) > cur_px:
+        target_px = float(r.get("target_price") or round(pivot_trigger * 1.12, 2))
+        if "stop_loss" in r and float(r["stop_loss"]) > cur_px:
             stop_px = float(r["stop_loss"])
+        elif "stop_loss_pct" in r:
+            stop_px = round(pivot_trigger * (1.0 - float(r["stop_loss_pct"]) / 100.0), 2)
         else:
-            stop_px = round(pivot_trigger * 0.96, 2)
-        be_lock_px = round(pivot_trigger * 1.05, 2)
+            stop_px = round(pivot_trigger * 0.93, 2)
+        be_lock_px = float(r.get("breakeven_lock") or round(pivot_trigger * 1.05, 2))
         shares = int(20000 // pivot_trigger) if pivot_trigger > 0 else 0
 
         tracker["option_3"]["pending_triggers"].append({
@@ -251,14 +251,9 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
             continue
         cur_px = float(c.get("current_price") or 0.0)
         pivot_trigger = float(c.get("pivot_buy_stop") or cur_px)
-        target_12 = round(pivot_trigger * 1.12, 2)
-        if "stop_loss_pct" in c:
-            stop_4 = round(pivot_trigger * (1.0 - float(c["stop_loss_pct"]) / 100.0), 2)
-        elif "stop_loss" in c and float(c["stop_loss"]) > cur_px:
-            stop_4 = float(c["stop_loss"])
-        else:
-            stop_4 = round(pivot_trigger * 0.96, 2)
-        be_lock_px = round(pivot_trigger * 1.05, 2)
+        target_12 = float(c.get("target_price") or round(pivot_trigger * 1.12, 2))
+        stop_4 = float(c.get("stop_loss") or round(pivot_trigger * 0.96, 2))
+        be_lock_px = float(c.get("breakeven_lock") or round(pivot_trigger * 1.05, 2))
         shares = int(20000 // pivot_trigger) if pivot_trigger > 0 else 0
 
         tracker["track_c"]["pending_triggers"].append({

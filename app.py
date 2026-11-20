@@ -54,14 +54,14 @@ st.markdown('<meta http-equiv="refresh" content="300">', unsafe_allow_html=True)
 
 
 def format_display_date(d_str: str) -> str:
-    """Format dates/timestamps into clean human-readable tags like '16 Nov', '17 Nov 09:35', or '18 Nov (Intraday)'."""
+    """Format dates/timestamps into clean human-readable tags like '16 Nov', '17 Nov 09:35', or '18 Nov (Market Hours)'."""
     if not d_str:
         return "—"
     try:
         s = str(d_str).strip()
-        if "15:30" in s or "Intraday" in s:
+        if "15:30" in s or "Intraday" in s or "Market Hours" in s:
             dt = datetime.strptime(s[:10], "%Y-%m-%d")
-            return f"{dt.strftime('%d %b')} (Intraday)"
+            return f"{dt.strftime('%d %b')} (Market Hours)"
         elif len(s) >= 16 and " " in s:
             dt = datetime.strptime(s[:16], "%Y-%m-%d %H:%M")
             return dt.strftime("%d %b %H:%M")
