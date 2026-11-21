@@ -55,7 +55,8 @@ jobs:
           git add data/dual_tracker.json
           if ! git diff --quiet || ! git diff --staged --quiet; then
             git commit -m "chore(paper): auto-audit 30-min live paper trades [skip ci]"
-            git push origin master
-            git push origin master:production
+            git pull --rebase origin master || true
+            git push origin master || true
+            git push origin master:production || true
           fi
 
