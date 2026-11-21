@@ -27,6 +27,24 @@ logger = logging.getLogger(__name__)
 TRACKER_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "dual_tracker.json")
 
 
+def _send_wa_alert(alert_type: str, **kwargs):
+    """Safely trigger WhatsApp alert if enabled, without interrupting trading execution."""
+    try:
+        from bot.whatsapp_notifier import default_notifier
+        if alert_type == "breakout_fill":
+            default_notifier.notify_breakout_fill(**kwargs)
+        elif alert_type == "breakeven_lock":
+            default_notifier.notify_breakeven_lock(**kwargs)
+        elif alert_type == "target_hit":
+            default_notifier.notify_target_hit(**kwargs)
+        elif alert_type == "stop_loss_hit":
+            default_notifier.notify_stop_loss_hit(**kwargs)
+        elif alert_type == "velocity_kill":
+            default_notifier.notify_velocity_kill(**kwargs)
+    except Exception as e:
+        logger.debug(f"WhatsApp alert dispatch error: {e}")
+
+
 def _default_tracker_state() -> dict:
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return {
@@ -207,13 +225,13 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
 
         cur_px = float(r.get("current_price") or 0.0)
         pivot_trigger = float(r.get("pivot_buy_stop") or (cur_px * 1.002))
-        target_px = float(r.get("target_price") or round(pivot_trigger * 1.12, 2))
-        if "stop_loss" in r and float(r["stop_loss"]) > cur_px:
-            stop_px = float(r["stop_loss"])
-        elif "stop_loss_pct" in r:
+        target_px = round(pivot_trigger * 1.12, 2)
+        if "stop_loss_pct" in r:
             stop_px = round(pivot_trigger * (1.0 - float(r["stop_loss_pct"]) / 100.0), 2)
+        elif "stop_loss" in r and float(r["stop_loss"]) > cur_px:
+            stop_px = float(r["stop_loss"])
         else:
-            stop_px = round(pivot_trigger * 0.93, 2)
+            stop_px = round(pivot_trigger * 0.96, 2)
         be_lock_px = float(r.get("breakeven_lock") or round(pivot_trigger * 1.05, 2))
         shares = int(20000 // pivot_trigger) if pivot_trigger > 0 else 0
 
@@ -251,8 +269,13 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
             continue
         cur_px = float(c.get("current_price") or 0.0)
         pivot_trigger = float(c.get("pivot_buy_stop") or cur_px)
-        target_12 = float(c.get("target_price") or round(pivot_trigger * 1.12, 2))
-        stop_4 = float(c.get("stop_loss") or round(pivot_trigger * 0.96, 2))
+        target_12 = round(pivot_trigger * 1.12, 2)
+        if "stop_loss_pct" in c:
+            stop_4 = round(pivot_trigger * (1.0 - float(c["stop_loss_pct"]) / 100.0), 2)
+        elif "stop_loss" in c and float(c["stop_loss"]) > cur_px:
+            stop_4 = float(c["stop_loss"])
+        else:
+            stop_4 = round(pivot_trigger * 0.96, 2)
         be_lock_px = float(c.get("breakeven_lock") or round(pivot_trigger * 1.05, 2))
         shares = int(20000 // pivot_trigger) if pivot_trigger > 0 else 0
 
@@ -358,6 +381,17 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                     "current_price": open_px,
                     "gap_pct": round(gap_pct, 2),
                 })
+                _send_wa_alert(
+                    "breakout_fill",
+                    ticker=ticker,
+                    fill_price=open_px,
+                    target_price=target_px,
+                    stop_loss=stop_loss_px,
+                    shares=shares,
+                    strategy_track="Track A (9:20 AM Open)",
+                    sector=pend.get("sector", "General"),
+                    pattern=pend.get("pattern", "9:20_OPEN_CONFIRMATION"),
+                )
         else:
             still_pending_o2.append(pend)
     tracker["option_2"]["pending_confirmations"] = still_pending_o2
@@ -410,6 +444,16 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
             stop_px = round(entry_px * 1.003, 2)
             trade["stop_loss"] = stop_px
             trade["is_breakeven_locked"] = True
+            if not trade.get("alert_be_lock_sent"):
+                trade["alert_be_lock_sent"] = True
+                _send_wa_alert(
+                    "breakeven_lock",
+                    ticker=ticker,
+                    entry_price=entry_px,
+                    current_price=cur_px,
+                    pnl_pct=trade.get("pnl_pct", 5.0),
+                    new_stop_loss=stop_px,
+                )
 
         if high_px >= target_px or cur_px >= target_px:
             is_closed = True
@@ -442,6 +486,14 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 "friction_inr": costs.total_friction_rupees,
                 "status": "CLOSED",
             })
+
+            # Send WhatsApp alert for closed trade
+            if "TARGET_HIT" in exit_reason:
+                _send_wa_alert("target_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, pnl_rupees=net_pnl_inr, pnl_pct=net_pnl_pct)
+            elif "VELOCITY_KILL" in exit_reason:
+                _send_wa_alert("velocity_kill", ticker=ticker, entry_price=entry_px, exit_price=exit_px, days_held=trade["days_held"], pnl_pct=net_pnl_pct, freed_capital_inr=shares * exit_px)
+            elif "STOP_LOSS" in exit_reason or "BREAKEVEN_LOCK_HIT" in exit_reason:
+                _send_wa_alert("stop_loss_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, loss_inr=net_pnl_inr, loss_pct=net_pnl_pct, is_breakeven=trade.get("is_breakeven_locked", False))
         else:
             still_open_o2.append(trade)
 
@@ -472,7 +524,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
         # Trigger ONLY during market hours when price hit or crossed pivot resistance
         if can_exec and high_px >= trigger_px:
             shares = int(pending["shares"])
-            tracker["option_3"]["open_trades"].append({
+            t_entry = {
                 "ticker": ticker,
                 "name": pending["name"],
                 "shortlist_date": shortlist_d,
@@ -482,6 +534,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 "current_price": cur_px,
                 "target_price": pending["target_price"],
                 "stop_loss": pending["stop_loss"],
+                "breakeven_lock": pending.get("breakeven_lock") or round(trigger_px * 1.05, 2),
                 "shares": shares,
                 "allocated_rupees": round(shares * trigger_px, 2),
                 "pnl_pct": round(((cur_px - trigger_px) / trigger_px) * 100.0, 2) if trigger_px > 0 else 0.0,
@@ -490,7 +543,19 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 "sector": pending.get("sector", "General"),
                 "status": "TRIGGERED_ACTIVE",
                 "days_held": 0,
-            })
+            }
+            tracker["option_3"]["open_trades"].append(t_entry)
+            _send_wa_alert(
+                "breakout_fill",
+                ticker=ticker,
+                fill_price=trigger_px,
+                target_price=float(pending["target_price"]),
+                stop_loss=float(pending["stop_loss"]),
+                shares=shares,
+                strategy_track="Track B (GTT Breakout)",
+                sector=pending.get("sector", "General"),
+                pattern=pending.get("pattern", "COIL"),
+            )
         else:
             pending["shortlist_date"] = shortlist_d
             still_pending_o3.append(pending)
@@ -544,6 +609,16 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
             stop_px = round(entry_px * 1.003, 2)
             trade["stop_loss"] = stop_px
             trade["is_breakeven_locked"] = True
+            if not trade.get("alert_be_lock_sent"):
+                trade["alert_be_lock_sent"] = True
+                _send_wa_alert(
+                    "breakeven_lock",
+                    ticker=ticker,
+                    entry_price=entry_px,
+                    current_price=cur_px,
+                    pnl_pct=trade.get("pnl_pct", 5.0),
+                    new_stop_loss=stop_px,
+                )
 
         if high_px >= target_px or cur_px >= target_px:
             is_closed = True
@@ -576,6 +651,14 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 "friction_inr": costs.total_friction_rupees,
                 "status": "CLOSED",
             })
+
+            # Send WhatsApp alert for closed trade
+            if "TARGET_HIT" in exit_reason:
+                _send_wa_alert("target_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, pnl_rupees=net_pnl_inr, pnl_pct=net_pnl_pct)
+            elif "VELOCITY_KILL" in exit_reason:
+                _send_wa_alert("velocity_kill", ticker=ticker, entry_price=entry_px, exit_price=exit_px, days_held=trade["days_held"], pnl_pct=net_pnl_pct, freed_capital_inr=shares * exit_px)
+            elif "STOP_LOSS" in exit_reason or "BREAKEVEN_LOCK_HIT" in exit_reason:
+                _send_wa_alert("stop_loss_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, loss_inr=net_pnl_inr, loss_pct=net_pnl_pct, is_breakeven=trade.get("is_breakeven_locked", False))
         else:
             still_open_o3.append(trade)
 
@@ -617,6 +700,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                     "current_price": cur_px,
                     "target_price": pending["target_price"],
                     "stop_loss": pending["stop_loss"],
+                    "breakeven_lock": pending.get("breakeven_lock") or round(trigger_px * 1.05, 2),
                     "shares": shares,
                     "allocated_rupees": round(shares * trigger_px, 2),
                     "pnl_pct": round(((cur_px - trigger_px) / trigger_px) * 100.0, 2) if trigger_px > 0 else 0.0,
@@ -626,6 +710,17 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                     "status": "TRIGGERED_ACTIVE",
                     "days_held": 0,
                 })
+                _send_wa_alert(
+                    "breakout_fill",
+                    ticker=ticker,
+                    fill_price=trigger_px,
+                    target_price=float(pending["target_price"]),
+                    stop_loss=float(pending["stop_loss"]),
+                    shares=shares,
+                    strategy_track="Track C (Benchmark Sniper)",
+                    sector=pending.get("sector", "General"),
+                    pattern=pending.get("pattern", "SNIPER"),
+                )
             else:
                 pending["shortlist_date"] = shortlist_d
                 still_pending_c.append(pending)
@@ -678,6 +773,16 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 stop_px = round(entry_px * 1.003, 2)
                 trade["stop_loss"] = stop_px
                 trade["is_breakeven_locked"] = True
+                if not trade.get("alert_be_lock_sent"):
+                    trade["alert_be_lock_sent"] = True
+                    _send_wa_alert(
+                        "breakeven_lock",
+                        ticker=ticker,
+                        entry_price=entry_px,
+                        current_price=cur_px,
+                        pnl_pct=trade.get("pnl_pct", 5.0),
+                        new_stop_loss=stop_px,
+                    )
 
             # 1. Target Hit (+12% Velocity)
             if high_px >= target_px or cur_px >= target_px:
@@ -713,6 +818,14 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                     "friction_inr": costs.total_friction_rupees,
                     "status": "CLOSED",
                 })
+
+                # Send WhatsApp alert for closed trade
+                if "TARGET_HIT" in exit_reason:
+                    _send_wa_alert("target_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, pnl_rupees=net_pnl_inr, pnl_pct=net_pnl_pct)
+                elif "VELOCITY_KILL" in exit_reason:
+                    _send_wa_alert("velocity_kill", ticker=ticker, entry_price=entry_px, exit_price=exit_px, days_held=trade["days_held"], pnl_pct=net_pnl_pct, freed_capital_inr=shares * exit_px)
+                elif "STOP_LOSS" in exit_reason or "BREAKEVEN_LOCK_HIT" in exit_reason:
+                    _send_wa_alert("stop_loss_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, loss_inr=net_pnl_inr, loss_pct=net_pnl_pct, is_breakeven=trade.get("is_breakeven_locked", False))
             else:
                 still_open_c.append(trade)
 
