@@ -271,6 +271,28 @@ class TelegramNotifier:
         )
         return self.send_message(msg)
 
+    def notify_daily_recap(
+        self,
+        summary: dict,
+    ) -> bool:
+        """Dispatches an end-of-day trading recap to Telegram."""
+        o2 = summary.get("option_2", {})
+        o3 = summary.get("option_3", {})
+        oc = summary.get("track_c", {})
+        msg = (
+            f"📊 *[NSE MARKET CLOSE: DAILY PERFORMANCE RECAP]*\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"🏆 *Tournament Leader:* {summary.get('winner', 'Evaluating')}\n\n"
+            f"🟢 *Track A (9:20 Open):* ₹{o2.get('total_pnl_inr', 0.0):+,.0f} ({o2.get('total_pnl_pct', 0.0):+.2f}%)\n"
+            f"   • Active: {o2.get('open_count', 0)} open | Win Rate: {o2.get('win_rate', 0.0):.1f}%\n"
+            f"🔵 *Track B (GTT Option 3):* ₹{o3.get('total_pnl_inr', 0.0):+,.0f} ({o3.get('total_pnl_pct', 0.0):+.2f}%)\n"
+            f"   • Active: {o3.get('open_count', 0)} open | Pending: {o3.get('pending_count', 0)}\n"
+            f"⚡ *Track C (Benchmark):* ₹{oc.get('total_pnl_inr', 0.0):+,.0f} ({oc.get('total_pnl_pct', 0.0):+.2f}%)\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"✨ _Session closed. State saved & synced to dashboard._"
+        )
+        return self.send_message(msg)
+
 
 # Global default instance
 default_telegram_notifier = TelegramNotifier()

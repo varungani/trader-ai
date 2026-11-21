@@ -97,37 +97,57 @@ def run_daemon(interval_seconds: int = 300) -> None:
         time.sleep(interval_seconds)
 
 
-def run_hawk_surveillance(fast_interval_sec: int = 30, scan_interval_min: int = 15) -> None:
+def run_hawk_surveillance(
+    fast_interval_sec: int = 20,
+    scan_interval_min: int = 15,
+    session_mode: bool = False,
+    max_cycles: Optional[int] = None,
+) -> None:
     """
     Hawk Mode:
-      - Gear 1 (every 30s): Audits active positions & pending GTT triggers (Dual Tracker).
+      - Gear 1 (every 20s): Audits active positions & pending GTT triggers (Dual Tracker).
       - Gear 2 (every 15m during market hours): Sweeps universe for live breakout ignitions.
-        Suppresses duplicates so each setup is only alerted once per trading day.
+      - session_mode: Runs continuously during the trading day (09:15 to 15:30 IST),
+        sends post-market recap at 15:30 IST, and exits cleanly for GitHub Actions.
     """
     from bot.telegram_notifier import default_telegram_notifier
     from engine.apex_engine import run_apex_scan
-    from engine.dual_tracker import log_today_picks
+    from engine.dual_tracker import log_today_picks, _load_tracker, _save_tracker
+    from data.market_calendar import get_ist_now, is_trading_day, NORMAL_MARKET_CLOSE
 
     logger.info("🦅 [HAWK MODE ARMED] Starting dual-gear surveillance:")
     logger.info(f"   • Gear 1 (Position Shield): Polling every {fast_interval_sec}s for Breakeven Locks & Exits")
     logger.info(f"   • Gear 2 (Apex Ignition Radar): Sweeping every {scan_interval_min}m for Live Breakout Signals")
+    logger.info(f"   • Session Mode: {'ACTIVE (Runs until 15:30 IST)' if session_mode else 'Continuous Daemon'}")
 
-    alerted_today: set[str] = set()
-    current_day = datetime.now().date()
+    tracker = _load_tracker()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    alerted_signals = tracker.setdefault("alerted_buy_signals", {})
+    alerted_today: set[str] = {t for t, d in alerted_signals.items() if d == today_str}
+
     last_scan_time = 0.0
+    cycles_run = 0
 
     while True:
         try:
-            now_dt = datetime.now()
-            today_date = now_dt.date()
+            now_ist = get_ist_now()
+            today_date = now_ist.date()
+            today_str = now_ist.strftime("%Y-%m-%d")
+            is_td, _ = is_trading_day(today_date)
 
-            # Day Rollover: reset alerted tickers for the new day
-            if today_date != current_day:
-                alerted_today.clear()
-                current_day = today_date
-                logger.info(f"New trading day detected ({current_day}). Alert memory cleared.")
+            # In Session Mode: Check if market session is done (past 15:30 IST on a trading day)
+            if session_mode:
+                if not is_td:
+                    logger.info("Today is not a trading day. Running single audit pass and exiting.")
+                    run_once()
+                    break
+                elif now_ist.time() >= NORMAL_MARKET_CLOSE:
+                    logger.info("⏰ [MARKET CLOSED] 03:30 PM IST reached. Running final post-market audit & recap...")
+                    final_summary = run_once()
+                    default_telegram_notifier.notify_daily_recap(final_summary)
+                    break
 
-            m_status = get_market_status()
+            m_status = get_market_status(now_ist)
             is_open = m_status.get("is_open", False)
 
             # GEAR 1: Fast Position & Trigger Audit (Runs every cycle)
@@ -157,7 +177,7 @@ def run_hawk_surveillance(fast_interval_sec: int = 30, scan_interval_min: int = 
                         # Trigger live buy signal ONLY if price is within the disciplined buy zone [pivot * 0.995, ceiling]
                         if cur_px >= pivot * 0.995 and cur_px <= ceiling:
                             logger.info(f"🚨 [HAWK ALERT] Fresh breakout ignition detected: {ticker} @ ₹{cur_px:.2f}")
-                            default_telegram_notifier.notify_live_buy_signal(
+                            sent = default_telegram_notifier.notify_live_buy_signal(
                                 ticker=ticker,
                                 current_price=cur_px,
                                 pivot_trigger=pivot,
@@ -168,12 +188,16 @@ def run_hawk_surveillance(fast_interval_sec: int = 30, scan_interval_min: int = 
                                 sector=p.get("sector", "General"),
                                 pattern=p.get("setup_pattern", "INSTITUTIONAL_IGNITION"),
                             )
-                            alerted_today.add(ticker)
-                            fresh_radar.append(p)
+                            if sent:
+                                alerted_today.add(ticker)
+                                alerted_signals[ticker] = today_str
+                                fresh_radar.append(p)
 
-                    # Feed any fresh breakout setups into Track B radar for continuous 30s tracking
+                    # Feed any fresh breakout setups into Track B radar for continuous 20s tracking
                     if fresh_radar:
                         log_today_picks(tier1_picks=[], tier2_radar=fresh_radar)
+                        tracker["alerted_buy_signals"] = alerted_signals
+                        _save_tracker(tracker)
                         logger.info(f"Registered {len(fresh_radar)} fresh ignition picks into live tracking radar.")
                 except Exception as scan_err:
                     logger.warning(f"Intraday Apex scan error (will retry next interval): {scan_err}")
@@ -181,19 +205,32 @@ def run_hawk_surveillance(fast_interval_sec: int = 30, scan_interval_min: int = 
         except Exception as e:
             logger.error(f"Error in Hawk surveillance loop: {e}", exc_info=True)
 
+        cycles_run += 1
+        if max_cycles and cycles_run >= max_cycles:
+            logger.info(f"Reached max_cycles={max_cycles}. Exiting.")
+            break
+
         time.sleep(fast_interval_sec)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TraderAI Autonomous Paper Runner & Hawk Surveillance")
     parser.add_argument("--daemon", action="store_true", help="Run continuously every 5 minutes")
-    parser.add_argument("--hawk", action="store_true", help="Run Hawk Mode: 30s position tracking + 15m live market sweep")
+    parser.add_argument("--hawk", action="store_true", help="Run Hawk Mode: fast position tracking + live market sweep")
+    parser.add_argument("--session-mode", action="store_true", help="Run continuously until 15:30 IST market close (for GitHub Actions)")
+    parser.add_argument("--fast-interval", type=int, default=20, help="Interval in seconds for fast position check (default: 20s)")
     parser.add_argument("--interval", type=int, default=300, help="Interval in seconds for daemon mode (default: 300 = 5 mins)")
     parser.add_argument("--scan-interval", type=int, default=15, help="Scan interval in minutes for hawk mode (default: 15 mins)")
+    parser.add_argument("--max-cycles", type=int, default=None, help="Optional max loop iterations")
     args = parser.parse_args()
 
     if args.hawk:
-        run_hawk_surveillance(fast_interval_sec=30, scan_interval_min=args.scan_interval)
+        run_hawk_surveillance(
+            fast_interval_sec=args.fast_interval,
+            scan_interval_min=args.scan_interval,
+            session_mode=args.session_mode,
+            max_cycles=args.max_cycles,
+        )
     elif args.daemon:
         run_daemon(args.interval)
     else:
