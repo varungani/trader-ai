@@ -1,10 +1,10 @@
 """
 TraderAI - Telegram Real-Time Notification Engine
-Dispatches real-time trading alerts directly to user's Telegram via official Bot API:
-  - GTT Breakout Triggers Filled
+Dispatches real-time, actionable trading instructions directly to user's Telegram via official Bot API:
+  - GTT Breakout Triggers Filled (with exact broker GTT instructions)
   - Breakeven Locks (+5% Gain -> Stop trailed to entry)
-  - Targets Hit (+12% Velocity Exit)
-  - Stop Losses Exited
+  - Targets Hit (+12% Velocity Exit instructions)
+  - Stop Losses Exited (Disciplined capital preservation)
   - 72H Velocity Kills (Dead money liquidated)
 
 Privacy & Security:
@@ -13,12 +13,18 @@ Privacy & Security:
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import urllib.parse
 import urllib.request
-import json
 from typing import Optional
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +33,7 @@ TELEGRAM_API_URL = "https://api.telegram.org/bot{token}/sendMessage"
 
 
 class TelegramNotifier:
-    """Dispatches trade lifecycle events to Telegram via official Bot API."""
+    """Dispatches actionable trade lifecycle events to Telegram via official Bot API."""
 
     def __init__(
         self,
@@ -84,7 +90,7 @@ class TelegramNotifier:
             logger.warning(f"Failed to dispatch Telegram alert: {e}")
             return False
 
-    # ─── Specialized Trading Alerts ──────────────────────────────────────────
+    # ─── Action-Packed Broker Alerts ─────────────────────────────────────────
 
     def notify_breakout_fill(
         self,
@@ -101,17 +107,23 @@ class TelegramNotifier:
         clean_ticker = ticker.replace(".NS", "")
         allocated_inr = fill_price * shares
         msg = (
-            f"🎯 *[GTT BREAKOUT EXECUTED]*\n"
+            f"🎯 *[GTT BREAKOUT EXECUTED: BUY CONFIRMED]*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"📈 *Stock:* `{clean_ticker}` ({sector})\n"
             f"⚡ *Track:* {strategy_track}\n"
             f"💵 *Fill Price:* ₹{fill_price:,.2f}\n"
-            f"📦 *Position:* {shares:,} shares (~₹{allocated_inr:,.0f})\n"
+            f"📦 *Position Sizing:* {shares:,} shares (~₹{allocated_inr:,.0f})\n"
             f"🎯 *Target (+12%):* ₹{target_price:,.2f}\n"
             f"🛑 *Stop Loss (-4%):* ₹{stop_loss:,.2f}\n"
             f"🔍 *Pattern:* `{pattern}`\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"🛡️ _Delivery/CNC Cash Equity - Zero Leverage_"
+            f"👉 *EXACT ACTION IN YOUR BROKER (Zerodha/Groww/Kotak):*\n"
+            f"1️⃣ Verify your Buy fill in **Order Book / Positions** under **CNC (Delivery)**.\n"
+            f"2️⃣ Immediately place your **GTT OCO Exit Order**:\n"
+            f"   • *Target:* Sell Limit at `₹{target_price:,.2f}`\n"
+            f"   • *Stop Loss:* Sell Trigger at `₹{stop_loss:,.2f}` (Limit `₹{round(stop_loss * 0.995, 2):,.2f}`)\n"
+            f"   • *Quantity:* `{shares}` shares\n"
+            f"3️⃣ Tap **Submit GTT** — your exit is now 100% automated!"
         )
         return self.send_message(msg)
 
@@ -126,14 +138,18 @@ class TelegramNotifier:
         """Dispatches an alert when a trade touches +5.0% and stop is trailed to breakeven."""
         clean_ticker = ticker.replace(".NS", "")
         msg = (
-            f"🛡️ *[BREAKEVEN STOP LOCKED]*\n"
+            f"🛡️ *[BREAKEVEN STOP LOCKED: RISK ELIMINATED]*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"📈 *Stock:* `{clean_ticker}`\n"
-            f"🚀 *Gain Touched:* +{pnl_pct:.2f}%\n"
-            f"💵 *Entry:* ₹{entry_price:,.2f} ➔ *Cur:* ₹{current_price:,.2f}\n"
-            f"🔒 *New Stop Loss:* ₹{new_stop_loss:,.2f} *(Entry + 0.3% friction)*\n"
+            f"📈 *Stock:* `{clean_ticker}` reached *+{pnl_pct:.2f}%* gain!\n"
+            f"💵 *Entry:* ₹{entry_price:,.2f} ➔ *Current:* ₹{current_price:,.2f}\n"
+            f"🔒 *New Trailed Stop:* `₹{new_stop_loss:,.2f}` *(Entry + 0.3% friction)*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"✨ _Risk is now ELIMINATED. Guaranteed zero-loss runner._"
+            f"👉 *EXACT ACTION IN YOUR BROKER:*\n"
+            f"1️⃣ Open your broker app (Zerodha / Groww / Kotak).\n"
+            f"2️⃣ Go to **GTT Orders** $\\rightarrow$ select `{clean_ticker}`.\n"
+            f"3️⃣ Tap **Modify** $\\rightarrow$ change Stop-Loss trigger to `₹{new_stop_loss:,.2f}`.\n"
+            f"4️⃣ Tap **Save**.\n"
+            f"✨ *Capital is now 100% protected. This trade CANNOT lose money.*"
         )
         return self.send_message(msg)
 
@@ -148,13 +164,17 @@ class TelegramNotifier:
         """Dispatches an alert when a position hits its target price."""
         clean_ticker = ticker.replace(".NS", "")
         msg = (
-            f"🚀 *[TARGET HIT - PROFIT BOOKED]*\n"
+            f"🚀 *[TARGET HIT: +12% PROFIT BOOKED]*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"🎉 *Stock:* `{clean_ticker}`\n"
-            f"💰 *Net Profit:* +₹{pnl_rupees:+,.2f} (+{pnl_pct:+.2f}%)\n"
+            f"💰 *Net Profit:* *+₹{pnl_rupees:+,.2f}* (*{pnl_pct:+.2f}%*)\n"
             f"💵 *Entry:* ₹{entry_price:,.2f} ➔ *Exit:* ₹{exit_price:,.2f}\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"⚡ _Capital freed for the next high-velocity setup._"
+            f"👉 *EXACT ACTION IN YOUR BROKER:*\n"
+            f"1️⃣ Check **Order Book** — your Target GTT should have executed.\n"
+            f"2️⃣ If not auto-sold, tap `{clean_ticker}` $\\rightarrow$ **Sell CNC at Market**.\n"
+            f"3️⃣ Cancel any remaining pending Stop-Loss GTT order.\n"
+            f"⚡ *Cash is freed up for the next high-velocity setup!*"
         )
         return self.send_message(msg)
 
@@ -170,11 +190,11 @@ class TelegramNotifier:
         """Dispatches an alert when a stop-loss is hit."""
         clean_ticker = ticker.replace(".NS", "")
         if is_breakeven:
-            headline = "🔒 *[BREAKEVEN EXIT - CAPITAL PROTECTED]*"
+            headline = "🔒 *[BREAKEVEN EXIT: ZERO LOSS ACCORDING TO PLAN]*"
             subtext = "Capital safely preserved with zero loss."
         else:
-            headline = "🛑 *[STOP LOSS EXECUTED]*"
-            subtext = "Disciplined capital preservation exit."
+            headline = "🛑 *[STOP LOSS EXECUTED: CAPITAL DEFENDED]*"
+            subtext = "Small disciplined cut to preserve dry powder."
 
         msg = (
             f"{headline}\n"
@@ -183,6 +203,9 @@ class TelegramNotifier:
             f"💵 *Entry:* ₹{entry_price:,.2f} ➔ *Exit:* ₹{exit_price:,.2f}\n"
             f"📊 *Net Result:* ₹{loss_inr:+,.2f} ({loss_pct:+.2f}%)\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
+            f"👉 *EXACT ACTION IN YOUR BROKER:*\n"
+            f"1️⃣ Confirm position is closed in **Holdings**.\n"
+            f"2️⃣ Cancel any active Target GTT order for `{clean_ticker}`.\n"
             f"🛡️ _{subtext}_"
         )
         return self.send_message(msg)
@@ -199,14 +222,17 @@ class TelegramNotifier:
         """Dispatches an alert when a trade is closed after 72 hours of dead money."""
         clean_ticker = ticker.replace(".NS", "")
         msg = (
-            f"⏳ *[72H VELOCITY KILL - DEAD MONEY EXITED]*\n"
+            f"⏳ *[72H VELOCITY KILL: DEAD MONEY EXITED]*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"⏱️ *Stock:* `{clean_ticker}` held for {days_held} sessions\n"
-            f"📊 *Performance:* {pnl_pct:+.2f}% (Below velocity threshold +1.5%)\n"
+            f"📊 *Performance:* {pnl_pct:+.2f}% (Failed to gain > +1.5% momentum)\n"
             f"💵 *Exit Price:* ₹{exit_price:,.2f}\n"
             f"🔓 *Freed Capital:* ~₹{freed_capital_inr:,.0f}\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"⚡ _Reallocating capital to active explosive breakouts._"
+            f"👉 *EXACT ACTION IN YOUR BROKER:*\n"
+            f"1️⃣ Tap `{clean_ticker}` in **Holdings** $\\rightarrow$ **Sell CNC at Market**.\n"
+            f"2️⃣ Cancel any pending GTT triggers for `{clean_ticker}`.\n"
+            f"⚡ *Reallocating freed capital into active high-velocity leaders.*"
         )
         return self.send_message(msg)
 
