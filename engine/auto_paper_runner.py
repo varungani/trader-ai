@@ -97,13 +97,104 @@ def run_daemon(interval_seconds: int = 300) -> None:
         time.sleep(interval_seconds)
 
 
+def run_hawk_surveillance(fast_interval_sec: int = 30, scan_interval_min: int = 15) -> None:
+    """
+    Hawk Mode:
+      - Gear 1 (every 30s): Audits active positions & pending GTT triggers (Dual Tracker).
+      - Gear 2 (every 15m during market hours): Sweeps universe for live breakout ignitions.
+        Suppresses duplicates so each setup is only alerted once per trading day.
+    """
+    from bot.telegram_notifier import default_telegram_notifier
+    from engine.apex_engine import run_apex_scan
+    from engine.dual_tracker import log_today_picks
+
+    logger.info("🦅 [HAWK MODE ARMED] Starting dual-gear surveillance:")
+    logger.info(f"   • Gear 1 (Position Shield): Polling every {fast_interval_sec}s for Breakeven Locks & Exits")
+    logger.info(f"   • Gear 2 (Apex Ignition Radar): Sweeping every {scan_interval_min}m for Live Breakout Signals")
+
+    alerted_today: set[str] = set()
+    current_day = datetime.now().date()
+    last_scan_time = 0.0
+
+    while True:
+        try:
+            now_dt = datetime.now()
+            today_date = now_dt.date()
+
+            # Day Rollover: reset alerted tickers for the new day
+            if today_date != current_day:
+                alerted_today.clear()
+                current_day = today_date
+                logger.info(f"New trading day detected ({current_day}). Alert memory cleared.")
+
+            m_status = get_market_status()
+            is_open = m_status.get("is_open", False)
+
+            # GEAR 1: Fast Position & Trigger Audit (Runs every cycle)
+            run_once()
+
+            # GEAR 2: Intraday Apex Breakout Scan (Runs every scan_interval_min during open market hours)
+            if is_open and (time.time() - last_scan_time >= scan_interval_min * 60):
+                logger.info("🔍 [Gear 2 Pulse] Sweeping Nifty universe for live institutional ignition breakouts...")
+                last_scan_time = time.time()
+                try:
+                    scan_res = run_apex_scan(universe_preset="nifty500")
+                    picks = scan_res.get("picks") or scan_res.get("top_picks") or []
+                    fresh_radar = []
+
+                    for p in picks:
+                        ticker = p.get("ticker", "")
+                        if not ticker or ticker in alerted_today:
+                            continue
+
+                        cur_px = float(p.get("current_price") or 0.0)
+                        pivot = float(p.get("pivot_buy_stop") or cur_px)
+                        ceiling = float(p.get("max_buy_zone") or round(pivot * 1.015, 2))
+                        target_px = float(p.get("target_price") or round(pivot * 1.12, 2))
+                        stop_px = float(p.get("stop_loss") or round(pivot * 0.96, 2))
+                        shares = int(p.get("shares") or (20000 // cur_px if cur_px > 0 else 0))
+
+                        # Trigger live buy signal ONLY if price is within the disciplined buy zone [pivot * 0.995, ceiling]
+                        if cur_px >= pivot * 0.995 and cur_px <= ceiling:
+                            logger.info(f"🚨 [HAWK ALERT] Fresh breakout ignition detected: {ticker} @ ₹{cur_px:.2f}")
+                            default_telegram_notifier.notify_live_buy_signal(
+                                ticker=ticker,
+                                current_price=cur_px,
+                                pivot_trigger=pivot,
+                                buy_ceiling=ceiling,
+                                target_price=target_px,
+                                stop_loss=stop_px,
+                                shares=shares,
+                                sector=p.get("sector", "General"),
+                                pattern=p.get("setup_pattern", "INSTITUTIONAL_IGNITION"),
+                            )
+                            alerted_today.add(ticker)
+                            fresh_radar.append(p)
+
+                    # Feed any fresh breakout setups into Track B radar for continuous 30s tracking
+                    if fresh_radar:
+                        log_today_picks(tier1_picks=[], tier2_radar=fresh_radar)
+                        logger.info(f"Registered {len(fresh_radar)} fresh ignition picks into live tracking radar.")
+                except Exception as scan_err:
+                    logger.warning(f"Intraday Apex scan error (will retry next interval): {scan_err}")
+
+        except Exception as e:
+            logger.error(f"Error in Hawk surveillance loop: {e}", exc_info=True)
+
+        time.sleep(fast_interval_sec)
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="TraderAI Autonomous Paper Runner")
+    parser = argparse.ArgumentParser(description="TraderAI Autonomous Paper Runner & Hawk Surveillance")
     parser.add_argument("--daemon", action="store_true", help="Run continuously every 5 minutes")
-    parser.add_argument("--interval", type=int, default=300, help="Interval in seconds (default: 300 = 5 mins)")
+    parser.add_argument("--hawk", action="store_true", help="Run Hawk Mode: 30s position tracking + 15m live market sweep")
+    parser.add_argument("--interval", type=int, default=300, help="Interval in seconds for daemon mode (default: 300 = 5 mins)")
+    parser.add_argument("--scan-interval", type=int, default=15, help="Scan interval in minutes for hawk mode (default: 15 mins)")
     args = parser.parse_args()
 
-    if args.daemon:
+    if args.hawk:
+        run_hawk_surveillance(fast_interval_sec=30, scan_interval_min=args.scan_interval)
+    elif args.daemon:
         run_daemon(args.interval)
     else:
         run_once()
