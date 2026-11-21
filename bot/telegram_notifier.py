@@ -92,6 +92,41 @@ class TelegramNotifier:
 
     # ─── Action-Packed Broker Alerts ─────────────────────────────────────────
 
+    def notify_live_buy_signal(
+        self,
+        ticker: str,
+        current_price: float,
+        pivot_trigger: float,
+        buy_ceiling: float,
+        target_price: float,
+        stop_loss: float,
+        shares: int,
+        sector: str = "General",
+        pattern: str = "INSTITUTIONAL_IGNITION",
+    ) -> bool:
+        """Dispatches a real-time live buy signal when a fresh institutional breakout ignites."""
+        clean_ticker = ticker.replace(".NS", "")
+        allocated_inr = current_price * shares
+        msg = (
+            f"🚨 *[LIVE BUY SIGNAL: INTRADAY BREAKOUT]*\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"📈 *Stock:* `{clean_ticker}` ({sector})\n"
+            f"⚡ *Pattern:* `{pattern}`\n"
+            f"💵 *Current Price (CMP):* ₹{current_price:,.2f}\n"
+            f"🟢 *Max Buy Zone:* ₹{pivot_trigger:,.2f} ➔ ₹{buy_ceiling:,.2f}\n"
+            f"⚠️ _Do NOT chase if price is above ₹{buy_ceiling:,.2f}_\n"
+            f"📦 *Position Sizing:* {shares:,} shares (~₹{allocated_inr:,.0f})\n"
+            f"🎯 *Target (+12%):* ₹{target_price:,.2f}\n"
+            f"🛑 *Stop Loss (-4%):* ₹{stop_loss:,.2f}\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"👉 *EXACT ACTION IN YOUR BROKER (Zerodha/Groww/Kotak):*\n"
+            f"1️⃣ Open broker ➔ Search `{clean_ticker}` ➔ Tap **Buy**.\n"
+            f"2️⃣ Product: **CNC (Delivery / Cash)** | Qty: `{shares}`.\n"
+            f"3️⃣ Order: Limit at `₹{min(current_price * 1.003, buy_ceiling):,.2f}` (or Market).\n"
+            f"4️⃣ Once bought, set **GTT OCO Exit** (Target: `₹{target_price:,.2f}`, Stop: `₹{stop_loss:,.2f}`)."
+        )
+        return self.send_message(msg)
+
     def notify_breakout_fill(
         self,
         ticker: str,

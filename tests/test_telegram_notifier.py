@@ -138,3 +138,29 @@ def test_telegram_notifier_notify_velocity_kill(configured_notifier):
         assert "72H VELOCITY KILL" in sent_text
         assert "TATASTEEL" in sent_text
         assert "3 sessions" in sent_text
+
+
+def test_telegram_notifier_notify_live_buy_signal(configured_notifier):
+    with patch.object(configured_notifier, "send_message", return_value=True) as mock_send:
+        success = configured_notifier.notify_live_buy_signal(
+            ticker="CANBK.NS",
+            current_price=136.80,
+            pivot_trigger=136.50,
+            buy_ceiling=138.50,
+            target_price=153.20,
+            stop_loss=131.30,
+            shares=146,
+            sector="Banking",
+            pattern="INSTITUTIONAL_IGNITION",
+        )
+        assert success is True
+        mock_send.assert_called_once()
+        sent_text = mock_send.call_args[0][0]
+        assert "LIVE BUY SIGNAL: INTRADAY BREAKOUT" in sent_text
+        assert "CANBK" in sent_text
+        assert "136.80" in sent_text
+        assert "138.50" in sent_text
+        assert "153.20" in sent_text
+        assert "131.30" in sent_text
+        assert "146 shares" in sent_text
+        assert "CNC (Delivery / Cash)" in sent_text
