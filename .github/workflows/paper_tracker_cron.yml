@@ -31,7 +31,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run 30-Min Live Audit
+      - name: Verify Telegram Connection on Manual Dispatch
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TELEGRAM_ENABLED: ${{ secrets.TELEGRAM_ENABLED }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python -c "from bot.telegram_notifier import default_telegram_notifier; default_telegram_notifier.send_message('☁️ *[GITHUB CLOUD CONNECTED]*\n━━━━━━━━━━━━━━━━━━━\n✅ GitHub Actions secrets verified successfully!\n⚡ Automated audits every 5 minutes during NSE market hours (09:15–15:30 IST) are armed.\n━━━━━━━━━━━━━━━━━━━\n_You will receive instant actionable trade instructions directly from this cloud runner._')"
+
+      - name: Run 5-Min Live Audit
         env:
           TELEGRAM_ENABLED: ${{ secrets.TELEGRAM_ENABLED }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
