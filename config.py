@@ -35,19 +35,10 @@ KOTAK_MPIN = os.getenv("KOTAK_MPIN", "")
 KOTAK_TOTP_SECRET = os.getenv("KOTAK_TOTP_SECRET", "")
 
 # ─── Telegram Interactive Bot & Real-Time Alerts ─────────────
+TELEGRAM_ENABLED = os.getenv("TELEGRAM_ENABLED", "false").lower() in ("true", "1", "yes")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 ALERT_CHECK_INTERVAL_MINS = int(os.getenv("ALERT_CHECK_INTERVAL_MINS", "15"))
-
-# ─── WhatsApp Real-Time Notification System ──────────────────
-WHATSAPP_ENABLED = os.getenv("WHATSAPP_ENABLED", "false").lower() in ("true", "1", "yes")
-WHATSAPP_PROVIDER = os.getenv("WHATSAPP_PROVIDER", "callmebot").lower()  # callmebot, webhook, twilio
-WHATSAPP_PHONE = os.getenv("WHATSAPP_PHONE", "")  # e.g. +919876543210
-WHATSAPP_APIKEY = os.getenv("WHATSAPP_APIKEY", "")  # CallMeBot API key
-WHATSAPP_WEBHOOK_URL = os.getenv("WHATSAPP_WEBHOOK_URL", "")  # Self-hosted gateway endpoint
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
-TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER", "whatsapp:+14155238886")
 
 # ─── Mutual Fund Scheme Codes (AMFI) ─────────────────────────
 MF_SCHEME_CODES = [

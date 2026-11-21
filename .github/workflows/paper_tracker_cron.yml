@@ -33,11 +33,9 @@ jobs:
 
       - name: Run 30-Min Live Audit
         env:
-          WHATSAPP_ENABLED: ${{ secrets.WHATSAPP_ENABLED }}
-          WHATSAPP_PROVIDER: ${{ secrets.WHATSAPP_PROVIDER }}
-          WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
-          WHATSAPP_APIKEY: ${{ secrets.WHATSAPP_APIKEY }}
-          WHATSAPP_WEBHOOK_URL: ${{ secrets.WHATSAPP_WEBHOOK_URL }}
+          TELEGRAM_ENABLED: ${{ secrets.TELEGRAM_ENABLED }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python engine/auto_paper_runner.py
 
