@@ -27,22 +27,26 @@ logger = logging.getLogger(__name__)
 TRACKER_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "dual_tracker.json")
 
 
-def _send_wa_alert(alert_type: str, **kwargs):
-    """Safely trigger WhatsApp alert if enabled, without interrupting trading execution."""
+def _send_telegram_alert(alert_type: str, **kwargs):
+    """Safely trigger Telegram alert if enabled, without interrupting trading execution."""
     try:
-        from bot.whatsapp_notifier import default_notifier
+        from bot.telegram_notifier import default_telegram_notifier
         if alert_type == "breakout_fill":
-            default_notifier.notify_breakout_fill(**kwargs)
+            default_telegram_notifier.notify_breakout_fill(**kwargs)
         elif alert_type == "breakeven_lock":
-            default_notifier.notify_breakeven_lock(**kwargs)
+            default_telegram_notifier.notify_breakeven_lock(**kwargs)
         elif alert_type == "target_hit":
-            default_notifier.notify_target_hit(**kwargs)
+            default_telegram_notifier.notify_target_hit(**kwargs)
         elif alert_type == "stop_loss_hit":
-            default_notifier.notify_stop_loss_hit(**kwargs)
+            default_telegram_notifier.notify_stop_loss_hit(**kwargs)
         elif alert_type == "velocity_kill":
-            default_notifier.notify_velocity_kill(**kwargs)
+            default_telegram_notifier.notify_velocity_kill(**kwargs)
     except Exception as e:
-        logger.debug(f"WhatsApp alert dispatch error: {e}")
+        logger.debug(f"Telegram alert dispatch error: {e}")
+
+
+# Backward-compatibility alias
+_send_telegram_alert = _send_telegram_alert
 
 
 def _default_tracker_state() -> dict:
@@ -381,7 +385,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                     "current_price": open_px,
                     "gap_pct": round(gap_pct, 2),
                 })
-                _send_wa_alert(
+                _send_telegram_alert(
                     "breakout_fill",
                     ticker=ticker,
                     fill_price=open_px,
@@ -446,7 +450,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
             trade["is_breakeven_locked"] = True
             if not trade.get("alert_be_lock_sent"):
                 trade["alert_be_lock_sent"] = True
-                _send_wa_alert(
+                _send_telegram_alert(
                     "breakeven_lock",
                     ticker=ticker,
                     entry_price=entry_px,
@@ -487,13 +491,13 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 "status": "CLOSED",
             })
 
-            # Send WhatsApp alert for closed trade
+            # Send Telegram alert for closed trade
             if "TARGET_HIT" in exit_reason:
-                _send_wa_alert("target_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, pnl_rupees=net_pnl_inr, pnl_pct=net_pnl_pct)
+                _send_telegram_alert("target_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, pnl_rupees=net_pnl_inr, pnl_pct=net_pnl_pct)
             elif "VELOCITY_KILL" in exit_reason:
-                _send_wa_alert("velocity_kill", ticker=ticker, entry_price=entry_px, exit_price=exit_px, days_held=trade["days_held"], pnl_pct=net_pnl_pct, freed_capital_inr=shares * exit_px)
+                _send_telegram_alert("velocity_kill", ticker=ticker, entry_price=entry_px, exit_price=exit_px, days_held=trade["days_held"], pnl_pct=net_pnl_pct, freed_capital_inr=shares * exit_px)
             elif "STOP_LOSS" in exit_reason or "BREAKEVEN_LOCK_HIT" in exit_reason:
-                _send_wa_alert("stop_loss_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, loss_inr=net_pnl_inr, loss_pct=net_pnl_pct, is_breakeven=trade.get("is_breakeven_locked", False))
+                _send_telegram_alert("stop_loss_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, loss_inr=net_pnl_inr, loss_pct=net_pnl_pct, is_breakeven=trade.get("is_breakeven_locked", False))
         else:
             still_open_o2.append(trade)
 
@@ -545,7 +549,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 "days_held": 0,
             }
             tracker["option_3"]["open_trades"].append(t_entry)
-            _send_wa_alert(
+            _send_telegram_alert(
                 "breakout_fill",
                 ticker=ticker,
                 fill_price=trigger_px,
@@ -611,7 +615,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
             trade["is_breakeven_locked"] = True
             if not trade.get("alert_be_lock_sent"):
                 trade["alert_be_lock_sent"] = True
-                _send_wa_alert(
+                _send_telegram_alert(
                     "breakeven_lock",
                     ticker=ticker,
                     entry_price=entry_px,
@@ -652,13 +656,13 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 "status": "CLOSED",
             })
 
-            # Send WhatsApp alert for closed trade
+            # Send Telegram alert for closed trade
             if "TARGET_HIT" in exit_reason:
-                _send_wa_alert("target_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, pnl_rupees=net_pnl_inr, pnl_pct=net_pnl_pct)
+                _send_telegram_alert("target_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, pnl_rupees=net_pnl_inr, pnl_pct=net_pnl_pct)
             elif "VELOCITY_KILL" in exit_reason:
-                _send_wa_alert("velocity_kill", ticker=ticker, entry_price=entry_px, exit_price=exit_px, days_held=trade["days_held"], pnl_pct=net_pnl_pct, freed_capital_inr=shares * exit_px)
+                _send_telegram_alert("velocity_kill", ticker=ticker, entry_price=entry_px, exit_price=exit_px, days_held=trade["days_held"], pnl_pct=net_pnl_pct, freed_capital_inr=shares * exit_px)
             elif "STOP_LOSS" in exit_reason or "BREAKEVEN_LOCK_HIT" in exit_reason:
-                _send_wa_alert("stop_loss_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, loss_inr=net_pnl_inr, loss_pct=net_pnl_pct, is_breakeven=trade.get("is_breakeven_locked", False))
+                _send_telegram_alert("stop_loss_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, loss_inr=net_pnl_inr, loss_pct=net_pnl_pct, is_breakeven=trade.get("is_breakeven_locked", False))
         else:
             still_open_o3.append(trade)
 
@@ -710,7 +714,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                     "status": "TRIGGERED_ACTIVE",
                     "days_held": 0,
                 })
-                _send_wa_alert(
+                _send_telegram_alert(
                     "breakout_fill",
                     ticker=ticker,
                     fill_price=trigger_px,
@@ -775,7 +779,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 trade["is_breakeven_locked"] = True
                 if not trade.get("alert_be_lock_sent"):
                     trade["alert_be_lock_sent"] = True
-                    _send_wa_alert(
+                    _send_telegram_alert(
                         "breakeven_lock",
                         ticker=ticker,
                         entry_price=entry_px,
@@ -819,13 +823,13 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                     "status": "CLOSED",
                 })
 
-                # Send WhatsApp alert for closed trade
+                # Send Telegram alert for closed trade
                 if "TARGET_HIT" in exit_reason:
-                    _send_wa_alert("target_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, pnl_rupees=net_pnl_inr, pnl_pct=net_pnl_pct)
+                    _send_telegram_alert("target_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, pnl_rupees=net_pnl_inr, pnl_pct=net_pnl_pct)
                 elif "VELOCITY_KILL" in exit_reason:
-                    _send_wa_alert("velocity_kill", ticker=ticker, entry_price=entry_px, exit_price=exit_px, days_held=trade["days_held"], pnl_pct=net_pnl_pct, freed_capital_inr=shares * exit_px)
+                    _send_telegram_alert("velocity_kill", ticker=ticker, entry_price=entry_px, exit_price=exit_px, days_held=trade["days_held"], pnl_pct=net_pnl_pct, freed_capital_inr=shares * exit_px)
                 elif "STOP_LOSS" in exit_reason or "BREAKEVEN_LOCK_HIT" in exit_reason:
-                    _send_wa_alert("stop_loss_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, loss_inr=net_pnl_inr, loss_pct=net_pnl_pct, is_breakeven=trade.get("is_breakeven_locked", False))
+                    _send_telegram_alert("stop_loss_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, loss_inr=net_pnl_inr, loss_pct=net_pnl_pct, is_breakeven=trade.get("is_breakeven_locked", False))
             else:
                 still_open_c.append(trade)
 
