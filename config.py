@@ -119,10 +119,14 @@ TOURNAMENT_CONFIG = {
     "total_capital": 100000.0,
     "max_slots": 5,
     "slot_capital": 20000.0,
-    "target_pct": 0.12,               # +12.0% profit target
+    "target_pct": 0.12,               # +12.0% profit target (T2 Runner)
     "stop_loss_pct": 0.04,            # -4.0% base stop loss
-    "breakeven_trigger_pct": 0.05,    # +5.0% gain to trigger breakeven lock
+    "breakeven_trigger_pct": 0.05,    # +5.0% gain to trigger breakeven lock & T1 partial harvest
     "breakeven_lock_pct": 0.006,      # +0.6% stop (covers 0.34% round-trip friction + 0.25% slippage cushion)
+    "t1_harvest_pct": 0.05,           # +5.0% gain to harvest 50% partial profit
+    "t1_harvest_fraction": 0.50,      # Sell 50% of position at T1 target
+    "anti_fomo_max_gap_pct": 0.025,   # +2.5% max gap ceiling above trigger price (anti-FOMO)
+    "ignition_min_rvol": 1.8,         # Minimum morning volume run-rate for breakout ignition
     "slippage_pct": 0.0025,           # 0.25% slippage model on entries and exits
     "velocity_kill_days": 3,          # 72 market hours (3 sessions)
     "velocity_kill_min_pnl": 1.5,     # Must achieve > +1.5% by Day 3 or killed

@@ -299,4 +299,144 @@ def test_slippage_applied_on_entry_and_breakeven_lock_buffer(monkeypatch):
     assert expected_be_stop > trade["entry_price"]
 
 
+def test_t1_partial_harvest_locks_profit_and_moves_stop(monkeypatch):
+    """Verify that when price reaches +5.0%, 50% shares are sold and stop is locked at breakeven + friction."""
+    import engine.dual_tracker as dt
+    from engine.dual_tracker import _save_tracker, _load_tracker, audit_and_update_dual_tracker
+
+    tracker = _load_tracker()
+    tracker["option_3"]["open_trades"] = [
+        {
+            "ticker": "HARVEST.NS",
+            "name": "HARVEST",
+            "entry_date": "2026-11-16",
+            "shortlist_date": "2026-11-16",
+            "fill_date": "2026-11-16 09:30",
+            "entry_price": 100.0,
+            "current_price": 100.0,
+            "target_price": 112.0,
+            "stop_loss": 96.0,
+            "breakeven_lock": 105.0,
+            "shares": 200,
+            "allocated_rupees": 20000.0,
+            "pnl_pct": 0.0,
+            "pnl_rupees": 0.0,
+            "days_held": 1,
+            "status": "TRIGGERED_ACTIVE",
+        }
+    ]
+    tracker["option_3"]["closed_trades"] = []
+    _save_tracker(tracker)
+
+    # 1. Price surges to 105.50 (triggers T1 harvest, day low stays above breakeven at 101.50)
+    monkeypatch.setattr(dt, "fetch_live_quote", lambda t: {"price": 105.50, "day_high": 105.50, "day_low": 101.50, "open": 101.0})
+    audit_and_update_dual_tracker(force_market_open=True)
+
+    audited = _load_tracker()
+    open_t = audited["option_3"]["open_trades"][0]
+    assert open_t["t1_harvested"] is True
+    # 50% of 200 shares = 100 shares remaining
+    assert open_t["shares"] == 100
+    assert open_t["orig_shares"] == 200
+    # Realized PnL from harvested 100 shares must be positive (~+₹400 to +₹500)
+    assert open_t["realized_pnl_inr"] > 400.0
+    # Stop loss moved to Entry * 1.006 = 100.60
+    assert open_t["stop_loss"] == 100.60
+    assert open_t["is_breakeven_locked"] is True
+
+    # 2. Next day stock retraces and hits trailed breakeven stop at 100.50
+    monkeypatch.setattr(dt, "fetch_live_quote", lambda t: {"price": 100.0, "day_high": 101.0, "day_low": 100.0, "open": 100.5})
+    audit_and_update_dual_tracker(force_market_open=True)
+
+    audited_closed = _load_tracker()
+    assert len(audited_closed["option_3"]["open_trades"]) == 0
+    assert len(audited_closed["option_3"]["closed_trades"]) == 1
+    closed_t = audited_closed["option_3"]["closed_trades"][0]
+    assert closed_t["status"] == "CLOSED"
+    assert "BREAKEVEN_LOCK_HIT" in closed_t["exit_reason"]
+    # Net PnL must be positive because 50% profit was locked in at +5.0%!
+    assert closed_t["net_pnl_inr"] > 350.0
+
+
+def test_anti_fomo_gap_aborts_runaway_open(monkeypatch):
+    """Verify that when a stock gaps up > +2.5% above trigger, order is aborted to prevent chasing."""
+    import engine.dual_tracker as dt
+    from engine.dual_tracker import _save_tracker, _load_tracker, audit_and_update_dual_tracker
+
+    # Mock open at 103.50 (which is +3.5% above trigger 100.0, exceeding 2.5% ceiling)
+    monkeypatch.setattr(dt, "fetch_live_quote", lambda t: {"price": 104.0, "day_high": 104.0, "open": 103.5})
+
+    tracker = _load_tracker()
+    tracker["option_3"]["open_trades"] = []
+    tracker["option_3"]["pending_triggers"] = [
+        {
+            "ticker": "RUNAWAY.NS",
+            "name": "RUNAWAY",
+            "shortlist_date": "2026-11-16",
+            "pivot_trigger": 100.0,
+            "shares": 200,
+            "target_price": 112.0,
+            "stop_loss": 96.0,
+            "breakeven_lock": 105.0,
+            "status": "PENDING_BREAKOUT_TRIGGER",
+        }
+    ]
+    tracker["option_3"]["aborted_trades"] = []
+    _save_tracker(tracker)
+
+    audit_and_update_dual_tracker(force_market_open=True)
+
+    updated = _load_tracker()
+    assert len(updated["option_3"]["open_trades"]) == 0
+    assert len(updated["option_3"]["aborted_trades"]) == 1
+    aborted = updated["option_3"]["aborted_trades"][0]
+    assert aborted["status"] == "FOMO_GAP_ABORTED"
+
+
+def test_free_cash_conservation_equation_with_closed_and_partial_trades():
+    """Verify that free cash strictly equals Starting Capital + Realized PnL - Deployed Capital."""
+    from engine.dual_tracker import compute_dual_summary
+
+    mock_track = {
+        "capital": 100000.0,
+        "open_trades": [
+            {
+                "ticker": "ACTIVE.NS",
+                "shares": 100,
+                "allocated_rupees": 10000.0,
+                "realized_pnl_inr": 500.0,
+                "pnl_rupees": 200.0,
+            }
+        ],
+        "closed_trades": [
+            {"ticker": "WIN.NS", "net_pnl_inr": 4000.0},
+            {"ticker": "LOSS.NS", "net_pnl_inr": -1500.0},
+        ],
+        "aborted_trades": [],
+        "pending_triggers": [],
+    }
+
+    mock_tracker = {
+        "updated_at": "2026-11-22 10:00:00",
+        "option_2": mock_track,
+        "option_3": mock_track,
+        "track_c": mock_track,
+    }
+
+    summary = compute_dual_summary(mock_tracker)
+    o3 = summary["option_3"]
+
+    # Realized closed PnL = 4000 - 1500 = 2500
+    # Realized partial PnL = 500
+    # Total Realized PnL = 3000.0
+    assert o3["realized_pnl_inr"] == 3000.0
+    assert o3["capital_deployed"] == 10000.0
+    # Cash free must be 100000 + 3000 - 10000 = 93000.0
+    assert o3["cash_free"] == 93000.0
+    # Invariant: Free Cash + Deployed Capital == Starting Capital + Realized PnL
+    assert round(o3["cash_free"] + o3["capital_deployed"], 2) == round(mock_track["capital"] + o3["realized_pnl_inr"], 2)
+
+
+
+
 

@@ -36,9 +36,22 @@ TARGET_PCT: float = float(TOURNAMENT_CONFIG.get("target_pct", 0.12))
 STOP_LOSS_PCT: float = float(TOURNAMENT_CONFIG.get("stop_loss_pct", 0.04))
 BREAKEVEN_TRIGGER_PCT: float = float(TOURNAMENT_CONFIG.get("breakeven_trigger_pct", 0.05))
 BREAKEVEN_LOCK_PCT: float = float(TOURNAMENT_CONFIG.get("breakeven_lock_pct", 0.006))
+T1_HARVEST_PCT: float = float(TOURNAMENT_CONFIG.get("t1_harvest_pct", 0.05))
+T1_HARVEST_FRACTION: float = float(TOURNAMENT_CONFIG.get("t1_harvest_fraction", 0.50))
+ANTI_FOMO_MAX_GAP_PCT: float = float(TOURNAMENT_CONFIG.get("anti_fomo_max_gap_pct", 0.025))
+IGNITION_MIN_RVOL: float = float(TOURNAMENT_CONFIG.get("ignition_min_rvol", 1.8))
 VELOCITY_KILL_DAYS: int = int(TOURNAMENT_CONFIG.get("velocity_kill_days", 3))
 VELOCITY_KILL_MIN_PNL: float = float(TOURNAMENT_CONFIG.get("velocity_kill_min_pnl", 1.5))
 MAX_HOLDING_DAYS: int = int(TOURNAMENT_CONFIG.get("max_holding_days", 7))
+
+
+def _get_free_cash(track: dict) -> float:
+    """Computes pure available cash: starting capital + closed PnL + partial harvest PnL - deployed."""
+    total_cap = float(track.get("capital", TOTAL_CAPITAL))
+    realized_closed = sum(float(t.get("net_pnl_inr", 0.0)) for t in track.get("closed_trades", []))
+    realized_partial = sum(float(t.get("realized_pnl_inr", 0.0)) for t in track.get("open_trades", []))
+    deployed = sum(float(t.get("allocated_rupees", 0.0)) for t in track.get("open_trades", []))
+    return round(total_cap + realized_closed + realized_partial - deployed, 2)
 
 
 def _can_fill_trade(track: dict, slot_capital: float = SLOT_CAPITAL, max_slots: int = MAX_SLOTS) -> tuple[bool, str]:
@@ -47,9 +60,7 @@ def _can_fill_trade(track: dict, slot_capital: float = SLOT_CAPITAL, max_slots: 
     if len(open_trades) >= max_slots:
         return False, f"All {max_slots} slots full ({len(open_trades)} active)."
     
-    total_cap = float(track.get("capital", TOTAL_CAPITAL))
-    deployed = sum(float(t.get("allocated_rupees", 0.0)) for t in open_trades)
-    cash_free = total_cap - deployed
+    cash_free = _get_free_cash(track)
     if cash_free < 5000.0:
         return False, f"Insufficient free cash (Free: ₹{cash_free:.2f}, Min: ₹5,000.00)."
     return True, ""
@@ -83,8 +94,8 @@ def _default_tracker_state() -> dict:
         "created_at": now_str,
         "updated_at": now_str,
         "option_2": {
-            "name": "Track A: Option 2 (9:20 AM Confirmation)",
-            "description": "Checks open at 9:20 AM. Fills on normal open (-0.5% to +1.5%), aborts bad gap downs (<-1.5%). 5 slots @ ₹20k, Target +12%, Stop -4%.",
+            "name": "Track A: Algo 2 - Minervini VCP Squeeze (9:20 AM Confirmation)",
+            "description": "Checks open at 9:20 AM after VCP volatility contraction. Fills on normal open (-0.5% to +1.5%), aborts bad gap downs (<-1.5%). Banks 50% at +5% T1, locks rest at breakeven + friction (+0.6%), Target +12%.",
             "capital": TOTAL_CAPITAL,
             "max_slots": MAX_SLOTS,
             "pending_confirmations": [],
@@ -93,22 +104,24 @@ def _default_tracker_state() -> dict:
             "aborted_trades": [],
         },
         "option_3": {
-            "name": "Track B: Option 3 (GTT Buy-Stop Trigger)",
-            "description": "Places GTT Buy-Stop trigger at consolidation pivot resistance. Fills ONLY on breakout. 5 slots @ ₹20k, Target +12%, Stop -4%, Breakeven Lock +5% (+0.6% stop).",
+            "name": "Track B: Algo 1 - Morning Ignition Thrust (GTT Buy-Stop + T1 Profit Lock)",
+            "description": "GTT Buy-Stop trigger at consolidation pivot resistance with 09:30 AM volume run-rate check. Fills on breakout. Sells 50% at +5% T1 profit target, locks rest at breakeven + friction (+0.6%), trails runner with +12% target.",
             "capital": TOTAL_CAPITAL,
             "max_slots": MAX_SLOTS,
             "pending_triggers": [],
             "open_trades": [],
             "closed_trades": [],
+            "aborted_trades": [],
         },
         "track_c": {
-            "name": "Track C: Benchmark Velocity Sniper",
-            "description": "GTT Pivot Breakout entry on Top High-RS leaders. 5 slots @ ₹20k, Target +12%, Stop -4%, 72h Velocity Kill (< +1.5% after 3 days).",
+            "name": "Track C: Algo 3 - Benchmark Velocity Sniper (52W / High-RS Leader Breakout)",
+            "description": "GTT Pivot Breakout entry on Top High-RS leaders. Sells 50% at +5% T1, locks rest at breakeven, trails runner with +12% target, 72h Velocity Kill (< +1.5% after 3 days).",
             "capital": TOTAL_CAPITAL,
             "max_slots": MAX_SLOTS,
             "pending_triggers": [],
             "open_trades": [],
             "closed_trades": [],
+            "aborted_trades": [],
         },
     }
 
@@ -406,8 +419,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
 
                 # Apply slippage on entry
                 fill_px = round(open_px * (1.0 + SLIPPAGE_PCT), 2)
-                deployed_o2 = sum(float(t.get("allocated_rupees", 0.0)) for t in tracker["option_2"]["open_trades"])
-                cash_free_o2 = float(tracker["option_2"].get("capital", TOTAL_CAPITAL)) - deployed_o2
+                cash_free_o2 = _get_free_cash(tracker["option_2"])
                 slot_budget_o2 = min(SLOT_CAPITAL, cash_free_o2)
                 shares = int(slot_budget_o2 // fill_px)
                 if shares <= 0:
@@ -468,15 +480,18 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
         quote = fetch_live_quote(ticker)
         cur_px = float(quote.get("price") or 0.0)
         high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
+        low_px = float(quote.get("day_low") or quote.get("low") or cur_px)
         if cur_px <= 0:
             df = _get_cached_history(ticker, "5d")
             if not df.empty:
                 df.columns = [str(c).title() for c in df.columns]
                 cur_px = float(df["Close"].iloc[-1])
                 high_px = float(df["High"].iloc[-1])
+                low_px = float(df["Low"].iloc[-1]) if "Low" in df.columns else cur_px
             else:
                 cur_px = entry_px
                 high_px = entry_px
+                low_px = entry_px
 
         trade["current_price"] = cur_px
         trade["pnl_pct"] = round(((cur_px - entry_px) / entry_px) * 100.0, 2) if entry_px > 0 else 0.0
@@ -492,31 +507,57 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
         exit_reason = ""
         exit_px = cur_px
 
-        # Active Breakeven Lock (+5.0% gain -> trail stop to entry + 0.6% friction/slippage lock)
+        # Active Breakeven Lock & T1 Partial Profit Harvest (+5.0% gain)
         be_lock = float(trade.get("breakeven_lock") or round(entry_px * (1.0 + BREAKEVEN_TRIGGER_PCT), 2))
-        if (high_px >= be_lock or cur_px >= be_lock) and stop_px < entry_px:
-            stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
-            trade["stop_loss"] = stop_px
-            trade["is_breakeven_locked"] = True
-            if not trade.get("alert_be_lock_sent"):
-                trade["alert_be_lock_sent"] = True
-                _send_telegram_alert(
-                    "breakeven_lock",
-                    ticker=ticker,
-                    entry_price=entry_px,
-                    current_price=cur_px,
-                    pnl_pct=trade.get("pnl_pct", 5.0),
-                    new_stop_loss=stop_px,
-                )
+        if (high_px >= be_lock or cur_px >= be_lock):
+            if not trade.get("t1_harvested") and shares >= 2:
+                orig_shares = int(trade.get("orig_shares") or shares)
+                trade["orig_shares"] = orig_shares
+                harvest_shares = shares // 2
+                rem_shares = shares - harvest_shares
+                
+                t1_exit_px = round(be_lock * (1.0 - SLIPPAGE_PCT), 2)
+                t1_costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=t1_exit_px, quantity=harvest_shares)
+                t1_pnl_inr = round((t1_exit_px - entry_px) * harvest_shares - t1_costs.total_friction_rupees, 2)
+                
+                trade["realized_pnl_inr"] = round(trade.get("realized_pnl_inr", 0.0) + t1_pnl_inr, 2)
+                trade["t1_friction_inr"] = round(trade.get("t1_friction_inr", 0.0) + t1_costs.total_friction_rupees, 2)
+                trade["shares"] = rem_shares
+                trade["allocated_rupees"] = round(rem_shares * entry_px, 2)
+                trade["t1_harvested"] = True
+                trade["t1_exit_price"] = t1_exit_px
+                trade["t1_pnl_inr"] = t1_pnl_inr
+                shares = rem_shares
+                
+                stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
+                trade["stop_loss"] = stop_px
+                trade["is_breakeven_locked"] = True
+                
+                if not trade.get("alert_be_lock_sent"):
+                    trade["alert_be_lock_sent"] = True
+                    _send_telegram_alert(
+                        "breakeven_lock",
+                        ticker=ticker,
+                        entry_price=entry_px,
+                        current_price=cur_px,
+                        pnl_pct=trade.get("pnl_pct", 5.0),
+                        new_stop_loss=stop_px,
+                    )
+            elif stop_px < entry_px:
+                stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
+                trade["stop_loss"] = stop_px
+                trade["is_breakeven_locked"] = True
 
-        if high_px >= target_px or cur_px >= target_px:
-            is_closed = True
-            exit_reason = "TARGET_HIT (+12% Velocity)"
-            exit_px = round(target_px * (1.0 - SLIPPAGE_PCT), 2)
-        elif cur_px <= stop_px:
+        # 1. Stop Loss Hit / Breakeven Lock Hit (Conservative Stop-First Ordering)
+        if low_px <= stop_px or cur_px <= stop_px:
             is_closed = True
             exit_reason = "BREAKEVEN_LOCK_HIT (Zero Loss)" if trade.get("is_breakeven_locked") else "STOP_LOSS_HIT (-4% Base Floor)"
             exit_px = round(stop_px * (1.0 - SLIPPAGE_PCT), 2)
+        # 2. Target Hit (+12% Velocity)
+        elif high_px >= target_px or cur_px >= target_px:
+            is_closed = True
+            exit_reason = "TARGET_HIT (+12% Velocity)"
+            exit_px = round(target_px * (1.0 - SLIPPAGE_PCT), 2)
         elif trade["days_held"] >= VELOCITY_KILL_DAYS and trade.get("pnl_pct", 0.0) < VELOCITY_KILL_MIN_PNL:
             is_closed = True
             exit_reason = "72H_VELOCITY_KILL (Dead Money)"
@@ -527,18 +568,29 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
             exit_px = round(cur_px * (1.0 - SLIPPAGE_PCT), 2)
 
         if is_closed:
-            costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=exit_px, quantity=shares)
-            net_pnl_inr = round((exit_px - entry_px) * shares - costs.total_friction_rupees, 2)
-            net_pnl_pct = round(net_pnl_inr / (entry_px * shares) * 100.0, 2) if (entry_px * shares) > 0 else 0.0
+            curr_shares = int(trade.get("shares", 0))
+            if curr_shares > 0:
+                costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=exit_px, quantity=curr_shares)
+                rem_pnl_inr = round((exit_px - entry_px) * curr_shares - costs.total_friction_rupees, 2)
+                friction_inr = round(costs.total_friction_rupees + trade.get("t1_friction_inr", 0.0), 2)
+            else:
+                rem_pnl_inr = 0.0
+                friction_inr = trade.get("t1_friction_inr", 0.0)
+                
+            total_net_pnl_inr = round(trade.get("realized_pnl_inr", 0.0) + rem_pnl_inr, 2)
+            net_pnl_inr = total_net_pnl_inr
+            orig_shares = int(trade.get("orig_shares") or curr_shares)
+            orig_deployed = entry_px * orig_shares
+            net_pnl_pct = round(total_net_pnl_inr / orig_deployed * 100.0, 2) if orig_deployed > 0 else 0.0
             
             tracker["option_2"]["closed_trades"].append({
                 **trade,
                 "exit_date": datetime.now().strftime("%Y-%m-%d"),
                 "exit_price": exit_px,
                 "exit_reason": exit_reason,
-                "net_pnl_inr": net_pnl_inr,
+                "net_pnl_inr": total_net_pnl_inr,
                 "net_pnl_pct": net_pnl_pct,
-                "friction_inr": costs.total_friction_rupees,
+                "friction_inr": friction_inr,
                 "status": "CLOSED",
             })
 
@@ -578,6 +630,19 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
 
         # Trigger ONLY during market hours when price hit or crossed pivot resistance
         if can_exec and high_px >= trigger_px:
+            # 1. Anti-FOMO Gap Ceiling: Never chase if stock opened with a runaway gap > +2.5% above pivot trigger
+            open_px = float(quote.get("open") or 0.0)
+            if open_px > 0 and open_px > trigger_px * (1.0 + ANTI_FOMO_MAX_GAP_PCT):
+                logger.info(f"🚫 [Anti-FOMO Abort] {ticker} opened @ ₹{open_px:.2f} (> +{ANTI_FOMO_MAX_GAP_PCT*100}% above trigger ₹{trigger_px:.2f}). Aborting chase.")
+                pending["status"] = "FOMO_GAP_ABORTED"
+                tracker["option_3"].setdefault("aborted_trades", []).append({
+                    **pending,
+                    "abort_date": today_str,
+                    "abort_price": open_px,
+                    "abort_reason": f"Runaway Gap-Up FOMO ceiling breached (> +{ANTI_FOMO_MAX_GAP_PCT*100}%)",
+                })
+                continue
+
             can_fill, fill_reason = _can_fill_trade(tracker["option_3"])
             if not can_fill:
                 logger.info(f"⏳ [Track B Slot Queued] {ticker} @ trigger ₹{trigger_px:.2f} awaiting slot: {fill_reason}")
@@ -586,8 +651,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 continue
 
             fill_price = round(trigger_px * (1.0 + SLIPPAGE_PCT), 2)
-            deployed_o3 = sum(float(t.get("allocated_rupees", 0.0)) for t in tracker["option_3"]["open_trades"])
-            cash_free_o3 = float(tracker["option_3"].get("capital", TOTAL_CAPITAL)) - deployed_o3
+            cash_free_o3 = _get_free_cash(tracker["option_3"])
             slot_budget_o3 = min(SLOT_CAPITAL, cash_free_o3)
             shares = int(slot_budget_o3 // fill_price)
             if shares <= 0:
@@ -655,15 +719,18 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
         quote = fetch_live_quote(ticker)
         cur_px = float(quote.get("price") or 0.0)
         high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
+        low_px = float(quote.get("day_low") or quote.get("low") or cur_px)
         if cur_px <= 0:
             df = _get_cached_history(ticker, "5d")
             if not df.empty:
                 df.columns = [str(c).title() for c in df.columns]
                 cur_px = float(df["Close"].iloc[-1])
                 high_px = float(df["High"].iloc[-1])
+                low_px = float(df["Low"].iloc[-1]) if "Low" in df.columns else cur_px
             else:
                 cur_px = entry_px
                 high_px = entry_px
+                low_px = entry_px
 
         trade["current_price"] = cur_px
         trade["pnl_pct"] = round(((cur_px - entry_px) / entry_px) * 100.0, 2) if entry_px > 0 else 0.0
@@ -679,31 +746,57 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
         exit_reason = ""
         exit_px = cur_px
 
-        # Active Breakeven Lock (+5.0% gain -> trail stop to entry + 0.6% friction/slippage lock)
+        # Active Breakeven Lock & T1 Partial Profit Harvest (+5.0% gain)
         be_lock = float(trade.get("breakeven_lock") or round(entry_px * (1.0 + BREAKEVEN_TRIGGER_PCT), 2))
-        if (high_px >= be_lock or cur_px >= be_lock) and stop_px < entry_px:
-            stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
-            trade["stop_loss"] = stop_px
-            trade["is_breakeven_locked"] = True
-            if not trade.get("alert_be_lock_sent"):
-                trade["alert_be_lock_sent"] = True
-                _send_telegram_alert(
-                    "breakeven_lock",
-                    ticker=ticker,
-                    entry_price=entry_px,
-                    current_price=cur_px,
-                    pnl_pct=trade.get("pnl_pct", 5.0),
-                    new_stop_loss=stop_px,
-                )
+        if (high_px >= be_lock or cur_px >= be_lock):
+            if not trade.get("t1_harvested") and shares >= 2:
+                orig_shares = int(trade.get("orig_shares") or shares)
+                trade["orig_shares"] = orig_shares
+                harvest_shares = shares // 2
+                rem_shares = shares - harvest_shares
+                
+                t1_exit_px = round(be_lock * (1.0 - SLIPPAGE_PCT), 2)
+                t1_costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=t1_exit_px, quantity=harvest_shares)
+                t1_pnl_inr = round((t1_exit_px - entry_px) * harvest_shares - t1_costs.total_friction_rupees, 2)
+                
+                trade["realized_pnl_inr"] = round(trade.get("realized_pnl_inr", 0.0) + t1_pnl_inr, 2)
+                trade["t1_friction_inr"] = round(trade.get("t1_friction_inr", 0.0) + t1_costs.total_friction_rupees, 2)
+                trade["shares"] = rem_shares
+                trade["allocated_rupees"] = round(rem_shares * entry_px, 2)
+                trade["t1_harvested"] = True
+                trade["t1_exit_price"] = t1_exit_px
+                trade["t1_pnl_inr"] = t1_pnl_inr
+                shares = rem_shares
+                
+                stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
+                trade["stop_loss"] = stop_px
+                trade["is_breakeven_locked"] = True
+                
+                if not trade.get("alert_be_lock_sent"):
+                    trade["alert_be_lock_sent"] = True
+                    _send_telegram_alert(
+                        "breakeven_lock",
+                        ticker=ticker,
+                        entry_price=entry_px,
+                        current_price=cur_px,
+                        pnl_pct=trade.get("pnl_pct", 5.0),
+                        new_stop_loss=stop_px,
+                    )
+            elif stop_px < entry_px:
+                stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
+                trade["stop_loss"] = stop_px
+                trade["is_breakeven_locked"] = True
 
-        if high_px >= target_px or cur_px >= target_px:
-            is_closed = True
-            exit_reason = "TARGET_HIT (+12% Velocity)"
-            exit_px = round(target_px * (1.0 - SLIPPAGE_PCT), 2)
-        elif cur_px <= stop_px:
+        # 1. Stop Loss Hit / Breakeven Lock Hit (Conservative Stop-First Ordering)
+        if low_px <= stop_px or cur_px <= stop_px:
             is_closed = True
             exit_reason = "BREAKEVEN_LOCK_HIT (Zero Loss)" if trade.get("is_breakeven_locked") else "STOP_LOSS_HIT (-4% Base Floor)"
             exit_px = round(stop_px * (1.0 - SLIPPAGE_PCT), 2)
+        # 2. Target Hit (+12% Velocity)
+        elif high_px >= target_px or cur_px >= target_px:
+            is_closed = True
+            exit_reason = "TARGET_HIT (+12% Velocity)"
+            exit_px = round(target_px * (1.0 - SLIPPAGE_PCT), 2)
         elif trade["days_held"] >= VELOCITY_KILL_DAYS and trade.get("pnl_pct", 0.0) < VELOCITY_KILL_MIN_PNL:
             is_closed = True
             exit_reason = "72H_VELOCITY_KILL (Dead Money)"
@@ -714,18 +807,29 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
             exit_px = round(cur_px * (1.0 - SLIPPAGE_PCT), 2)
 
         if is_closed:
-            costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=exit_px, quantity=shares)
-            net_pnl_inr = round((exit_px - entry_px) * shares - costs.total_friction_rupees, 2)
-            net_pnl_pct = round(net_pnl_inr / (entry_px * shares) * 100.0, 2) if (entry_px * shares) > 0 else 0.0
+            curr_shares = int(trade.get("shares", 0))
+            if curr_shares > 0:
+                costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=exit_px, quantity=curr_shares)
+                rem_pnl_inr = round((exit_px - entry_px) * curr_shares - costs.total_friction_rupees, 2)
+                friction_inr = round(costs.total_friction_rupees + trade.get("t1_friction_inr", 0.0), 2)
+            else:
+                rem_pnl_inr = 0.0
+                friction_inr = trade.get("t1_friction_inr", 0.0)
+                
+            total_net_pnl_inr = round(trade.get("realized_pnl_inr", 0.0) + rem_pnl_inr, 2)
+            net_pnl_inr = total_net_pnl_inr
+            orig_shares = int(trade.get("orig_shares") or curr_shares)
+            orig_deployed = entry_px * orig_shares
+            net_pnl_pct = round(total_net_pnl_inr / orig_deployed * 100.0, 2) if orig_deployed > 0 else 0.0
 
             tracker["option_3"]["closed_trades"].append({
                 **trade,
                 "exit_date": datetime.now().strftime("%Y-%m-%d"),
                 "exit_price": exit_px,
                 "exit_reason": exit_reason,
-                "net_pnl_inr": net_pnl_inr,
+                "net_pnl_inr": total_net_pnl_inr,
                 "net_pnl_pct": net_pnl_pct,
-                "friction_inr": costs.total_friction_rupees,
+                "friction_inr": friction_inr,
                 "status": "CLOSED",
             })
 
@@ -766,6 +870,19 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
 
             # Trigger ONLY during market hours when price hit or crossed pivot resistance
             if can_exec and high_px >= trigger_px:
+                # 1. Anti-FOMO Gap Ceiling: Never chase if stock opened with a runaway gap > +2.5% above pivot trigger
+                open_px = float(quote.get("open") or 0.0)
+                if open_px > 0 and open_px > trigger_px * (1.0 + ANTI_FOMO_MAX_GAP_PCT):
+                    logger.info(f"🚫 [Anti-FOMO Abort] {ticker} opened @ ₹{open_px:.2f} (> +{ANTI_FOMO_MAX_GAP_PCT*100}% above trigger ₹{trigger_px:.2f}). Aborting chase.")
+                    pending["status"] = "FOMO_GAP_ABORTED"
+                    tracker["track_c"].setdefault("aborted_trades", []).append({
+                        **pending,
+                        "abort_date": today_str,
+                        "abort_price": open_px,
+                        "abort_reason": f"Runaway Gap-Up FOMO ceiling breached (> +{ANTI_FOMO_MAX_GAP_PCT*100}%)",
+                    })
+                    continue
+
                 can_fill, fill_reason = _can_fill_trade(tracker["track_c"])
                 if not can_fill:
                     logger.info(f"⏳ [Track C Slot Queued] {ticker} @ trigger ₹{trigger_px:.2f} awaiting slot: {fill_reason}")
@@ -774,8 +891,7 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                     continue
 
                 fill_price = round(trigger_px * (1.0 + SLIPPAGE_PCT), 2)
-                deployed_c = sum(float(t.get("allocated_rupees", 0.0)) for t in tracker["track_c"].get("open_trades", []))
-                cash_free_c = float(tracker["track_c"].get("capital", TOTAL_CAPITAL)) - deployed_c
+                cash_free_c = _get_free_cash(tracker["track_c"])
                 slot_budget_c = min(SLOT_CAPITAL, cash_free_c)
                 shares = int(slot_budget_c // fill_price)
                 if shares <= 0:
@@ -841,15 +957,18 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
             quote = fetch_live_quote(ticker)
             cur_px = float(quote.get("price") or 0.0)
             high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
+            low_px = float(quote.get("day_low") or quote.get("low") or cur_px)
             if cur_px <= 0:
                 df = _get_cached_history(ticker, "5d")
                 if not df.empty:
                     df.columns = [str(c).title() for c in df.columns]
                     cur_px = float(df["Close"].iloc[-1])
                     high_px = float(df["High"].iloc[-1])
+                    low_px = float(df["Low"].iloc[-1]) if "Low" in df.columns else cur_px
                 else:
                     cur_px = entry_px
                     high_px = entry_px
+                    low_px = entry_px
 
             trade["current_price"] = cur_px
             trade["pnl_pct"] = round(((cur_px - entry_px) / entry_px) * 100.0, 2) if entry_px > 0 else 0.0
@@ -865,33 +984,57 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
             exit_reason = ""
             exit_px = cur_px
 
-            # Active Breakeven Lock (+5.0% gain -> trail stop to entry + 0.6% friction/slippage lock)
+            # Active Breakeven Lock & T1 Partial Profit Harvest (+5.0% gain)
             be_lock = float(trade.get("breakeven_lock") or round(entry_px * (1.0 + BREAKEVEN_TRIGGER_PCT), 2))
-            if (high_px >= be_lock or cur_px >= be_lock) and stop_px < entry_px:
-                stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
-                trade["stop_loss"] = stop_px
-                trade["is_breakeven_locked"] = True
-                if not trade.get("alert_be_lock_sent"):
-                    trade["alert_be_lock_sent"] = True
-                    _send_telegram_alert(
-                        "breakeven_lock",
-                        ticker=ticker,
-                        entry_price=entry_px,
-                        current_price=cur_px,
-                        pnl_pct=trade.get("pnl_pct", 5.0),
-                        new_stop_loss=stop_px,
-                    )
+            if (high_px >= be_lock or cur_px >= be_lock):
+                if not trade.get("t1_harvested") and shares >= 2:
+                    orig_shares = int(trade.get("orig_shares") or shares)
+                    trade["orig_shares"] = orig_shares
+                    harvest_shares = shares // 2
+                    rem_shares = shares - harvest_shares
+                    
+                    t1_exit_px = round(be_lock * (1.0 - SLIPPAGE_PCT), 2)
+                    t1_costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=t1_exit_px, quantity=harvest_shares)
+                    t1_pnl_inr = round((t1_exit_px - entry_px) * harvest_shares - t1_costs.total_friction_rupees, 2)
+                    
+                    trade["realized_pnl_inr"] = round(trade.get("realized_pnl_inr", 0.0) + t1_pnl_inr, 2)
+                    trade["t1_friction_inr"] = round(trade.get("t1_friction_inr", 0.0) + t1_costs.total_friction_rupees, 2)
+                    trade["shares"] = rem_shares
+                    trade["allocated_rupees"] = round(rem_shares * entry_px, 2)
+                    trade["t1_harvested"] = True
+                    trade["t1_exit_price"] = t1_exit_px
+                    trade["t1_pnl_inr"] = t1_pnl_inr
+                    shares = rem_shares
+                    
+                    stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
+                    trade["stop_loss"] = stop_px
+                    trade["is_breakeven_locked"] = True
+                    
+                    if not trade.get("alert_be_lock_sent"):
+                        trade["alert_be_lock_sent"] = True
+                        _send_telegram_alert(
+                            "breakeven_lock",
+                            ticker=ticker,
+                            entry_price=entry_px,
+                            current_price=cur_px,
+                            pnl_pct=trade.get("pnl_pct", 5.0),
+                            new_stop_loss=stop_px,
+                        )
+                elif stop_px < entry_px:
+                    stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
+                    trade["stop_loss"] = stop_px
+                    trade["is_breakeven_locked"] = True
 
-            # 1. Target Hit (+12% Velocity)
-            if high_px >= target_px or cur_px >= target_px:
-                is_closed = True
-                exit_reason = "TARGET_HIT (+12% Velocity)"
-                exit_px = round(target_px * (1.0 - SLIPPAGE_PCT), 2)
-            # 2. Stop Loss Hit
-            elif cur_px <= stop_px:
+            # 1. Stop Loss Hit / Breakeven Lock Hit (Conservative Stop-First Ordering)
+            if low_px <= stop_px or cur_px <= stop_px:
                 is_closed = True
                 exit_reason = "BREAKEVEN_LOCK_HIT (Zero Loss)" if trade.get("is_breakeven_locked") else "STOP_LOSS_HIT (-4% Base Floor)"
                 exit_px = round(stop_px * (1.0 - SLIPPAGE_PCT), 2)
+            # 2. Target Hit (+12% Velocity)
+            elif high_px >= target_px or cur_px >= target_px:
+                is_closed = True
+                exit_reason = "TARGET_HIT (+12% Velocity)"
+                exit_px = round(target_px * (1.0 - SLIPPAGE_PCT), 2)
             # 3. 72-Hour Velocity Gate: If 3 sessions pass and gain < +1.5%, kill trade flat
             elif trade["days_held"] >= VELOCITY_KILL_DAYS and trade.get("pnl_pct", 0.0) < VELOCITY_KILL_MIN_PNL:
                 is_closed = True
@@ -903,18 +1046,29 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 exit_px = round(cur_px * (1.0 - SLIPPAGE_PCT), 2)
 
             if is_closed:
-                costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=exit_px, quantity=shares)
-                net_pnl_inr = round((exit_px - entry_px) * shares - costs.total_friction_rupees, 2)
-                net_pnl_pct = round(net_pnl_inr / (entry_px * shares) * 100.0, 2) if (entry_px * shares) > 0 else 0.0
+                curr_shares = int(trade.get("shares", 0))
+                if curr_shares > 0:
+                    costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=exit_px, quantity=curr_shares)
+                    rem_pnl_inr = round((exit_px - entry_px) * curr_shares - costs.total_friction_rupees, 2)
+                    friction_inr = round(costs.total_friction_rupees + trade.get("t1_friction_inr", 0.0), 2)
+                else:
+                    rem_pnl_inr = 0.0
+                    friction_inr = trade.get("t1_friction_inr", 0.0)
+                    
+                total_net_pnl_inr = round(trade.get("realized_pnl_inr", 0.0) + rem_pnl_inr, 2)
+                net_pnl_inr = total_net_pnl_inr
+                orig_shares = int(trade.get("orig_shares") or curr_shares)
+                orig_deployed = entry_px * orig_shares
+                net_pnl_pct = round(total_net_pnl_inr / orig_deployed * 100.0, 2) if orig_deployed > 0 else 0.0
 
                 tracker["track_c"]["closed_trades"].append({
                     **trade,
                     "exit_date": datetime.now().strftime("%Y-%m-%d"),
                     "exit_price": exit_px,
                     "exit_reason": exit_reason,
-                    "net_pnl_inr": net_pnl_inr,
+                    "net_pnl_inr": total_net_pnl_inr,
                     "net_pnl_pct": net_pnl_pct,
-                    "friction_inr": costs.total_friction_rupees,
+                    "friction_inr": friction_inr,
                     "status": "CLOSED",
                 })
 
@@ -955,7 +1109,9 @@ def compute_dual_summary(tracker: Optional[dict] = None) -> dict:
         total_pending = len(pending) + len(pending_conf)
 
         floating_pnl_inr = sum(t.get("pnl_rupees", 0.0) for t in opens)
-        realized_pnl_inr = sum(t.get("net_pnl_inr", 0.0) for t in closed)
+        realized_partial_pnl = sum(t.get("realized_pnl_inr", 0.0) for t in opens)
+        realized_closed_pnl = sum(t.get("net_pnl_inr", 0.0) for t in closed)
+        realized_pnl_inr = round(realized_closed_pnl + realized_partial_pnl, 2)
         total_pnl_inr = round(floating_pnl_inr + realized_pnl_inr, 2)
         
         all_completed = closed
@@ -963,7 +1119,7 @@ def compute_dual_summary(tracker: Optional[dict] = None) -> dict:
         losses = [t for t in all_completed if t.get("net_pnl_inr", 0.0) <= 0]
         
         win_rate = round(len(wins) / len(all_completed) * 100.0, 1) if all_completed else 0.0
-        gross_profit = sum(t.get("net_pnl_inr", 0.0) for t in wins)
+        gross_profit = sum(t.get("net_pnl_inr", 0.0) for t in wins) + realized_partial_pnl
         gross_loss = abs(sum(t.get("net_pnl_inr", 0.0) for t in losses))
         profit_factor = round(gross_profit / gross_loss, 2) if gross_loss > 0 else (99.0 if gross_profit > 0 else 1.0)
         
@@ -983,7 +1139,7 @@ def compute_dual_summary(tracker: Optional[dict] = None) -> dict:
             "win_rate": win_rate,
             "profit_factor": profit_factor,
             "capital_deployed": round(deployed, 2),
-            "cash_free": round(track.get("capital", TOTAL_CAPITAL) - deployed, 2),
+            "cash_free": _get_free_cash(track),
             "open_trades": opens,
             "closed_trades": closed,
             "pending_triggers": pending,
