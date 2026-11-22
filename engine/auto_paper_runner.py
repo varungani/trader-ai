@@ -28,57 +28,48 @@ logger = logging.getLogger("AutoPaperRunner")
 
 
 def run_once() -> dict:
-    """Run one pass of auditing and updating all active paper trades."""
-    logger.info("Executing automated paper trade audit...")
+    """Run one pass of auditing and updating all active paper trades across 5 tracks."""
+    logger.info("Executing automated 5-way paper trade audit...")
     summary = audit_and_update_dual_tracker()
     
-    o2 = summary["option_2"]
-    o3 = summary["option_3"]
-    oc = summary.get("track_c", {})
+    t1 = summary.get("track_algo4", {})
+    t2 = summary.get("option_3", {})
+    t3 = summary.get("track_algo5", {})
+    t4 = summary.get("option_2", {})
+    t5 = summary.get("track_c", {})
     
-    print("\n" + "="*70)
-    print(f"📊 AUTOMATED 3-WAY PAPER TOURNAMENT — {summary.get('updated_at')}")
-    print("="*70)
-    print(f"🏆 Current Performance Leader: {summary.get('winner')}")
-    print("-" * 70)
-    print(f"🟢 Track A: Option 2 (9:20 AM Confirmation):")
-    print(f"   • Open Trades   : {o2['open_count']} active")
-    print(f"   • Closed Trades : {o2['closed_count']} completed")
-    print(f"   • Win Rate      : {o2['win_rate']:.1f}%")
-    print(f"   • Profit Factor : {o2['profit_factor']:.2f}")
-    print(f"   • Net P&L (INR) : ₹{o2['total_pnl_inr']:+,.2f} ({o2['total_pnl_pct']:+.2f}% on ₹100k, {o2.get('roc_deployed_pct', 0.0):+.2f}% on deployed)")
-    if o2["open_trades"]:
-        print("   Active Positions:")
-        for t in o2["open_trades"]:
-            print(f"     - {t['name']:<12} Entry: ₹{t['entry_price']:<9.2f} Cur: ₹{t['current_price']:<9.2f} PnL: {t['pnl_pct']:+.2f}% (₹{t['pnl_rupees']:+,.0f})")
-            
-    print("-" * 70)
-    print(f"🔵 Track B: Option 3 (GTT Buy-Stop Pivot Trigger):")
-    print(f"   • Pending GTT   : {o3['pending_count']} awaiting breakout")
-    print(f"   • Open Trades   : {o3['open_count']} triggered & active (max 5 slots)")
-    print(f"   • Closed Trades : {o3['closed_count']} completed")
-    print(f"   • Win Rate      : {o3['win_rate']:.1f}%")
-    print(f"   • Profit Factor : {o3['profit_factor']:.2f}")
-    print(f"   • Net P&L (INR) : ₹{o3['total_pnl_inr']:+,.2f} ({o3['total_pnl_pct']:+.2f}% on ₹100k, {o3.get('roc_deployed_pct', 0.0):+.2f}% on deployed)")
-    if o3["open_trades"]:
-        print("   Active Positions:")
-        for t in o3["open_trades"]:
-            print(f"     - {t['name']:<12} Entry: ₹{t['entry_price']:<9.2f} Cur: ₹{t['current_price']:<9.2f} PnL: {t['pnl_pct']:+.2f}% (₹{t['pnl_rupees']:+,.0f})")
+    print("\n" + "="*75)
+    print(f"📊 AUTOMATED 5-WAY PARALLEL PAPER TOURNAMENT — {summary.get('updated_at')}")
+    print("="*75)
+    print(f"🏆 Overall Leader: {summary.get('winner')}")
+    print("-" * 75)
 
-    if oc:
-        print("-" * 70)
-        print(f"⚡ Track C: Benchmark Velocity Sniper (Target +12%, SL -4%, 72h Gate):")
-        print(f"   • Pending GTT   : {oc.get('pending_count', 0)} awaiting breakout")
-        print(f"   • Open Trades   : {oc.get('open_count', 0)} triggered & active")
-        print(f"   • Closed Trades : {oc.get('closed_count', 0)} completed")
-        print(f"   • Win Rate      : {oc.get('win_rate', 0.0):.1f}%")
-        print(f"   • Profit Factor : {oc.get('profit_factor', 1.0):.2f}")
-        print(f"   • Net P&L (INR) : ₹{oc.get('total_pnl_inr', 0.0):+,.2f} ({oc.get('total_pnl_pct', 0.0):+.2f}% on ₹100k, {oc.get('roc_deployed_pct', 0.0):+.2f}% on deployed)")
-        if oc.get("open_trades"):
+    def _print_track_block(badge: str, track_data: dict, is_silent: bool = False):
+        name = track_data.get("name", "Track")
+        mode = "[SILENT BENCHMARK - ALERTS MUTED]" if is_silent else "[ACTIVE ALPHA - TELEGRAM ARMED]"
+        print(f"{badge} {name} {mode}:")
+        print(f"   • Pending GTT   : {track_data.get('pending_count', 0)} awaiting trigger")
+        print(f"   • Open Trades   : {track_data.get('open_count', 0)} active (max 5 slots)")
+        print(f"   • Closed Trades : {track_data.get('closed_count', 0)} completed")
+        print(f"   • Win Rate      : {track_data.get('win_rate', 0.0):.1f}%")
+        print(f"   • Profit Factor : {track_data.get('profit_factor', 1.0):.2f}")
+        print(f"   • Net P&L (INR) : ₹{track_data.get('total_pnl_inr', 0.0):+,.2f} ({track_data.get('total_pnl_pct', 0.0):+.2f}% on ₹100k, {track_data.get('roc_deployed_pct', 0.0):+.2f}% on deployed)")
+        print(f"   • Available Cash: ₹{track_data.get('cash_free', 100000.0):,.2f}")
+        if track_data.get("open_trades"):
             print("   Active Positions:")
-            for t in oc["open_trades"]:
+            for t in track_data["open_trades"]:
                 print(f"     - {t['name']:<12} Entry: ₹{t['entry_price']:<9.2f} Cur: ₹{t['current_price']:<9.2f} PnL: {t['pnl_pct']:+.2f}% (₹{t['pnl_rupees']:+,.0f})")
-    print("="*70 + "\n")
+
+    _print_track_block("🥇", t1, is_silent=False)
+    print("-" * 75)
+    _print_track_block("🚀", t2, is_silent=False)
+    print("-" * 75)
+    _print_track_block("⚡", t3, is_silent=False)
+    print("-" * 75)
+    _print_track_block("🛡️", t4, is_silent=True)
+    print("-" * 75)
+    _print_track_block("🎯", t5, is_silent=True)
+    print("="*75 + "\n")
     return summary
 
 

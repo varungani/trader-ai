@@ -162,6 +162,36 @@ class TelegramNotifier:
         )
         return self.send_message(msg)
 
+    def notify_t1_harvest(
+        self,
+        ticker: str,
+        entry_price: float,
+        harvest_price: float,
+        sold_shares: int,
+        rem_shares: int,
+        realized_pnl: float,
+        new_stop: float,
+        strategy_track: str = "Track B (Algo 1)",
+    ) -> bool:
+        """Dispatches an alert when a position hits +5.0% and banks 50% partial profit."""
+        clean_ticker = ticker.replace(".NS", "")
+        msg = (
+            f"💰 *[T1 PROFIT BANKED: 50% POSITION SOLD]*\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"📈 *Stock:* `{clean_ticker}` hit *+5.0%* T1 Target!\n"
+            f"⚡ *Track:* {strategy_track}\n"
+            f"💵 *Harvest Price:* ₹{harvest_price:,.2f} (Entry: ₹{entry_price:,.2f})\n"
+            f"📦 *Shares Sold:* {sold_shares:,} shares | *Remaining:* {rem_shares:,} shares\n"
+            f"💸 *Realized Cash Profit:* *+₹{realized_pnl:+,.2f}* (Banked immediately)\n"
+            f"🛡️ *New Trailed Stop:* `₹{new_stop:,.2f}` *(Breakeven + 0.6% friction cushion)*\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"👉 *EXACT ACTION IN YOUR BROKER:*\n"
+            f"1️⃣ Go to **Positions** ➔ Sell `{sold_shares}` shares of `{clean_ticker}` at market/limit.\n"
+            f"2️⃣ Go to **GTT Orders** ➔ Modify Stop-Loss trigger on remaining `{rem_shares}` shares to `₹{new_stop:,.2f}`.\n"
+            f"✨ *Capital is 100% protected. The remaining position is now a risk-free free-roll toward +12%!*"
+        )
+        return self.send_message(msg)
+
     def notify_breakeven_lock(
         self,
         ticker: str,
@@ -195,13 +225,16 @@ class TelegramNotifier:
         exit_price: float,
         pnl_rupees: float,
         pnl_pct: float,
+        strategy_track: str = "",
     ) -> bool:
         """Dispatches an alert when a position hits its target price."""
         clean_ticker = ticker.replace(".NS", "")
+        track_line = f"⚡ *Track:* {strategy_track}\n" if strategy_track else ""
         msg = (
             f"🚀 *[TARGET HIT: +12% PROFIT BOOKED]*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"🎉 *Stock:* `{clean_ticker}`\n"
+            f"{track_line}"
             f"💰 *Net Profit:* *+₹{pnl_rupees:+,.2f}* (*{pnl_pct:+.2f}%*)\n"
             f"💵 *Entry:* ₹{entry_price:,.2f} ➔ *Exit:* ₹{exit_price:,.2f}\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
@@ -221,9 +254,11 @@ class TelegramNotifier:
         loss_inr: float,
         loss_pct: float,
         is_breakeven: bool = False,
+        strategy_track: str = "",
     ) -> bool:
         """Dispatches an alert when a stop-loss is hit."""
         clean_ticker = ticker.replace(".NS", "")
+        track_line = f"⚡ *Track:* {strategy_track}\n" if strategy_track else ""
         if is_breakeven:
             headline = "🔒 *[BREAKEVEN EXIT: ZERO LOSS ACCORDING TO PLAN]*"
             subtext = "Capital safely preserved with zero loss."
@@ -235,6 +270,7 @@ class TelegramNotifier:
             f"{headline}\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"📉 *Stock:* `{clean_ticker}`\n"
+            f"{track_line}"
             f"💵 *Entry:* ₹{entry_price:,.2f} ➔ *Exit:* ₹{exit_price:,.2f}\n"
             f"📊 *Net Result:* ₹{loss_inr:+,.2f} ({loss_pct:+.2f}%)\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
@@ -253,13 +289,16 @@ class TelegramNotifier:
         days_held: int,
         pnl_pct: float,
         freed_capital_inr: float,
+        strategy_track: str = "",
     ) -> bool:
         """Dispatches an alert when a trade is closed after 72 hours of dead money."""
         clean_ticker = ticker.replace(".NS", "")
+        track_line = f"⚡ *Track:* {strategy_track}\n" if strategy_track else ""
         msg = (
             f"⏳ *[72H VELOCITY KILL: DEAD MONEY EXITED]*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"⏱️ *Stock:* `{clean_ticker}` held for {days_held} sessions\n"
+            f"{track_line}"
             f"📊 *Performance:* {pnl_pct:+.2f}% (Failed to gain > +1.5% momentum)\n"
             f"💵 *Exit Price:* ₹{exit_price:,.2f}\n"
             f"🔓 *Freed Capital:* ~₹{freed_capital_inr:,.0f}\n"
@@ -275,21 +314,26 @@ class TelegramNotifier:
         self,
         summary: dict,
     ) -> bool:
-        """Dispatches an end-of-day trading recap to Telegram."""
-        o2 = summary.get("option_2", {})
-        o3 = summary.get("option_3", {})
-        oc = summary.get("track_c", {})
+        """Dispatches an end-of-day trading recap to Telegram across all 5 tracks."""
+        t1 = summary.get("track_algo4", summary.get("track_1", {}))
+        t2 = summary.get("option_3", summary.get("track_2", {}))
+        t3 = summary.get("track_algo5", summary.get("track_3", {}))
+        t4 = summary.get("option_2", summary.get("track_4", {}))
+        t5 = summary.get("track_c", summary.get("track_5", {}))
         msg = (
-            f"📊 *[NSE MARKET CLOSE: DAILY PERFORMANCE RECAP]*\n"
+            f"📊 *[NSE MARKET CLOSE: 5-WAY PERFORMANCE RECAP]*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"🏆 *Tournament Leader:* {summary.get('winner', 'Evaluating')}\n\n"
-            f"🟢 *Track A (9:20 Open):* ₹{o2.get('total_pnl_inr', 0.0):+,.0f} ({o2.get('total_pnl_pct', 0.0):+.2f}%)\n"
-            f"   • Active: {o2.get('open_count', 0)} open | Win Rate: {o2.get('win_rate', 0.0):.1f}%\n"
-            f"🔵 *Track B (GTT Option 3):* ₹{o3.get('total_pnl_inr', 0.0):+,.0f} ({o3.get('total_pnl_pct', 0.0):+.2f}%)\n"
-            f"   • Active: {o3.get('open_count', 0)} open | Pending: {o3.get('pending_count', 0)}\n"
-            f"⚡ *Track C (Benchmark):* ₹{oc.get('total_pnl_inr', 0.0):+,.0f} ({oc.get('total_pnl_pct', 0.0):+.2f}%)\n"
+            f"🏆 *Leader:* {summary.get('winner', 'Evaluating')}\n\n"
+            f"🥇 *Track 1 (Algo 4: 20-EMA Bounce):* ₹{t1.get('total_pnl_inr', 0.0):+,.0f} ({t1.get('total_pnl_pct', 0.0):+.2f}%)\n"
+            f"   • Active: {t1.get('open_count', 0)} open | Pending: {t1.get('pending_count', 0)} | WR: {t1.get('win_rate', 0.0):.1f}%\n"
+            f"🚀 *Track 2 (Algo 1: Morning Ignition):* ₹{t2.get('total_pnl_inr', 0.0):+,.0f} ({t2.get('total_pnl_pct', 0.0):+.2f}%)\n"
+            f"   • Active: {t2.get('open_count', 0)} open | Pending: {t2.get('pending_count', 0)} | WR: {t2.get('win_rate', 0.0):.1f}%\n"
+            f"⚡ *Track 3 (Algo 5: 52W Blast):* ₹{t3.get('total_pnl_inr', 0.0):+,.0f} ({t3.get('total_pnl_pct', 0.0):+.2f}%)\n"
+            f"   • Active: {t3.get('open_count', 0)} open | Pending: {t3.get('pending_count', 0)} | WR: {t3.get('win_rate', 0.0):.1f}%\n"
+            f"🛡️ *Track 4 (Algo 2: Minervini VCP Benchmark):* ₹{t4.get('total_pnl_inr', 0.0):+,.0f} ({t4.get('total_pnl_pct', 0.0):+.2f}%)\n"
+            f"🎯 *Track 5 (Algo 3: Velocity Sniper Benchmark):* ₹{t5.get('total_pnl_inr', 0.0):+,.0f} ({t5.get('total_pnl_pct', 0.0):+.2f}%)\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"✨ _Session closed. State saved & synced to dashboard._"
+            f"✨ _Session closed. State saved & synced across all 5 tracks._"
         )
         return self.send_message(msg)
 

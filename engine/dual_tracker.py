@@ -74,6 +74,8 @@ def _send_telegram_alert(alert_type: str, **kwargs):
             default_telegram_notifier.notify_breakout_fill(**kwargs)
         elif alert_type == "breakeven_lock":
             default_telegram_notifier.notify_breakeven_lock(**kwargs)
+        elif alert_type == "t1_harvest":
+            default_telegram_notifier.notify_t1_harvest(**kwargs)
         elif alert_type == "target_hit":
             default_telegram_notifier.notify_target_hit(**kwargs)
         elif alert_type == "stop_loss_hit":
@@ -93,18 +95,18 @@ def _default_tracker_state() -> dict:
     return {
         "created_at": now_str,
         "updated_at": now_str,
-        "option_2": {
-            "name": "Track A: Algo 2 - Minervini VCP Squeeze (9:20 AM Confirmation)",
-            "description": "Checks open at 9:20 AM after VCP volatility contraction. Fills on normal open (-0.5% to +1.5%), aborts bad gap downs (<-1.5%). Banks 50% at +5% T1, locks rest at breakeven + friction (+0.6%), Target +12%.",
+        "track_algo4": {
+            "name": "Track 1: Algo 4 - Confirmed 20-EMA Bounce Pivot [Alpha Leader]",
+            "description": "Tests 20-day EMA on drying volume and triggers on break of prior high with RVOL >= 1.5x. Sells 50% at +5% T1, trails stop to breakeven (+0.6%), target +12%. Audited +75.0% 5Y CAGR, 67.6% Win Rate, -8.5% DD.",
             "capital": TOTAL_CAPITAL,
             "max_slots": MAX_SLOTS,
-            "pending_confirmations": [],
+            "pending_triggers": [],
             "open_trades": [],
             "closed_trades": [],
             "aborted_trades": [],
         },
         "option_3": {
-            "name": "Track B: Algo 1 - Morning Ignition Thrust (GTT Buy-Stop + T1 Profit Lock)",
+            "name": "Track 2: Algo 1 - Morning Ignition Thrust [Alpha Rocket]",
             "description": "GTT Buy-Stop trigger at consolidation pivot resistance with 09:30 AM volume run-rate check. Fills on breakout. Sells 50% at +5% T1 profit target, locks rest at breakeven + friction (+0.6%), trails runner with +12% target.",
             "capital": TOTAL_CAPITAL,
             "max_slots": MAX_SLOTS,
@@ -113,9 +115,29 @@ def _default_tracker_state() -> dict:
             "closed_trades": [],
             "aborted_trades": [],
         },
+        "track_algo5": {
+            "name": "Track 3: Algo 5 - High-RS 52W Breakaway Blast [Momentum Runner]",
+            "description": "High-RS leaders within 10% of 52W High surging on morning gap with RVOL >= 2.0x. Sells 50% at +5% T1, trails stop to breakeven (+0.6%), target +12%. Audited +33.0% 5Y CAGR, 60.2% Win Rate.",
+            "capital": TOTAL_CAPITAL,
+            "max_slots": MAX_SLOTS,
+            "pending_triggers": [],
+            "open_trades": [],
+            "closed_trades": [],
+            "aborted_trades": [],
+        },
+        "option_2": {
+            "name": "Track 4: Algo 2 - Minervini VCP Squeeze [Silent Benchmark]",
+            "description": "Checks open at 9:20 AM after VCP volatility contraction. Fills on normal open (-0.5% to +1.5%), aborts bad gap downs (<-1.5%). Banks 50% at +5% T1, locks rest at breakeven + friction (+0.6%), Target +12%. Muted alerts.",
+            "capital": TOTAL_CAPITAL,
+            "max_slots": MAX_SLOTS,
+            "pending_confirmations": [],
+            "open_trades": [],
+            "closed_trades": [],
+            "aborted_trades": [],
+        },
         "track_c": {
-            "name": "Track C: Algo 3 - Benchmark Velocity Sniper (52W / High-RS Leader Breakout)",
-            "description": "GTT Pivot Breakout entry on Top High-RS leaders. Sells 50% at +5% T1, locks rest at breakeven, trails runner with +12% target, 72h Velocity Kill (< +1.5% after 3 days).",
+            "name": "Track 5: Algo 3 - Benchmark Velocity Sniper [Silent Benchmark]",
+            "description": "GTT Pivot Breakout entry on Top High-RS leaders. Sells 50% at +5% T1, locks rest at breakeven, trails runner with +12% target, 72h Velocity Kill (< +1.5% after 3 days). Muted alerts.",
             "capital": TOTAL_CAPITAL,
             "max_slots": MAX_SLOTS,
             "pending_triggers": [],
@@ -132,12 +154,13 @@ def _load_tracker() -> dict:
         try:
             with open(TRACKER_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                if "track_c" not in data:
-                    data["track_c"] = default_state["track_c"]
+                for trk_key in ["track_algo4", "track_algo5", "track_c", "option_2", "option_3"]:
+                    if trk_key not in data:
+                        data[trk_key] = default_state[trk_key]
                 if "pending_confirmations" not in data.get("option_2", {}):
                     data.setdefault("option_2", {})["pending_confirmations"] = []
                 # Migration: ensure shortlist_date & fill_date exist on all trades
-                for trk in ["option_2", "option_3", "track_c"]:
+                for trk in ["option_2", "option_3", "track_c", "track_algo4", "track_algo5"]:
                     if trk in data:
                         for t in data[trk].get("open_trades", []):
                             if "shortlist_date" not in t:
@@ -159,10 +182,28 @@ def _load_tracker() -> dict:
 
 
 def _save_tracker(data: dict) -> None:
-    data["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data["updated_at"] = now_str
     os.makedirs(os.path.dirname(TRACKER_FILE), exist_ok=True)
     with open(TRACKER_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, default=str)
+
+    # Also sync dedicated per-algo state files for conflict-free parallel pipelines
+    algo_map = {
+        "track_algo1_ignition.json": data.get("option_3", {}),
+        "track_algo2_vcp.json": data.get("option_2", {}),
+        "track_algo3_velocity.json": data.get("track_c", {}),
+        "track_algo4_ema_bounce.json": data.get("track_algo4", {}),
+        "track_algo5_rs_blast.json": data.get("track_algo5", {}),
+    }
+    for fname, track_content in algo_map.items():
+        if track_content:
+            p = os.path.join(os.path.dirname(TRACKER_FILE), fname)
+            try:
+                with open(p, "w", encoding="utf-8") as f:
+                    json.dump({"updated_at": now_str, "track": track_content}, f, indent=2, default=str)
+            except Exception as e:
+                logger.debug(f"Error saving {fname}: {e}")
 
 
 def _can_trigger_breakout(shortlist_date_str: str, force_market_open: bool = False) -> tuple[bool, str]:
@@ -345,371 +386,102 @@ def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
             "sector": c.get("sector", "General"),
         })
 
+    # 4. Log Track 1 Candidates (Algo 4: Confirmed 20-EMA Bounce Pivot)
+    if "track_algo4" not in tracker:
+        tracker["track_algo4"] = _default_tracker_state()["track_algo4"]
+    existing_a4 = {t["ticker"] for t in tracker["track_algo4"].get("pending_triggers", []) + tracker["track_algo4"].get("open_trades", [])}
+    a4_pool = [r for r in (tier1_picks + tier2_radar) if "20EMA" in str(r.get("pattern", "")).upper() or "SWEET_SPOT" in str(r.get("pattern", "")).upper()]
+    if not a4_pool:
+        a4_pool = [r for r in tier2_radar if r.get("ticker") not in existing_a4][:3]
+    for a4 in a4_pool[:3]:
+        ticker = a4.get("ticker")
+        if not ticker or ticker in existing_a4:
+            continue
+        cur_px = float(a4.get("current_price") or 0.0)
+        pivot_trigger = float(a4.get("pivot_buy_stop") or (cur_px * 1.002))
+        target_px = round(pivot_trigger * (1.0 + TARGET_PCT), 2)
+        stop_px = round(pivot_trigger * (1.0 - STOP_LOSS_PCT), 2)
+        be_lock_px = round(pivot_trigger * (1.0 + BREAKEVEN_TRIGGER_PCT), 2)
+        shares = int(SLOT_CAPITAL // pivot_trigger) if pivot_trigger > 0 else 0
+        tracker["track_algo4"].setdefault("pending_triggers", []).append({
+            "ticker": ticker,
+            "name": ticker.replace(".NS", ""),
+            "shortlist_date": today_str,
+            "log_date": today_str,
+            "scan_price": cur_px,
+            "pivot_trigger": pivot_trigger,
+            "target_price": target_px,
+            "stop_loss": stop_px,
+            "breakeven_lock": be_lock_px,
+            "shares": shares,
+            "planned_rupees": round(shares * pivot_trigger, 2),
+            "status": "PENDING_BREAKOUT_TRIGGER",
+            "pattern": a4.get("pattern", "20EMA_SWEET_SPOT"),
+            "readiness": a4.get("readiness", "PULLBACK_BOUNCE"),
+            "sector": a4.get("sector", "General"),
+        })
+
+    # 5. Log Track 3 Candidates (Algo 5: High-RS 52W Breakaway Blast)
+    if "track_algo5" not in tracker:
+        tracker["track_algo5"] = _default_tracker_state()["track_algo5"]
+    existing_a5 = {t["ticker"] for t in tracker["track_algo5"].get("pending_triggers", []) + tracker["track_algo5"].get("open_trades", [])}
+    a5_pool = [r for r in (tier1_picks + tier2_radar) if "BLAST" in str(r.get("pattern", "")).upper() or "ULTRA" in str(r.get("pattern", "")).upper()]
+    if not a5_pool:
+        a5_pool = [r for r in tier2_radar if float(r.get("rvol", 1.0)) >= 1.5 and r.get("ticker") not in existing_a5][:3]
+    for a5 in a5_pool[:3]:
+        ticker = a5.get("ticker")
+        if not ticker or ticker in existing_a5:
+            continue
+        cur_px = float(a5.get("current_price") or 0.0)
+        pivot_trigger = float(a5.get("pivot_buy_stop") or (cur_px * 1.002))
+        target_px = round(pivot_trigger * (1.0 + TARGET_PCT), 2)
+        stop_px = round(pivot_trigger * (1.0 - STOP_LOSS_PCT), 2)
+        be_lock_px = round(pivot_trigger * (1.0 + BREAKEVEN_TRIGGER_PCT), 2)
+        shares = int(SLOT_CAPITAL // pivot_trigger) if pivot_trigger > 0 else 0
+        tracker["track_algo5"].setdefault("pending_triggers", []).append({
+            "ticker": ticker,
+            "name": ticker.replace(".NS", ""),
+            "shortlist_date": today_str,
+            "log_date": today_str,
+            "scan_price": cur_px,
+            "pivot_trigger": pivot_trigger,
+            "target_price": target_px,
+            "stop_loss": stop_px,
+            "breakeven_lock": be_lock_px,
+            "shares": shares,
+            "planned_rupees": round(shares * pivot_trigger, 2),
+            "status": "PENDING_BREAKOUT_TRIGGER",
+            "pattern": a5.get("pattern", "INSTITUTIONAL_BLAST"),
+            "readiness": a5.get("readiness", "BLASTING"),
+            "sector": a5.get("sector", "General"),
+        })
+
     _save_tracker(tracker)
     return audit_and_update_dual_tracker()
 
 
-def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
+def _audit_open_trades_list(
+    open_trades: list[dict],
+    track_name: str,
+    today_str: str,
+    today: datetime.date,
+    is_silent: bool = False,
+    enable_velocity_kill: bool = True,
+) -> tuple[list[dict], list[dict]]:
     """
-    Update live prices, evaluate trigger activations, check target & stop exits,
-    and compute live 3-way side-by-side performance metrics.
-    Strictly simulates Indian market hours (09:15-15:30 IST) for trigger executions.
+    Audits an open trades list: evaluates prices, T1 partial harvest, stop/target/velocity exits.
+    Returns: (still_open_trades, new_closed_trades)
     """
-    tracker = _load_tracker()
-    now = get_ist_now()
-    today = now.date()
-    today_str = now.strftime("%Y-%m-%d")
-    is_td, _ = is_trading_day(today)
+    still_open = []
+    new_closed = []
 
-    # --- AUDIT TRACK A: OPTION 2 (9:20 AM CONFIRMATION) ---
-    # 1. Audit pending 9:20 AM confirmations
-    can_evaluate_920 = force_market_open or (is_td and now.time() >= dtime(9, 20))
-    still_pending_o2 = []
-    for pend in tracker["option_2"].get("pending_confirmations", []):
-        sched_d_str = pend.get("scheduled_date", pend.get("shortlist_date", today_str))
-        try:
-            sched_d = datetime.strptime(sched_d_str, "%Y-%m-%d").date()
-        except Exception:
-            sched_d = today
-
-        if can_evaluate_920 and (today >= sched_d or force_market_open):
-            ticker = pend["ticker"]
-            scan_px = float(pend["scan_price"])
-            quote = fetch_live_quote(ticker)
-            open_px = float(quote.get("open") or quote.get("price") or scan_px)
-            if open_px <= 0:
-                df = _get_cached_history(ticker, "5d")
-                if not df.empty:
-                    df.columns = [str(c).title() for c in df.columns]
-                    open_px = float(df["Open"].iloc[-1])
-                else:
-                    open_px = scan_px
-
-            gap_pct = ((open_px - scan_px) / scan_px) * 100.0 if scan_px > 0 else 0.0
-
-            # Abort bad gap down (<-1.5%)
-            if gap_pct < -1.5:
-                logger.info(f"🚫 [Track A Aborted] {ticker}: Gap down {gap_pct:.2f}% (Scan: ₹{scan_px:.2f}, Open: ₹{open_px:.2f})")
-                tracker["option_2"]["aborted_trades"].append({
-                    **pend,
-                    "abort_date": today_str,
-                    "open_price": open_px,
-                    "gap_pct": round(gap_pct, 2),
-                    "status": "ABORTED_GAP_DOWN",
-                    "reason": f"Bad gap down ({gap_pct:.2f}% < -1.5%). Capital preserved.",
-                })
-            elif gap_pct > 2.5:
-                logger.info(f"🚫 [Track A Aborted] {ticker}: Gapped up {gap_pct:+.2f}% beyond buy zone (+2.5% max). Chasing avoided.")
-                tracker["option_2"]["aborted_trades"].append({
-                    **pend,
-                    "abort_date": today_str,
-                    "open_price": open_px,
-                    "gap_pct": round(gap_pct, 2),
-                    "status": "ABORTED_EXTENDED_GAP",
-                    "reason": f"Extended beyond +2.5% buy zone (gapped {gap_pct:+.2f}%). Avoided chasing peak.",
-                })
-            else:
-                fill_ts = f"{today_str} 09:20"
-                can_fill, fill_reason = _can_fill_trade(tracker["option_2"])
-                if not can_fill:
-                    logger.info(f"⏳ [Track A Slot Queued] {ticker} @ ₹{open_px:.2f} awaiting free slot: {fill_reason}")
-                    pend["status"] = "PENDING_SLOT_CAPACITY"
-                    still_pending_o2.append(pend)
-                    continue
-
-                # Apply slippage on entry
-                fill_px = round(open_px * (1.0 + SLIPPAGE_PCT), 2)
-                cash_free_o2 = _get_free_cash(tracker["option_2"])
-                slot_budget_o2 = min(SLOT_CAPITAL, cash_free_o2)
-                shares = int(slot_budget_o2 // fill_px)
-                if shares <= 0:
-                    pend["status"] = "PENDING_SLOT_CAPACITY"
-                    still_pending_o2.append(pend)
-                    continue
-
-                allocated_rupees = round(shares * fill_px, 2)
-                stop_loss_px = round(fill_px * (1.0 - STOP_LOSS_PCT), 2)
-                target_px = round(fill_px * (1.0 + TARGET_PCT), 2)
-                be_lock_px = round(fill_px * (1.0 + BREAKEVEN_TRIGGER_PCT), 2)
-
-                logger.info(f"✅ [Track A Filled] {ticker} @ ₹{fill_px:.2f} (Gap: {gap_pct:+.2f}%, Slippage: {SLIPPAGE_PCT*100:.2f}%) on {fill_ts}")
-                tracker["option_2"]["open_trades"].append({
-                    **pend,
-                    "entry_date": today_str,
-                    "fill_date": fill_ts,
-                    "entry_price": fill_px,
-                    "target_price": target_px,
-                    "stop_loss": stop_loss_px,
-                    "breakeven_lock": be_lock_px,
-                    "shares": shares,
-                    "allocated_rupees": allocated_rupees,
-                    "status": "CONFIRMED_ACTIVE",
-                    "current_price": fill_px,
-                    "gap_pct": round(gap_pct, 2),
-                })
-                _send_telegram_alert(
-                    "breakout_fill",
-                    ticker=ticker,
-                    fill_price=fill_px,
-                    target_price=target_px,
-                    stop_loss=stop_loss_px,
-                    shares=shares,
-                    strategy_track="Track A (9:20 AM Open)",
-                    sector=pend.get("sector", "General"),
-                    pattern=pend.get("pattern", "9:20_OPEN_CONFIRMATION"),
-                )
-        else:
-            still_pending_o2.append(pend)
-    tracker["option_2"]["pending_confirmations"] = still_pending_o2
-
-    # 2. Audit open trades
-    still_open_o2 = []
-    for trade in tracker["option_2"]["open_trades"]:
+    for trade in open_trades:
         ticker = trade["ticker"]
         entry_px = float(trade["entry_price"])
         stop_px = float(trade["stop_loss"])
         target_px = float(trade["target_price"])
         shares = int(trade["shares"])
-        
-        # Ensure dates exist
-        if "shortlist_date" not in trade:
-            trade["shortlist_date"] = trade.get("entry_date", today_str)
-        if "fill_date" not in trade:
-            trade["fill_date"] = trade.get("entry_date", today_str)
 
-        quote = fetch_live_quote(ticker)
-        cur_px = float(quote.get("price") or 0.0)
-        high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
-        low_px = float(quote.get("day_low") or quote.get("low") or cur_px)
-        if cur_px <= 0:
-            df = _get_cached_history(ticker, "5d")
-            if not df.empty:
-                df.columns = [str(c).title() for c in df.columns]
-                cur_px = float(df["Close"].iloc[-1])
-                high_px = float(df["High"].iloc[-1])
-                low_px = float(df["Low"].iloc[-1]) if "Low" in df.columns else cur_px
-            else:
-                cur_px = entry_px
-                high_px = entry_px
-                low_px = entry_px
-
-        trade["current_price"] = cur_px
-        trade["pnl_pct"] = round(((cur_px - entry_px) / entry_px) * 100.0, 2) if entry_px > 0 else 0.0
-        trade["pnl_rupees"] = round((cur_px - entry_px) * shares, 2)
-
-        try:
-            entry_d = datetime.strptime(trade["entry_date"][:10], "%Y-%m-%d").date()
-            trade["days_held"] = count_trading_days(entry_d, today)
-        except Exception:
-            trade["days_held"] = 1
-
-        is_closed = False
-        exit_reason = ""
-        exit_px = cur_px
-
-        # Active Breakeven Lock & T1 Partial Profit Harvest (+5.0% gain)
-        be_lock = float(trade.get("breakeven_lock") or round(entry_px * (1.0 + BREAKEVEN_TRIGGER_PCT), 2))
-        if (high_px >= be_lock or cur_px >= be_lock):
-            if not trade.get("t1_harvested") and shares >= 2:
-                orig_shares = int(trade.get("orig_shares") or shares)
-                trade["orig_shares"] = orig_shares
-                harvest_shares = shares // 2
-                rem_shares = shares - harvest_shares
-                
-                t1_exit_px = round(be_lock * (1.0 - SLIPPAGE_PCT), 2)
-                t1_costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=t1_exit_px, quantity=harvest_shares)
-                t1_pnl_inr = round((t1_exit_px - entry_px) * harvest_shares - t1_costs.total_friction_rupees, 2)
-                
-                trade["realized_pnl_inr"] = round(trade.get("realized_pnl_inr", 0.0) + t1_pnl_inr, 2)
-                trade["t1_friction_inr"] = round(trade.get("t1_friction_inr", 0.0) + t1_costs.total_friction_rupees, 2)
-                trade["shares"] = rem_shares
-                trade["allocated_rupees"] = round(rem_shares * entry_px, 2)
-                trade["t1_harvested"] = True
-                trade["t1_exit_price"] = t1_exit_px
-                trade["t1_pnl_inr"] = t1_pnl_inr
-                shares = rem_shares
-                
-                stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
-                trade["stop_loss"] = stop_px
-                trade["is_breakeven_locked"] = True
-                
-                if not trade.get("alert_be_lock_sent"):
-                    trade["alert_be_lock_sent"] = True
-                    _send_telegram_alert(
-                        "breakeven_lock",
-                        ticker=ticker,
-                        entry_price=entry_px,
-                        current_price=cur_px,
-                        pnl_pct=trade.get("pnl_pct", 5.0),
-                        new_stop_loss=stop_px,
-                    )
-            elif stop_px < entry_px:
-                stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
-                trade["stop_loss"] = stop_px
-                trade["is_breakeven_locked"] = True
-
-        # 1. Stop Loss Hit / Breakeven Lock Hit (Conservative Stop-First Ordering)
-        if low_px <= stop_px or cur_px <= stop_px:
-            is_closed = True
-            exit_reason = "BREAKEVEN_LOCK_HIT (Zero Loss)" if trade.get("is_breakeven_locked") else "STOP_LOSS_HIT (-4% Base Floor)"
-            exit_px = round(stop_px * (1.0 - SLIPPAGE_PCT), 2)
-        # 2. Target Hit (+12% Velocity)
-        elif high_px >= target_px or cur_px >= target_px:
-            is_closed = True
-            exit_reason = "TARGET_HIT (+12% Velocity)"
-            exit_px = round(target_px * (1.0 - SLIPPAGE_PCT), 2)
-        elif trade["days_held"] >= VELOCITY_KILL_DAYS and trade.get("pnl_pct", 0.0) < VELOCITY_KILL_MIN_PNL:
-            is_closed = True
-            exit_reason = "72H_VELOCITY_KILL (Dead Money)"
-            exit_px = round(cur_px * (1.0 - SLIPPAGE_PCT), 2)
-        elif trade["days_held"] >= MAX_HOLDING_DAYS:
-            is_closed = True
-            exit_reason = "TIME_EXPIRY (7 Sessions)"
-            exit_px = round(cur_px * (1.0 - SLIPPAGE_PCT), 2)
-
-        if is_closed:
-            curr_shares = int(trade.get("shares", 0))
-            if curr_shares > 0:
-                costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=exit_px, quantity=curr_shares)
-                rem_pnl_inr = round((exit_px - entry_px) * curr_shares - costs.total_friction_rupees, 2)
-                friction_inr = round(costs.total_friction_rupees + trade.get("t1_friction_inr", 0.0), 2)
-            else:
-                rem_pnl_inr = 0.0
-                friction_inr = trade.get("t1_friction_inr", 0.0)
-                
-            total_net_pnl_inr = round(trade.get("realized_pnl_inr", 0.0) + rem_pnl_inr, 2)
-            net_pnl_inr = total_net_pnl_inr
-            orig_shares = int(trade.get("orig_shares") or curr_shares)
-            orig_deployed = entry_px * orig_shares
-            net_pnl_pct = round(total_net_pnl_inr / orig_deployed * 100.0, 2) if orig_deployed > 0 else 0.0
-            
-            tracker["option_2"]["closed_trades"].append({
-                **trade,
-                "exit_date": datetime.now().strftime("%Y-%m-%d"),
-                "exit_price": exit_px,
-                "exit_reason": exit_reason,
-                "net_pnl_inr": total_net_pnl_inr,
-                "net_pnl_pct": net_pnl_pct,
-                "friction_inr": friction_inr,
-                "status": "CLOSED",
-            })
-
-            # Send Telegram alert for closed trade
-            if "TARGET_HIT" in exit_reason:
-                _send_telegram_alert("target_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, pnl_rupees=net_pnl_inr, pnl_pct=net_pnl_pct)
-            elif "VELOCITY_KILL" in exit_reason:
-                _send_telegram_alert("velocity_kill", ticker=ticker, entry_price=entry_px, exit_price=exit_px, days_held=trade["days_held"], pnl_pct=net_pnl_pct, freed_capital_inr=shares * exit_px)
-            elif "STOP_LOSS" in exit_reason or "BREAKEVEN_LOCK_HIT" in exit_reason:
-                _send_telegram_alert("stop_loss_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, loss_inr=net_pnl_inr, loss_pct=net_pnl_pct, is_breakeven=trade.get("is_breakeven_locked", False))
-        else:
-            still_open_o2.append(trade)
-
-    tracker["option_2"]["open_trades"] = still_open_o2
-
-    # --- AUDIT TRACK B: OPTION 3 (GTT BUY-STOP TRIGGER) ---
-    still_pending_o3 = []
-    for pending in tracker["option_3"]["pending_triggers"]:
-        ticker = pending["ticker"]
-        trigger_px = float(pending["pivot_trigger"])
-        shortlist_d = pending.get("shortlist_date") or pending.get("log_date") or today_str
-        
-        quote = fetch_live_quote(ticker)
-        cur_px = float(quote.get("price") or 0.0)
-        high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
-        if cur_px <= 0:
-            df = _get_cached_history(ticker, "5d")
-            if not df.empty:
-                df.columns = [str(c).title() for c in df.columns]
-                cur_px = float(df["Close"].iloc[-1])
-                high_px = float(df["High"].iloc[-1])
-            else:
-                cur_px = float(pending.get("scan_price", 0.0))
-                high_px = cur_px
-
-        can_exec, fill_timestamp = _can_trigger_breakout(shortlist_d, force_market_open)
-
-        # Trigger ONLY during market hours when price hit or crossed pivot resistance
-        if can_exec and high_px >= trigger_px:
-            # 1. Anti-FOMO Gap Ceiling: Never chase if stock opened with a runaway gap > +2.5% above pivot trigger
-            open_px = float(quote.get("open") or 0.0)
-            if open_px > 0 and open_px > trigger_px * (1.0 + ANTI_FOMO_MAX_GAP_PCT):
-                logger.info(f"🚫 [Anti-FOMO Abort] {ticker} opened @ ₹{open_px:.2f} (> +{ANTI_FOMO_MAX_GAP_PCT*100}% above trigger ₹{trigger_px:.2f}). Aborting chase.")
-                pending["status"] = "FOMO_GAP_ABORTED"
-                tracker["option_3"].setdefault("aborted_trades", []).append({
-                    **pending,
-                    "abort_date": today_str,
-                    "abort_price": open_px,
-                    "abort_reason": f"Runaway Gap-Up FOMO ceiling breached (> +{ANTI_FOMO_MAX_GAP_PCT*100}%)",
-                })
-                continue
-
-            can_fill, fill_reason = _can_fill_trade(tracker["option_3"])
-            if not can_fill:
-                logger.info(f"⏳ [Track B Slot Queued] {ticker} @ trigger ₹{trigger_px:.2f} awaiting slot: {fill_reason}")
-                pending["status"] = "PENDING_SLOT_CAPACITY"
-                still_pending_o3.append(pending)
-                continue
-
-            fill_price = round(trigger_px * (1.0 + SLIPPAGE_PCT), 2)
-            cash_free_o3 = _get_free_cash(tracker["option_3"])
-            slot_budget_o3 = min(SLOT_CAPITAL, cash_free_o3)
-            shares = int(slot_budget_o3 // fill_price)
-            if shares <= 0:
-                pending["status"] = "PENDING_SLOT_CAPACITY"
-                still_pending_o3.append(pending)
-                continue
-
-            allocated_rupees = round(shares * fill_price, 2)
-            target_px = round(fill_price * (1.0 + TARGET_PCT), 2)
-            stop_px = round(fill_price * (1.0 - STOP_LOSS_PCT), 2)
-            be_lock_px = round(fill_price * (1.0 + BREAKEVEN_TRIGGER_PCT), 2)
-
-            t_entry = {
-                "ticker": ticker,
-                "name": pending["name"],
-                "shortlist_date": shortlist_d,
-                "fill_date": fill_timestamp,
-                "entry_date": fill_timestamp[:10],
-                "entry_price": fill_price,
-                "current_price": cur_px,
-                "target_price": target_px,
-                "stop_loss": stop_px,
-                "breakeven_lock": be_lock_px,
-                "shares": shares,
-                "allocated_rupees": allocated_rupees,
-                "pnl_pct": round(((cur_px - fill_price) / fill_price) * 100.0, 2) if fill_price > 0 else 0.0,
-                "pnl_rupees": round((cur_px - fill_price) * shares, 2),
-                "pattern": pending.get("pattern", "COIL"),
-                "sector": pending.get("sector", "General"),
-                "status": "TRIGGERED_ACTIVE",
-                "days_held": 0,
-            }
-            tracker["option_3"]["open_trades"].append(t_entry)
-            _send_telegram_alert(
-                "breakout_fill",
-                ticker=ticker,
-                fill_price=fill_price,
-                target_price=target_px,
-                stop_loss=stop_px,
-                shares=shares,
-                strategy_track="Track B (GTT Breakout)",
-                sector=pending.get("sector", "General"),
-                pattern=pending.get("pattern", "COIL"),
-            )
-        else:
-            pending["shortlist_date"] = shortlist_d
-            still_pending_o3.append(pending)
-
-    tracker["option_3"]["pending_triggers"] = still_pending_o3
-
-    still_open_o3 = []
-    for trade in tracker["option_3"]["open_trades"]:
-        ticker = trade["ticker"]
-        entry_px = float(trade["entry_price"])
-        stop_px = float(trade["stop_loss"])
-        target_px = float(trade["target_price"])
-        shares = int(trade["shares"])
-        
         # Ensure dates exist
         if "shortlist_date" not in trade:
             trade["shortlist_date"] = trade.get("log_date") or trade.get("entry_date", today_str)
@@ -748,17 +520,17 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
 
         # Active Breakeven Lock & T1 Partial Profit Harvest (+5.0% gain)
         be_lock = float(trade.get("breakeven_lock") or round(entry_px * (1.0 + BREAKEVEN_TRIGGER_PCT), 2))
-        if (high_px >= be_lock or cur_px >= be_lock):
+        if high_px >= be_lock or cur_px >= be_lock:
             if not trade.get("t1_harvested") and shares >= 2:
                 orig_shares = int(trade.get("orig_shares") or shares)
                 trade["orig_shares"] = orig_shares
                 harvest_shares = shares // 2
                 rem_shares = shares - harvest_shares
-                
+
                 t1_exit_px = round(be_lock * (1.0 - SLIPPAGE_PCT), 2)
                 t1_costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=t1_exit_px, quantity=harvest_shares)
                 t1_pnl_inr = round((t1_exit_px - entry_px) * harvest_shares - t1_costs.total_friction_rupees, 2)
-                
+
                 trade["realized_pnl_inr"] = round(trade.get("realized_pnl_inr", 0.0) + t1_pnl_inr, 2)
                 trade["t1_friction_inr"] = round(trade.get("t1_friction_inr", 0.0) + t1_costs.total_friction_rupees, 2)
                 trade["shares"] = rem_shares
@@ -767,20 +539,23 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 trade["t1_exit_price"] = t1_exit_px
                 trade["t1_pnl_inr"] = t1_pnl_inr
                 shares = rem_shares
-                
+
                 stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
                 trade["stop_loss"] = stop_px
                 trade["is_breakeven_locked"] = True
-                
-                if not trade.get("alert_be_lock_sent"):
+
+                if not is_silent and not trade.get("alert_be_lock_sent"):
                     trade["alert_be_lock_sent"] = True
                     _send_telegram_alert(
-                        "breakeven_lock",
+                        "t1_harvest",
                         ticker=ticker,
                         entry_price=entry_px,
-                        current_price=cur_px,
-                        pnl_pct=trade.get("pnl_pct", 5.0),
-                        new_stop_loss=stop_px,
+                        harvest_price=t1_exit_px,
+                        sold_shares=harvest_shares,
+                        rem_shares=rem_shares,
+                        realized_pnl=t1_pnl_inr,
+                        new_stop=stop_px,
+                        strategy_track=track_name,
                     )
             elif stop_px < entry_px:
                 stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
@@ -797,10 +572,12 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
             is_closed = True
             exit_reason = "TARGET_HIT (+12% Velocity)"
             exit_px = round(target_px * (1.0 - SLIPPAGE_PCT), 2)
-        elif trade["days_held"] >= VELOCITY_KILL_DAYS and trade.get("pnl_pct", 0.0) < VELOCITY_KILL_MIN_PNL:
+        # 3. 72-Hour Velocity Gate: If 3 sessions pass and gain < +1.5%, kill trade flat
+        elif enable_velocity_kill and trade["days_held"] >= VELOCITY_KILL_DAYS and trade.get("pnl_pct", 0.0) < VELOCITY_KILL_MIN_PNL:
             is_closed = True
             exit_reason = "72H_VELOCITY_KILL (Dead Money)"
             exit_px = round(cur_px * (1.0 - SLIPPAGE_PCT), 2)
+        # 4. Max Holding Duration Expiry (7 Sessions)
         elif trade["days_held"] >= MAX_HOLDING_DAYS:
             is_closed = True
             exit_reason = "TIME_EXPIRY (7 Sessions)"
@@ -815,14 +592,13 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
             else:
                 rem_pnl_inr = 0.0
                 friction_inr = trade.get("t1_friction_inr", 0.0)
-                
+
             total_net_pnl_inr = round(trade.get("realized_pnl_inr", 0.0) + rem_pnl_inr, 2)
-            net_pnl_inr = total_net_pnl_inr
             orig_shares = int(trade.get("orig_shares") or curr_shares)
             orig_deployed = entry_px * orig_shares
             net_pnl_pct = round(total_net_pnl_inr / orig_deployed * 100.0, 2) if orig_deployed > 0 else 0.0
 
-            tracker["option_3"]["closed_trades"].append({
+            closed_entry = {
                 **trade,
                 "exit_date": datetime.now().strftime("%Y-%m-%d"),
                 "exit_price": exit_px,
@@ -831,99 +607,117 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                 "net_pnl_pct": net_pnl_pct,
                 "friction_inr": friction_inr,
                 "status": "CLOSED",
-            })
+            }
+            new_closed.append(closed_entry)
 
-            # Send Telegram alert for closed trade
-            if "TARGET_HIT" in exit_reason:
-                _send_telegram_alert("target_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, pnl_rupees=net_pnl_inr, pnl_pct=net_pnl_pct)
-            elif "VELOCITY_KILL" in exit_reason:
-                _send_telegram_alert("velocity_kill", ticker=ticker, entry_price=entry_px, exit_price=exit_px, days_held=trade["days_held"], pnl_pct=net_pnl_pct, freed_capital_inr=shares * exit_px)
-            elif "STOP_LOSS" in exit_reason or "BREAKEVEN_LOCK_HIT" in exit_reason:
-                _send_telegram_alert("stop_loss_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, loss_inr=net_pnl_inr, loss_pct=net_pnl_pct, is_breakeven=trade.get("is_breakeven_locked", False))
+            # Send Telegram alert for closed trade if track is not muted
+            if not is_silent:
+                if "TARGET_HIT" in exit_reason:
+                    _send_telegram_alert("target_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, pnl_rupees=total_net_pnl_inr, pnl_pct=net_pnl_pct, strategy_track=track_name)
+                elif "VELOCITY_KILL" in exit_reason:
+                    _send_telegram_alert("velocity_kill", ticker=ticker, entry_price=entry_px, exit_price=exit_px, days_held=trade["days_held"], pnl_pct=net_pnl_pct, freed_capital_inr=curr_shares * exit_px, strategy_track=track_name)
+                elif "STOP_LOSS" in exit_reason or "BREAKEVEN_LOCK_HIT" in exit_reason:
+                    _send_telegram_alert("stop_loss_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, loss_inr=total_net_pnl_inr, loss_pct=net_pnl_pct, is_breakeven=trade.get("is_breakeven_locked", False), strategy_track=track_name)
         else:
-            still_open_o3.append(trade)
+            still_open.append(trade)
 
-    tracker["option_3"]["open_trades"] = still_open_o3
+    return still_open, new_closed
 
-    # --- AUDIT TRACK C: BENCHMARK VELOCITY SNIPER ---
-    if "track_c" in tracker:
-        still_pending_c = []
-        for pending in tracker["track_c"].get("pending_triggers", []):
-            ticker = pending["ticker"]
-            trigger_px = float(pending["pivot_trigger"])
-            shortlist_d = pending.get("shortlist_date") or pending.get("log_date") or today_str
 
-            quote = fetch_live_quote(ticker)
-            cur_px = float(quote.get("price") or 0.0)
-            high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
-            if cur_px <= 0:
-                df = _get_cached_history(ticker, "5d")
-                if not df.empty:
-                    df.columns = [str(c).title() for c in df.columns]
-                    cur_px = float(df["Close"].iloc[-1])
-                    high_px = float(df["High"].iloc[-1])
-                else:
-                    cur_px = float(pending.get("scan_price", 0.0))
-                    high_px = cur_px
+def _audit_generic_gtt_track(
+    track: dict,
+    track_name: str,
+    today_str: str,
+    today: datetime.date,
+    force_market_open: bool = False,
+    is_silent: bool = False,
+    enable_velocity_kill: bool = True,
+) -> None:
+    """
+    Generic runner for any GTT Buy-Stop trigger track (Algos 1, 3, 4, 5).
+    Audits pending triggers for market-hours breakout activations, applies anti-FOMO check,
+    checks capacity/cash constraints, and audits open trades with strict statutory friction.
+    """
+    still_pending = []
+    for pending in track.get("pending_triggers", []):
+        ticker = pending["ticker"]
+        trigger_px = float(pending["pivot_trigger"])
+        shortlist_d = pending.get("shortlist_date") or pending.get("log_date") or today_str
 
-            can_exec, fill_timestamp = _can_trigger_breakout(shortlist_d, force_market_open)
+        quote = fetch_live_quote(ticker)
+        cur_px = float(quote.get("price") or 0.0)
+        high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
+        if cur_px <= 0:
+            df = _get_cached_history(ticker, "5d")
+            if not df.empty:
+                df.columns = [str(c).title() for c in df.columns]
+                cur_px = float(df["Close"].iloc[-1])
+                high_px = float(df["High"].iloc[-1])
+            else:
+                cur_px = float(pending.get("scan_price", 0.0))
+                high_px = cur_px
 
-            # Trigger ONLY during market hours when price hit or crossed pivot resistance
-            if can_exec and high_px >= trigger_px:
-                # 1. Anti-FOMO Gap Ceiling: Never chase if stock opened with a runaway gap > +2.5% above pivot trigger
-                open_px = float(quote.get("open") or 0.0)
-                if open_px > 0 and open_px > trigger_px * (1.0 + ANTI_FOMO_MAX_GAP_PCT):
-                    logger.info(f"🚫 [Anti-FOMO Abort] {ticker} opened @ ₹{open_px:.2f} (> +{ANTI_FOMO_MAX_GAP_PCT*100}% above trigger ₹{trigger_px:.2f}). Aborting chase.")
-                    pending["status"] = "FOMO_GAP_ABORTED"
-                    tracker["track_c"].setdefault("aborted_trades", []).append({
-                        **pending,
-                        "abort_date": today_str,
-                        "abort_price": open_px,
-                        "abort_reason": f"Runaway Gap-Up FOMO ceiling breached (> +{ANTI_FOMO_MAX_GAP_PCT*100}%)",
-                    })
-                    continue
+        can_exec, fill_timestamp = _can_trigger_breakout(shortlist_d, force_market_open)
 
-                can_fill, fill_reason = _can_fill_trade(tracker["track_c"])
-                if not can_fill:
-                    logger.info(f"⏳ [Track C Slot Queued] {ticker} @ trigger ₹{trigger_px:.2f} awaiting slot: {fill_reason}")
-                    pending["status"] = "PENDING_SLOT_CAPACITY"
-                    still_pending_c.append(pending)
-                    continue
-
-                fill_price = round(trigger_px * (1.0 + SLIPPAGE_PCT), 2)
-                cash_free_c = _get_free_cash(tracker["track_c"])
-                slot_budget_c = min(SLOT_CAPITAL, cash_free_c)
-                shares = int(slot_budget_c // fill_price)
-                if shares <= 0:
-                    pending["status"] = "PENDING_SLOT_CAPACITY"
-                    still_pending_c.append(pending)
-                    continue
-
-                allocated_rupees = round(shares * fill_price, 2)
-                target_px = round(fill_price * (1.0 + TARGET_PCT), 2)
-                stop_px = round(fill_price * (1.0 - STOP_LOSS_PCT), 2)
-                be_lock_px = round(fill_price * (1.0 + BREAKEVEN_TRIGGER_PCT), 2)
-
-                tracker["track_c"].setdefault("open_trades", []).append({
-                    "ticker": ticker,
-                    "name": pending["name"],
-                    "shortlist_date": shortlist_d,
-                    "fill_date": fill_timestamp,
-                    "entry_date": fill_timestamp[:10],
-                    "entry_price": fill_price,
-                    "current_price": cur_px,
-                    "target_price": target_px,
-                    "stop_loss": stop_px,
-                    "breakeven_lock": be_lock_px,
-                    "shares": shares,
-                    "allocated_rupees": allocated_rupees,
-                    "pnl_pct": round(((cur_px - fill_price) / fill_price) * 100.0, 2) if fill_price > 0 else 0.0,
-                    "pnl_rupees": round((cur_px - fill_price) * shares, 2),
-                    "pattern": pending.get("pattern", "SNIPER"),
-                    "sector": pending.get("sector", "General"),
-                    "status": "TRIGGERED_ACTIVE",
-                    "days_held": 0,
+        # Trigger ONLY during market hours when price hit or crossed pivot resistance
+        if can_exec and high_px >= trigger_px:
+            # 1. Anti-FOMO Gap Ceiling: Never chase if stock opened with runaway gap > +2.5% above trigger
+            open_px = float(quote.get("open") or 0.0)
+            if open_px > 0 and open_px > trigger_px * (1.0 + ANTI_FOMO_MAX_GAP_PCT):
+                logger.info(f"🚫 [Anti-FOMO Abort] {ticker} opened @ ₹{open_px:.2f} (> +{ANTI_FOMO_MAX_GAP_PCT*100}% above trigger ₹{trigger_px:.2f}). Aborting chase.")
+                pending["status"] = "FOMO_GAP_ABORTED"
+                track.setdefault("aborted_trades", []).append({
+                    **pending,
+                    "abort_date": today_str,
+                    "abort_price": open_px,
+                    "abort_reason": f"Runaway Gap-Up FOMO ceiling breached (> +{ANTI_FOMO_MAX_GAP_PCT*100}%)",
                 })
+                continue
+
+            can_fill, fill_reason = _can_fill_trade(track)
+            if not can_fill:
+                logger.info(f"⏳ [{track_name} Slot Queued] {ticker} @ trigger ₹{trigger_px:.2f} awaiting slot: {fill_reason}")
+                pending["status"] = "PENDING_SLOT_CAPACITY"
+                still_pending.append(pending)
+                continue
+
+            fill_price = round(trigger_px * (1.0 + SLIPPAGE_PCT), 2)
+            cash_free = _get_free_cash(track)
+            slot_budget = min(SLOT_CAPITAL, cash_free)
+            shares = int(slot_budget // fill_price)
+            if shares <= 0:
+                pending["status"] = "PENDING_SLOT_CAPACITY"
+                still_pending.append(pending)
+                continue
+
+            allocated_rupees = round(shares * fill_price, 2)
+            target_px = round(fill_price * (1.0 + TARGET_PCT), 2)
+            stop_px = round(fill_price * (1.0 - STOP_LOSS_PCT), 2)
+            be_lock_px = round(fill_price * (1.0 + BREAKEVEN_TRIGGER_PCT), 2)
+
+            t_entry = {
+                "ticker": ticker,
+                "name": pending.get("name", ticker.replace(".NS", "")),
+                "shortlist_date": shortlist_d,
+                "fill_date": fill_timestamp,
+                "entry_date": fill_timestamp[:10],
+                "entry_price": fill_price,
+                "current_price": cur_px,
+                "target_price": target_px,
+                "stop_loss": stop_px,
+                "breakeven_lock": be_lock_px,
+                "shares": shares,
+                "allocated_rupees": allocated_rupees,
+                "pnl_pct": round(((cur_px - fill_price) / fill_price) * 100.0, 2) if fill_price > 0 else 0.0,
+                "pnl_rupees": round((cur_px - fill_price) * shares, 2),
+                "pattern": pending.get("pattern", "BREAKOUT"),
+                "sector": pending.get("sector", "General"),
+                "status": "TRIGGERED_ACTIVE",
+                "days_held": 0,
+            }
+            track.setdefault("open_trades", []).append(t_entry)
+            
+            if not is_silent:
                 _send_telegram_alert(
                     "breakout_fill",
                     ticker=ticker,
@@ -931,175 +725,207 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
                     target_price=target_px,
                     stop_loss=stop_px,
                     shares=shares,
-                    strategy_track="Track C (Benchmark Sniper)",
+                    strategy_track=track_name,
                     sector=pending.get("sector", "General"),
-                    pattern=pending.get("pattern", "SNIPER"),
+                    pattern=pending.get("pattern", "BREAKOUT"),
                 )
-            else:
-                pending["shortlist_date"] = shortlist_d
-                still_pending_c.append(pending)
-        tracker["track_c"]["pending_triggers"] = still_pending_c
+        else:
+            pending["shortlist_date"] = shortlist_d
+            still_pending.append(pending)
 
-        still_open_c = []
-        for trade in tracker["track_c"].get("open_trades", []):
-            ticker = trade["ticker"]
-            entry_px = float(trade["entry_price"])
-            stop_px = float(trade["stop_loss"])
-            target_px = float(trade["target_price"])
-            shares = int(trade["shares"])
-            
-            # Ensure dates exist
-            if "shortlist_date" not in trade:
-                trade["shortlist_date"] = trade.get("log_date") or trade.get("entry_date", today_str)
-            if "fill_date" not in trade:
-                trade["fill_date"] = trade.get("entry_date", today_str)
+    track["pending_triggers"] = still_pending
 
+    # 2. Audit open trades
+    still_open, new_closed = _audit_open_trades_list(
+        track.get("open_trades", []),
+        track_name=track_name,
+        today_str=today_str,
+        today=today,
+        is_silent=is_silent,
+        enable_velocity_kill=enable_velocity_kill,
+    )
+    track["open_trades"] = still_open
+    track.setdefault("closed_trades", []).extend(new_closed)
+
+
+def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
+    """
+    Update live prices, evaluate trigger activations, check target & stop exits,
+    and compute live 5-way side-by-side performance metrics across all 5 strategies.
+    Strictly simulates Indian market hours (09:15-15:30 IST) for trigger executions.
+    """
+    tracker = _load_tracker()
+    now = get_ist_now()
+    today = now.date()
+    today_str = now.strftime("%Y-%m-%d")
+    is_td, _ = is_trading_day(today)
+
+    # --- 1. Track 4: Option 2 (Algo 2 - Minervini VCP Squeeze) [Silent Benchmark] ---
+    can_evaluate_920 = force_market_open or (is_td and now.time() >= dtime(9, 20))
+    still_pending_o2 = []
+    for pend in tracker["option_2"].get("pending_confirmations", []):
+        sched_d_str = pend.get("scheduled_date", pend.get("shortlist_date", today_str))
+        try:
+            sched_d = datetime.strptime(sched_d_str, "%Y-%m-%d").date()
+        except Exception:
+            sched_d = today
+
+        if can_evaluate_920 and (today >= sched_d or force_market_open):
+            ticker = pend["ticker"]
+            scan_px = float(pend["scan_price"])
             quote = fetch_live_quote(ticker)
-            cur_px = float(quote.get("price") or 0.0)
-            high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
-            low_px = float(quote.get("day_low") or quote.get("low") or cur_px)
-            if cur_px <= 0:
+            open_px = float(quote.get("open") or quote.get("price") or scan_px)
+            if open_px <= 0:
                 df = _get_cached_history(ticker, "5d")
                 if not df.empty:
                     df.columns = [str(c).title() for c in df.columns]
-                    cur_px = float(df["Close"].iloc[-1])
-                    high_px = float(df["High"].iloc[-1])
-                    low_px = float(df["Low"].iloc[-1]) if "Low" in df.columns else cur_px
+                    open_px = float(df["Open"].iloc[-1])
                 else:
-                    cur_px = entry_px
-                    high_px = entry_px
-                    low_px = entry_px
+                    open_px = scan_px
 
-            trade["current_price"] = cur_px
-            trade["pnl_pct"] = round(((cur_px - entry_px) / entry_px) * 100.0, 2) if entry_px > 0 else 0.0
-            trade["pnl_rupees"] = round((cur_px - entry_px) * shares, 2)
+            gap_pct = ((open_px - scan_px) / scan_px) * 100.0 if scan_px > 0 else 0.0
 
-            try:
-                entry_d = datetime.strptime(trade["entry_date"][:10], "%Y-%m-%d").date()
-                trade["days_held"] = count_trading_days(entry_d, today)
-            except Exception:
-                trade["days_held"] = 1
-
-            is_closed = False
-            exit_reason = ""
-            exit_px = cur_px
-
-            # Active Breakeven Lock & T1 Partial Profit Harvest (+5.0% gain)
-            be_lock = float(trade.get("breakeven_lock") or round(entry_px * (1.0 + BREAKEVEN_TRIGGER_PCT), 2))
-            if (high_px >= be_lock or cur_px >= be_lock):
-                if not trade.get("t1_harvested") and shares >= 2:
-                    orig_shares = int(trade.get("orig_shares") or shares)
-                    trade["orig_shares"] = orig_shares
-                    harvest_shares = shares // 2
-                    rem_shares = shares - harvest_shares
-                    
-                    t1_exit_px = round(be_lock * (1.0 - SLIPPAGE_PCT), 2)
-                    t1_costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=t1_exit_px, quantity=harvest_shares)
-                    t1_pnl_inr = round((t1_exit_px - entry_px) * harvest_shares - t1_costs.total_friction_rupees, 2)
-                    
-                    trade["realized_pnl_inr"] = round(trade.get("realized_pnl_inr", 0.0) + t1_pnl_inr, 2)
-                    trade["t1_friction_inr"] = round(trade.get("t1_friction_inr", 0.0) + t1_costs.total_friction_rupees, 2)
-                    trade["shares"] = rem_shares
-                    trade["allocated_rupees"] = round(rem_shares * entry_px, 2)
-                    trade["t1_harvested"] = True
-                    trade["t1_exit_price"] = t1_exit_px
-                    trade["t1_pnl_inr"] = t1_pnl_inr
-                    shares = rem_shares
-                    
-                    stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
-                    trade["stop_loss"] = stop_px
-                    trade["is_breakeven_locked"] = True
-                    
-                    if not trade.get("alert_be_lock_sent"):
-                        trade["alert_be_lock_sent"] = True
-                        _send_telegram_alert(
-                            "breakeven_lock",
-                            ticker=ticker,
-                            entry_price=entry_px,
-                            current_price=cur_px,
-                            pnl_pct=trade.get("pnl_pct", 5.0),
-                            new_stop_loss=stop_px,
-                        )
-                elif stop_px < entry_px:
-                    stop_px = round(entry_px * (1.0 + BREAKEVEN_LOCK_PCT), 2)
-                    trade["stop_loss"] = stop_px
-                    trade["is_breakeven_locked"] = True
-
-            # 1. Stop Loss Hit / Breakeven Lock Hit (Conservative Stop-First Ordering)
-            if low_px <= stop_px or cur_px <= stop_px:
-                is_closed = True
-                exit_reason = "BREAKEVEN_LOCK_HIT (Zero Loss)" if trade.get("is_breakeven_locked") else "STOP_LOSS_HIT (-4% Base Floor)"
-                exit_px = round(stop_px * (1.0 - SLIPPAGE_PCT), 2)
-            # 2. Target Hit (+12% Velocity)
-            elif high_px >= target_px or cur_px >= target_px:
-                is_closed = True
-                exit_reason = "TARGET_HIT (+12% Velocity)"
-                exit_px = round(target_px * (1.0 - SLIPPAGE_PCT), 2)
-            # 3. 72-Hour Velocity Gate: If 3 sessions pass and gain < +1.5%, kill trade flat
-            elif trade["days_held"] >= VELOCITY_KILL_DAYS and trade.get("pnl_pct", 0.0) < VELOCITY_KILL_MIN_PNL:
-                is_closed = True
-                exit_reason = "72H_VELOCITY_KILL (Dead Money)"
-                exit_px = round(cur_px * (1.0 - SLIPPAGE_PCT), 2)
-            elif trade["days_held"] >= MAX_HOLDING_DAYS:
-                is_closed = True
-                exit_reason = "TIME_EXPIRY (7 Sessions)"
-                exit_px = round(cur_px * (1.0 - SLIPPAGE_PCT), 2)
-
-            if is_closed:
-                curr_shares = int(trade.get("shares", 0))
-                if curr_shares > 0:
-                    costs = compute_indian_delivery_costs(buy_price=entry_px, sell_price=exit_px, quantity=curr_shares)
-                    rem_pnl_inr = round((exit_px - entry_px) * curr_shares - costs.total_friction_rupees, 2)
-                    friction_inr = round(costs.total_friction_rupees + trade.get("t1_friction_inr", 0.0), 2)
-                else:
-                    rem_pnl_inr = 0.0
-                    friction_inr = trade.get("t1_friction_inr", 0.0)
-                    
-                total_net_pnl_inr = round(trade.get("realized_pnl_inr", 0.0) + rem_pnl_inr, 2)
-                net_pnl_inr = total_net_pnl_inr
-                orig_shares = int(trade.get("orig_shares") or curr_shares)
-                orig_deployed = entry_px * orig_shares
-                net_pnl_pct = round(total_net_pnl_inr / orig_deployed * 100.0, 2) if orig_deployed > 0 else 0.0
-
-                tracker["track_c"]["closed_trades"].append({
-                    **trade,
-                    "exit_date": datetime.now().strftime("%Y-%m-%d"),
-                    "exit_price": exit_px,
-                    "exit_reason": exit_reason,
-                    "net_pnl_inr": total_net_pnl_inr,
-                    "net_pnl_pct": net_pnl_pct,
-                    "friction_inr": friction_inr,
-                    "status": "CLOSED",
+            # Abort bad gap down (<-1.5%)
+            if gap_pct < -1.5:
+                logger.info(f"🚫 [Track 4 Aborted] {ticker}: Gap down {gap_pct:.2f}% (Scan: ₹{scan_px:.2f}, Open: ₹{open_px:.2f})")
+                tracker["option_2"].setdefault("aborted_trades", []).append({
+                    **pend,
+                    "abort_date": today_str,
+                    "open_price": open_px,
+                    "gap_pct": round(gap_pct, 2),
+                    "status": "ABORTED_GAP_DOWN",
+                    "reason": f"Bad gap down ({gap_pct:.2f}% < -1.5%). Capital preserved.",
                 })
-
-                # Send Telegram alert for closed trade
-                if "TARGET_HIT" in exit_reason:
-                    _send_telegram_alert("target_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, pnl_rupees=net_pnl_inr, pnl_pct=net_pnl_pct)
-                elif "VELOCITY_KILL" in exit_reason:
-                    _send_telegram_alert("velocity_kill", ticker=ticker, entry_price=entry_px, exit_price=exit_px, days_held=trade["days_held"], pnl_pct=net_pnl_pct, freed_capital_inr=shares * exit_px)
-                elif "STOP_LOSS" in exit_reason or "BREAKEVEN_LOCK_HIT" in exit_reason:
-                    _send_telegram_alert("stop_loss_hit", ticker=ticker, entry_price=entry_px, exit_price=exit_px, loss_inr=net_pnl_inr, loss_pct=net_pnl_pct, is_breakeven=trade.get("is_breakeven_locked", False))
+            elif gap_pct > 2.5:
+                logger.info(f"🚫 [Track 4 Aborted] {ticker}: Gapped up {gap_pct:+.2f}% beyond buy zone (+2.5% max). Chasing avoided.")
+                tracker["option_2"].setdefault("aborted_trades", []).append({
+                    **pend,
+                    "abort_date": today_str,
+                    "open_price": open_px,
+                    "gap_pct": round(gap_pct, 2),
+                    "status": "ABORTED_EXTENDED_GAP",
+                    "reason": f"Extended beyond +2.5% buy zone (gapped {gap_pct:+.2f}%). Avoided chasing peak.",
+                })
             else:
-                still_open_c.append(trade)
+                fill_ts = f"{today_str} 09:20"
+                can_fill, fill_reason = _can_fill_trade(tracker["option_2"])
+                if not can_fill:
+                    logger.info(f"⏳ [Track 4 Slot Queued] {ticker} @ ₹{open_px:.2f} awaiting free slot: {fill_reason}")
+                    pend["status"] = "PENDING_SLOT_CAPACITY"
+                    still_pending_o2.append(pend)
+                    continue
 
-        tracker["track_c"]["open_trades"] = still_open_c
+                fill_px = round(open_px * (1.0 + SLIPPAGE_PCT), 2)
+                cash_free_o2 = _get_free_cash(tracker["option_2"])
+                slot_budget_o2 = min(SLOT_CAPITAL, cash_free_o2)
+                shares = int(slot_budget_o2 // fill_px)
+                if shares <= 0:
+                    pend["status"] = "PENDING_SLOT_CAPACITY"
+                    still_pending_o2.append(pend)
+                    continue
+
+                allocated_rupees = round(shares * fill_px, 2)
+                stop_loss_px = round(fill_px * (1.0 - STOP_LOSS_PCT), 2)
+                target_px = round(fill_px * (1.0 + TARGET_PCT), 2)
+                be_lock_px = round(fill_px * (1.0 + BREAKEVEN_TRIGGER_PCT), 2)
+
+                logger.info(f"✅ [Track 4 Filled] {ticker} @ ₹{fill_px:.2f} (Gap: {gap_pct:+.2f}%, Slippage: {SLIPPAGE_PCT*100:.2f}%) on {fill_ts}")
+                tracker["option_2"].setdefault("open_trades", []).append({
+                    **pend,
+                    "entry_date": today_str,
+                    "fill_date": fill_ts,
+                    "entry_price": fill_px,
+                    "target_price": target_px,
+                    "stop_loss": stop_loss_px,
+                    "breakeven_lock": be_lock_px,
+                    "shares": shares,
+                    "allocated_rupees": allocated_rupees,
+                    "status": "CONFIRMED_ACTIVE",
+                    "current_price": fill_px,
+                    "gap_pct": round(gap_pct, 2),
+                })
+        else:
+            still_pending_o2.append(pend)
+    tracker["option_2"]["pending_confirmations"] = still_pending_o2
+
+    # Audit Track 4 open trades (Muted alerts, is_silent=True)
+    still_open_o2, new_closed_o2 = _audit_open_trades_list(
+        tracker["option_2"].get("open_trades", []),
+        track_name="Track 4: Algo 2 - Minervini VCP [Silent Benchmark]",
+        today_str=today_str,
+        today=today,
+        is_silent=True,
+        enable_velocity_kill=True,
+    )
+    tracker["option_2"]["open_trades"] = still_open_o2
+    tracker["option_2"].setdefault("closed_trades", []).extend(new_closed_o2)
+
+    # --- 2. Track 1: Algo 4 - Confirmed 20-EMA Bounce Pivot [Alpha Leader] (Alerts Active) ---
+    if "track_algo4" in tracker:
+        _audit_generic_gtt_track(
+            tracker["track_algo4"],
+            track_name="Track 1: Algo 4 - 20-EMA Bounce [Alpha Leader]",
+            today_str=today_str,
+            today=today,
+            force_market_open=force_market_open,
+            is_silent=False,
+            enable_velocity_kill=True,
+        )
+
+    # --- 3. Track 2: Option 3 (Algo 1 - Morning Ignition Thrust) [Alpha Rocket] (Alerts Active) ---
+    if "option_3" in tracker:
+        _audit_generic_gtt_track(
+            tracker["option_3"],
+            track_name="Track 2: Algo 1 - Morning Ignition [Alpha Rocket]",
+            today_str=today_str,
+            today=today,
+            force_market_open=force_market_open,
+            is_silent=False,
+            enable_velocity_kill=True,
+        )
+
+    # --- 4. Track 3: Algo 5 - High-RS 52W Breakaway Blast [Momentum Runner] (Alerts Active) ---
+    if "track_algo5" in tracker:
+        _audit_generic_gtt_track(
+            tracker["track_algo5"],
+            track_name="Track 3: Algo 5 - 52W Blast [Momentum Runner]",
+            today_str=today_str,
+            today=today,
+            force_market_open=force_market_open,
+            is_silent=False,
+            enable_velocity_kill=True,
+        )
+
+    # --- 5. Track 5: Track C (Algo 3 - Benchmark Velocity Sniper) [Silent Benchmark] (Muted Alerts) ---
+    if "track_c" in tracker:
+        _audit_generic_gtt_track(
+            tracker["track_c"],
+            track_name="Track 5: Algo 3 - Benchmark Sniper [Silent Benchmark]",
+            today_str=today_str,
+            today=today,
+            force_market_open=force_market_open,
+            is_silent=True,
+            enable_velocity_kill=True,
+        )
 
     _save_tracker(tracker)
     return compute_dual_summary(tracker)
 
 
 def compute_dual_summary(tracker: Optional[dict] = None) -> dict:
-    """Compute comparative stats between Track A (Option 2), Track B (Option 3), and Track C (Benchmark Sniper)."""
+    """Compute comparative stats across all 5 Parallel Tournament Tracks."""
     tracker = tracker or _load_tracker()
     
     def _stats(track: dict) -> dict:
         if not track:
             return {
+                "name": "", "description": "",
                 "open_count": 0, "closed_count": 0, "pending_count": 0, "aborted_count": 0,
                 "floating_pnl_inr": 0.0, "realized_pnl_inr": 0.0, "total_pnl_inr": 0.0,
                 "total_pnl_pct": 0.0, "win_rate": 0.0, "profit_factor": 1.0,
                 "capital_deployed": 0.0, "cash_free": 100000.0,
-                "open_trades": [], "closed_trades": [], "pending_triggers": [], "aborted_trades": [],
+                "open_trades": [], "closed_trades": [], "pending_triggers": [],
+                "pending_confirmations": [], "aborted_trades": [],
             }
         opens = track.get("open_trades", [])
         closed = track.get("closed_trades", [])
@@ -1127,6 +953,8 @@ def compute_dual_summary(tracker: Optional[dict] = None) -> dict:
         roc_deployed_pct = round(total_pnl_inr / deployed * 100.0, 2) if deployed > 0 else 0.0
         
         return {
+            "name": track.get("name", ""),
+            "description": track.get("description", ""),
             "open_count": len(opens),
             "closed_count": len(closed),
             "pending_count": total_pending,
@@ -1147,24 +975,42 @@ def compute_dual_summary(tracker: Optional[dict] = None) -> dict:
             "aborted_trades": aborted,
         }
 
-    s2 = _stats(tracker.get("option_2", {}))
-    s3 = _stats(tracker.get("option_3", {}))
-    sc = _stats(tracker.get("track_c", {}))
+    s1 = _stats(tracker.get("track_algo4", {}))  # Track 1: Algo 4 (20-EMA Bounce)
+    s2 = _stats(tracker.get("option_3", {}))    # Track 2: Algo 1 (Morning Ignition)
+    s3 = _stats(tracker.get("track_algo5", {}))  # Track 3: Algo 5 (52W Blast)
+    s4 = _stats(tracker.get("option_2", {}))    # Track 4: Algo 2 (Minervini VCP Benchmark)
+    s5 = _stats(tracker.get("track_c", {}))      # Track 5: Algo 3 (Velocity Benchmark)
 
-    total_closed = s2["closed_count"] + s3["closed_count"] + sc["closed_count"]
-    winner = "TIE (Evaluating)"
-    pnl_scores = [("Track A: Option 2", s2["total_pnl_inr"]), ("Track B: Option 3", s3["total_pnl_inr"]), ("Track C: Benchmark Sniper", sc["total_pnl_inr"])]
+    total_closed = s1["closed_count"] + s2["closed_count"] + s3["closed_count"] + s4["closed_count"] + s5["closed_count"]
+    pnl_scores = [
+        ("Track 1: Algo 4 (20-EMA Bounce Pivot)", s1["total_pnl_inr"]),
+        ("Track 2: Algo 1 (Option 3 Morning Ignition)", s2["total_pnl_inr"]),
+        ("Track 3: Algo 5 (52W Breakaway Blast)", s3["total_pnl_inr"]),
+        ("Track 4: Algo 2 (Option 2 Minervini VCP)", s4["total_pnl_inr"]),
+        ("Track 5: Algo 3 (Track C Benchmark Sniper)", s5["total_pnl_inr"]),
+    ]
     best = max(pnl_scores, key=lambda x: x[1])
     if best[1] != 0:
         if total_closed == 0:
             winner = f"⚖️ Forward-Testing (MTM Leader: {best[0]} at ₹{best[1]:+,.2f})"
         else:
             winner = f"🏆 {best[0]} Leading ({total_closed} closed trades)"
+    else:
+        winner = "TIE (Evaluating)"
 
     return {
         "updated_at": tracker.get("updated_at"),
-        "option_2": s2,
-        "option_3": s3,
-        "track_c": sc,
+        # Backward-compatible keys
+        "option_2": s4,
+        "option_3": s2,
+        "track_c": s5,
+        "track_algo4": s1,
+        "track_algo5": s3,
+        # Numbered track aliases
+        "track_1": s1,
+        "track_2": s2,
+        "track_3": s3,
+        "track_4": s4,
+        "track_5": s5,
         "winner": winner,
     }

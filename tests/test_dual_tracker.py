@@ -437,6 +437,113 @@ def test_free_cash_conservation_equation_with_closed_and_partial_trades():
     assert round(o3["cash_free"] + o3["capital_deployed"], 2) == round(mock_track["capital"] + o3["realized_pnl_inr"], 2)
 
 
+def test_5_tracks_initialization_and_summary_aliases():
+    """Verify that all 5 tracks are properly initialized and summary provides both legacy and track_1..5 aliases."""
+    tracker = _load_tracker()
+    for k in ["track_algo4", "option_3", "track_algo5", "option_2", "track_c"]:
+        assert k in tracker, f"Missing track key {k}"
+
+    summary = compute_dual_summary(tracker)
+    for i in range(1, 6):
+        assert f"track_{i}" in summary, f"Missing alias track_{i}"
+
+    assert summary["track_1"]["name"].startswith("Track 1: Algo 4")
+    assert summary["track_2"]["name"].startswith("Track 2: Algo 1")
+    assert summary["track_3"]["name"].startswith("Track 3: Algo 5")
+    assert summary["track_4"]["name"].startswith("Track 4: Algo 2")
+    assert summary["track_5"]["name"].startswith("Track 5: Algo 3")
+
+
+def test_save_tracker_creates_5_conflict_free_json_files(tmp_path, monkeypatch):
+    """Verify _save_tracker generates 5 dedicated JSON files in data/ for conflict-free multi-runner pipelines."""
+    import engine.dual_tracker as dt
+    test_tracker_path = str(tmp_path / "dual_tracker.json")
+    monkeypatch.setattr(dt, "TRACKER_FILE", test_tracker_path)
+
+    state = dt._default_tracker_state()
+    dt._save_tracker(state)
+
+    expected_files = [
+        "dual_tracker.json",
+        "track_algo1_ignition.json",
+        "track_algo2_vcp.json",
+        "track_algo3_velocity.json",
+        "track_algo4_ema_bounce.json",
+        "track_algo5_rs_blast.json",
+    ]
+    for ef in expected_files:
+        fp = tmp_path / ef
+        assert fp.exists(), f"Expected state file {ef} was not created!"
+
+
+def test_track_algo4_and_algo5_breakout_execution(monkeypatch):
+    """Verify that Algo 4 (20-EMA Bounce) and Algo 5 (52W Blast) execute GTT breakout fills during market hours."""
+    from engine.dual_tracker import _save_tracker, audit_and_update_dual_tracker
+
+    monkeypatch.setattr("engine.dual_tracker.fetch_live_quote", lambda t: {"price": 105.0, "day_high": 106.0, "open": 100.5})
+
+    tracker = _load_tracker()
+    tracker["track_algo4"]["pending_triggers"] = [
+        {
+            "ticker": "BOUNCE.NS",
+            "name": "BOUNCE",
+            "pivot_trigger": 102.0,
+            "shortlist_date": "2026-11-15",
+            "shares": 100,
+            "pattern": "20EMA_SWEET_SPOT",
+            "sector": "Auto",
+        }
+    ]
+    tracker["track_algo5"]["pending_triggers"] = [
+        {
+            "ticker": "BLAST.NS",
+            "name": "BLAST",
+            "pivot_trigger": 103.0,
+            "shortlist_date": "2026-11-15",
+            "shares": 100,
+            "pattern": "INSTITUTIONAL_BLAST",
+            "sector": "Metals",
+        }
+    ]
+    _save_tracker(tracker)
+
+    audit_and_update_dual_tracker(force_market_open=True)
+
+    updated = _load_tracker()
+    assert len(updated["track_algo4"]["open_trades"]) == 1
+    assert updated["track_algo4"]["open_trades"][0]["ticker"] == "BOUNCE.NS"
+    assert len(updated["track_algo5"]["open_trades"]) == 1
+    assert updated["track_algo5"]["open_trades"][0]["ticker"] == "BLAST.NS"
+
+
+def test_silent_benchmarks_do_not_send_telegram_alerts(monkeypatch):
+    """Verify that silent benchmarks (Algo 2 & Algo 3) do not dispatch alerts, while alpha tracks do."""
+    from engine.dual_tracker import _save_tracker, audit_and_update_dual_tracker
+
+    alerts_sent = []
+    monkeypatch.setattr("engine.dual_tracker._send_telegram_alert", lambda alert_type, **kw: alerts_sent.append((alert_type, kw.get("strategy_track", ""))))
+    monkeypatch.setattr("engine.dual_tracker.fetch_live_quote", lambda t: {"price": 110.0, "day_high": 112.0, "open": 100.5})
+
+    tracker = _load_tracker()
+    # Track 1 (Algo 4) - Alpha Leader (Alerts Active)
+    tracker["track_algo4"]["pending_triggers"] = [
+        {"ticker": "ALPHA4.NS", "name": "ALPHA4", "pivot_trigger": 102.0, "shortlist_date": "2026-11-15", "shares": 100}
+    ]
+    # Track 5 (Algo 3) - Silent Benchmark (Muted)
+    tracker["track_c"]["pending_triggers"] = [
+        {"ticker": "SILENT3.NS", "name": "SILENT3", "pivot_trigger": 102.0, "shortlist_date": "2026-11-15", "shares": 100}
+    ]
+    _save_tracker(tracker)
+
+    audit_and_update_dual_tracker(force_market_open=True)
+
+    # Only ALPHA4 should have triggered a telegram alert
+    alert_tickers = [kw.get("strategy_track") for _, kw in [("breakout_fill", {"strategy_track": s}) for _, s in alerts_sent]]
+    assert any("Track 1" in s for s in alert_tickers), "Track 1 alert should have been sent!"
+    assert not any("Track 5" in s for s in alert_tickers), "Track 5 alert must be muted!"
+
+
+
 
 
 
