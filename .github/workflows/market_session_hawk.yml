@@ -2,14 +2,20 @@ name: Market Session Continuous Hawk Runner
 
 on:
   schedule:
-    # Boots at 03:40 UTC (09:10 AM IST) Mon-Fri, 5 mins before market open
+    # Relay 1 (Morning Hawk Session): 09:10 AM IST (03:40 UTC) to 12:30 PM IST (3h 20m)
     - cron: '40 3 * * 1-5'
+    # Relay 2 (Afternoon Hawk Session): 12:30 PM IST (07:00 UTC) to 03:35 PM IST (3h 05m)
+    - cron: '0 7 * * 1-5'
   workflow_dispatch:
     inputs:
       fast_interval:
         description: 'Fast position polling interval in seconds'
         required: false
         default: '20'
+      session_target:
+        description: 'Relay target time (auto, 12:30, or 15:30)'
+        required: false
+        default: 'auto'
       max_cycles:
         description: 'Max cycles to run (leave empty for full session)'
         required: false
@@ -22,7 +28,7 @@ jobs:
   market-session-hawk:
     name: Continuous Hawk Surveillance (20s Polling)
     runs-on: ubuntu-latest
-    timeout-minutes: 380 # Covers 09:10 to 15:35 IST (6 hrs 25 mins)
+    timeout-minutes: 240 # 4 Hours (Safely below GitHub's 360-min hard platform ceiling)
 
     steps:
       - name: Checkout Repository
@@ -48,11 +54,12 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           FAST_SEC="${{ github.event.inputs.fast_interval || '20' }}"
+          TARGET="${{ github.event.inputs.session_target || 'auto' }}"
           MAX_C="${{ github.event.inputs.max_cycles }}"
           if [ -n "$MAX_C" ]; then
-            python engine/auto_paper_runner.py --hawk --session-mode --fast-interval "$FAST_SEC" --max-cycles "$MAX_C"
+            python engine/auto_paper_runner.py --hawk --session-mode --session-target "$TARGET" --fast-interval "$FAST_SEC" --max-cycles "$MAX_C"
           else
-            python engine/auto_paper_runner.py --hawk --session-mode --fast-interval "$FAST_SEC"
+            python engine/auto_paper_runner.py --hawk --session-mode --session-target "$TARGET" --fast-interval "$FAST_SEC"
           fi
 
       - name: Commit and Push Updated Tracker Data

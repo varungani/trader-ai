@@ -207,3 +207,96 @@ def test_days_held_uses_trading_days():
     assert count_trading_days(friday, monday) == 1
 
 
+def test_max_slots_and_capital_enforcement_prevents_leverage(monkeypatch):
+    """Verify that no more than 5 slots can be filled and capital deployed never exceeds ₹100,000."""
+    import engine.dual_tracker as dt
+    from engine.dual_tracker import _save_tracker, _load_tracker, audit_and_update_dual_tracker, MAX_SLOTS, TOTAL_CAPITAL
+
+    # Mock fetch_live_quote so all tickers hit breakout trigger (high = 105.0 >= trigger 100.0)
+    monkeypatch.setattr(dt, "fetch_live_quote", lambda t: {"price": 105.0, "day_high": 105.0, "open": 101.0})
+
+    tracker = _load_tracker()
+    # Create 7 pending triggers for Option 3
+    tracker["option_3"]["pending_triggers"] = [
+        {
+            "ticker": f"STOCK{i}.NS",
+            "name": f"STOCK{i}",
+            "shortlist_date": "2026-11-16",
+            "pivot_trigger": 100.0,
+            "shares": 200,
+            "target_price": 112.0,
+            "stop_loss": 96.0,
+            "breakeven_lock": 105.0,
+            "status": "PENDING_BREAKOUT_TRIGGER",
+        }
+        for i in range(1, 8)
+    ]
+    tracker["option_3"]["open_trades"] = []
+    _save_tracker(tracker)
+
+    # Force audit where all triggers activate
+    audit_and_update_dual_tracker(force_market_open=True)
+
+    updated = _load_tracker()
+    open_trades = updated["option_3"]["open_trades"]
+    pending = updated["option_3"]["pending_triggers"]
+
+    # Exactly 5 slots filled, 2 remain queued
+    assert len(open_trades) == MAX_SLOTS == 5
+    assert len(pending) == 2
+    for p in pending:
+        assert p["status"] == "PENDING_SLOT_CAPACITY"
+
+    # Total deployed capital must not exceed TOTAL_CAPITAL (zero leverage)
+    deployed = sum(t["allocated_rupees"] for t in open_trades)
+    assert deployed <= TOTAL_CAPITAL
+    assert deployed >= 95000.0  # ~20k * 5
+
+
+def test_slippage_applied_on_entry_and_breakeven_lock_buffer(monkeypatch):
+    """Verify 0.25% slippage on entry and +0.6% breakeven lock buffer to cover statutory friction."""
+    import engine.dual_tracker as dt
+    from engine.dual_tracker import (
+        _save_tracker,
+        _load_tracker,
+        audit_and_update_dual_tracker,
+        SLIPPAGE_PCT,
+        BREAKEVEN_LOCK_PCT,
+    )
+
+    # Mock quote hitting breakout trigger
+    monkeypatch.setattr(dt, "fetch_live_quote", lambda t: {"price": 1010.0, "day_high": 1010.0, "open": 1005.0})
+
+    tracker = _load_tracker()
+    tracker["option_3"]["open_trades"] = []
+    tracker["option_3"]["pending_triggers"] = [
+        {
+            "ticker": "SLIPTEST.NS",
+            "name": "SLIPTEST",
+            "shortlist_date": "2026-11-16",
+            "pivot_trigger": 1000.0,
+            "shares": 20,
+            "target_price": 1120.0,
+            "stop_loss": 960.0,
+            "breakeven_lock": 1050.0,
+            "status": "PENDING_BREAKOUT_TRIGGER",
+        }
+    ]
+    _save_tracker(tracker)
+
+    audit_and_update_dual_tracker(force_market_open=True)
+
+    updated = _load_tracker()
+    assert len(updated["option_3"]["open_trades"]) == 1
+    trade = updated["option_3"]["open_trades"][0]
+
+    # Entry price must include slippage: 1000 * 1.0025 = 1002.50
+    expected_entry = round(1000.0 * (1.0 + SLIPPAGE_PCT), 2)
+    assert trade["entry_price"] == expected_entry
+
+    # Breakeven lock buffer must move stop to entry * (1 + 0.006) = 1002.50 * 1.006 = 1008.52
+    expected_be_stop = round(trade["entry_price"] * (1.0 + BREAKEVEN_LOCK_PCT), 2)
+    assert expected_be_stop > trade["entry_price"]
+
+
+

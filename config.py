@@ -114,6 +114,21 @@ RISK_CONFIG = {
     "stop_loss_basis": "daily_close", # Daily close basis prevents getting wicked out by intraday volatility
 }
 
+# ─── High-Velocity Swing & Forward Tournament Architecture (5 Slots @ ₹20k) ─────
+TOURNAMENT_CONFIG = {
+    "total_capital": 100000.0,
+    "max_slots": 5,
+    "slot_capital": 20000.0,
+    "target_pct": 0.12,               # +12.0% profit target
+    "stop_loss_pct": 0.04,            # -4.0% base stop loss
+    "breakeven_trigger_pct": 0.05,    # +5.0% gain to trigger breakeven lock
+    "breakeven_lock_pct": 0.006,      # +0.6% stop (covers 0.34% round-trip friction + 0.25% slippage cushion)
+    "slippage_pct": 0.0025,           # 0.25% slippage model on entries and exits
+    "velocity_kill_days": 3,          # 72 market hours (3 sessions)
+    "velocity_kill_min_pnl": 1.5,     # Must achieve > +1.5% by Day 3 or killed
+    "max_holding_days": 7,            # Hard exit after 7 trading sessions
+}
+
 # ─── Sector Relative Strength Dynamic Capital Allocation Multipliers ─────────
 # Deploys more capital into stocks belonging to sectors leading Nifty 50.
 SECTOR_ALLOCATION_MULTIPLIERS = {

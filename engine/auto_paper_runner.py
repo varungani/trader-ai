@@ -46,7 +46,7 @@ def run_once() -> dict:
     print(f"   • Closed Trades : {o2['closed_count']} completed")
     print(f"   • Win Rate      : {o2['win_rate']:.1f}%")
     print(f"   • Profit Factor : {o2['profit_factor']:.2f}")
-    print(f"   • Net P&L (INR) : ₹{o2['total_pnl_inr']:+,.2f} ({o2['total_pnl_pct']:+.2f}%)")
+    print(f"   • Net P&L (INR) : ₹{o2['total_pnl_inr']:+,.2f} ({o2['total_pnl_pct']:+.2f}% on ₹100k, {o2.get('roc_deployed_pct', 0.0):+.2f}% on deployed)")
     if o2["open_trades"]:
         print("   Active Positions:")
         for t in o2["open_trades"]:
@@ -55,11 +55,11 @@ def run_once() -> dict:
     print("-" * 70)
     print(f"🔵 Track B: Option 3 (GTT Buy-Stop Pivot Trigger):")
     print(f"   • Pending GTT   : {o3['pending_count']} awaiting breakout")
-    print(f"   • Open Trades   : {o3['open_count']} triggered & active")
+    print(f"   • Open Trades   : {o3['open_count']} triggered & active (max 5 slots)")
     print(f"   • Closed Trades : {o3['closed_count']} completed")
     print(f"   • Win Rate      : {o3['win_rate']:.1f}%")
     print(f"   • Profit Factor : {o3['profit_factor']:.2f}")
-    print(f"   • Net P&L (INR) : ₹{o3['total_pnl_inr']:+,.2f} ({o3['total_pnl_pct']:+.2f}%)")
+    print(f"   • Net P&L (INR) : ₹{o3['total_pnl_inr']:+,.2f} ({o3['total_pnl_pct']:+.2f}% on ₹100k, {o3.get('roc_deployed_pct', 0.0):+.2f}% on deployed)")
     if o3["open_trades"]:
         print("   Active Positions:")
         for t in o3["open_trades"]:
@@ -67,13 +67,13 @@ def run_once() -> dict:
 
     if oc:
         print("-" * 70)
-        print(f"⚡ Track C: Benchmark Velocity Sniper (Target +25%, SL -6%, 72h Gate):")
+        print(f"⚡ Track C: Benchmark Velocity Sniper (Target +12%, SL -4%, 72h Gate):")
         print(f"   • Pending GTT   : {oc.get('pending_count', 0)} awaiting breakout")
         print(f"   • Open Trades   : {oc.get('open_count', 0)} triggered & active")
         print(f"   • Closed Trades : {oc.get('closed_count', 0)} completed")
         print(f"   • Win Rate      : {oc.get('win_rate', 0.0):.1f}%")
         print(f"   • Profit Factor : {oc.get('profit_factor', 1.0):.2f}")
-        print(f"   • Net P&L (INR) : ₹{oc.get('total_pnl_inr', 0.0):+,.2f} ({oc.get('total_pnl_pct', 0.0):+.2f}%)")
+        print(f"   • Net P&L (INR) : ₹{oc.get('total_pnl_inr', 0.0):+,.2f} ({oc.get('total_pnl_pct', 0.0):+.2f}% on ₹100k, {oc.get('roc_deployed_pct', 0.0):+.2f}% on deployed)")
         if oc.get("open_trades"):
             print("   Active Positions:")
             for t in oc["open_trades"]:
@@ -101,15 +101,18 @@ def run_hawk_surveillance(
     fast_interval_sec: int = 20,
     scan_interval_min: int = 15,
     session_mode: bool = False,
+    session_target: str = "auto",
     max_cycles: Optional[int] = None,
 ) -> None:
     """
     Hawk Mode:
       - Gear 1 (every 20s): Audits active positions & pending GTT triggers (Dual Tracker).
       - Gear 2 (every 15m during market hours): Sweeps universe for live breakout ignitions.
-      - session_mode: Runs continuously during the trading day (09:15 to 15:30 IST),
-        sends post-market recap at 15:30 IST, and exits cleanly for GitHub Actions.
+      - session_mode: Runs continuously during the trading day with relay checkpoints:
+          * Morning Relay (09:10 - 12:30 IST): Saves midday snapshot cleanly under 3.5h.
+          * Afternoon Relay (12:30 - 15:35 IST): Audits close, dispatches Telegram recap, and commits.
     """
+    from datetime import time as dtime
     from bot.telegram_notifier import default_telegram_notifier
     from engine.apex_engine import run_apex_scan
     from engine.dual_tracker import log_today_picks, _load_tracker, _save_tracker
@@ -118,7 +121,7 @@ def run_hawk_surveillance(
     logger.info("🦅 [HAWK MODE ARMED] Starting dual-gear surveillance:")
     logger.info(f"   • Gear 1 (Position Shield): Polling every {fast_interval_sec}s for Breakeven Locks & Exits")
     logger.info(f"   • Gear 2 (Apex Ignition Radar): Sweeping every {scan_interval_min}m for Live Breakout Signals")
-    logger.info(f"   • Session Mode: {'ACTIVE (Runs until 15:30 IST)' if session_mode else 'Continuous Daemon'}")
+    logger.info(f"   • Session Mode: {'ACTIVE (' + session_target + ')' if session_mode else 'Continuous Daemon'}")
 
     tracker = _load_tracker()
     today_str = datetime.now().strftime("%Y-%m-%d")
@@ -135,16 +138,38 @@ def run_hawk_surveillance(
             today_str = now_ist.strftime("%Y-%m-%d")
             is_td, _ = is_trading_day(today_date)
 
-            # In Session Mode: Check if market session is done (past 15:30 IST on a trading day)
+            # In Session Mode: Check if relay target is reached
             if session_mode:
                 if not is_td:
                     logger.info("Today is not a trading day. Running single audit pass and exiting.")
                     run_once()
                     break
-                elif now_ist.time() >= NORMAL_MARKET_CLOSE:
-                    logger.info("⏰ [MARKET CLOSED] 03:30 PM IST reached. Running final post-market audit & recap...")
-                    final_summary = run_once()
-                    default_telegram_notifier.notify_daily_recap(final_summary)
+
+                midday_boundary = dtime(12, 30)
+                eod_boundary = NORMAL_MARKET_CLOSE  # 15:30
+
+                if session_target == "12:30":
+                    target_time = midday_boundary
+                    is_eod = False
+                elif session_target == "15:30":
+                    target_time = eod_boundary
+                    is_eod = True
+                else:  # auto
+                    if now_ist.time() < midday_boundary:
+                        target_time = midday_boundary
+                        is_eod = False
+                    else:
+                        target_time = eod_boundary
+                        is_eod = True
+
+                if now_ist.time() >= target_time:
+                    if is_eod:
+                        logger.info("⏰ [MARKET CLOSED] 03:30 PM IST reached. Running final post-market audit & daily recap...")
+                        final_summary = run_once()
+                        default_telegram_notifier.notify_daily_recap(final_summary)
+                    else:
+                        logger.info("⏰ [MIDDAY CHECKPOINT] 12:30 PM IST reached. Saving midday state cleanly for afternoon runner...")
+                        run_once()
                     break
 
             m_status = get_market_status(now_ist)
@@ -217,7 +242,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TraderAI Autonomous Paper Runner & Hawk Surveillance")
     parser.add_argument("--daemon", action="store_true", help="Run continuously every 5 minutes")
     parser.add_argument("--hawk", action="store_true", help="Run Hawk Mode: fast position tracking + live market sweep")
-    parser.add_argument("--session-mode", action="store_true", help="Run continuously until 15:30 IST market close (for GitHub Actions)")
+    parser.add_argument("--session-mode", action="store_true", help="Run continuously until relay target or 15:30 IST market close")
+    parser.add_argument("--session-target", type=str, default="auto", choices=["auto", "12:30", "15:30"], help="Session relay target (auto, 12:30, 15:30)")
     parser.add_argument("--fast-interval", type=int, default=20, help="Interval in seconds for fast position check (default: 20s)")
     parser.add_argument("--interval", type=int, default=300, help="Interval in seconds for daemon mode (default: 300 = 5 mins)")
     parser.add_argument("--scan-interval", type=int, default=15, help="Scan interval in minutes for hawk mode (default: 15 mins)")
@@ -229,6 +255,7 @@ if __name__ == "__main__":
             fast_interval_sec=args.fast_interval,
             scan_interval_min=args.scan_interval,
             session_mode=args.session_mode,
+            session_target=args.session_target,
             max_cycles=args.max_cycles,
         )
     elif args.daemon:
