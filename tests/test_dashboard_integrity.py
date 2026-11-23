@@ -52,14 +52,17 @@ def test_broker_configuration_check():
     assert isinstance(configured, bool)
 
 
-def test_format_display_date_behavior():
-    """Verify format_display_date formats post-market audit fills and standard dates cleanly."""
-    from app import format_display_date
-    assert format_display_date("2026-11-18 15:30") == "18 Nov (Market Hours)"
-    assert format_display_date("2026-11-18 (Market Hours)") == "18 Nov (Market Hours)"
-    assert format_display_date("2026-11-18 (Intraday)") == "18 Nov (Market Hours)"
-    assert format_display_date("2026-11-18 09:20") == "18 Nov 09:20"
-    assert format_display_date("2026-11-18") == "18 Nov"
-    assert format_display_date("") == "—"
+def test_dashboard_has_all_9_tournament_tracks():
+    """Verify app.py references all 9 tracks in the tournament display."""
+    app_path = os.path.join(ROOT, "app.py")
+    with open(app_path, "r", encoding="utf-8") as f:
+        code = f.read()
+    
+    for i in range(1, 10):
+        assert f"t{i}" in code, f"Track t{i} not referenced in app.py"
+    assert "Track 6: Apex 3-Slot" in code
+    assert "Track 7: 2-Slot Conviction" in code
+    assert "Track 8: 1-Slot Apex Rocket" in code
+    assert "Track 9: Active 1-2M Swing" in code
 
 

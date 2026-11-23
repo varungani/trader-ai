@@ -8,6 +8,9 @@ on:
     - cron: '0 10 * * 1-5'
   workflow_dispatch: # Allows manual 1-click trigger from GitHub Actions UI
 
+permissions:
+  contents: write
+
 jobs:
   build-and-test:
     name: Build, Test & Run Daily Apex Scan
@@ -16,6 +19,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -40,6 +45,23 @@ jobs:
         run: |
           python engine/apex_engine.py > daily_scan_output.txt
           cat daily_scan_output.txt
+
+      - name: Run Evening Tournament Snapshot & Analytics Archival
+        run: |
+          python -c "from engine.analytics import archive_evening_snapshot; res = archive_evening_snapshot(); print('Evening snapshot archived:', res)"
+
+      - name: Commit and Push Updated Tracker & Analytics Data
+        if: always()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action [TraderAI]"
+          git add data/*.json data/analytics/
+          if ! git diff --quiet || ! git diff --staged --quiet; then
+            git commit -m "chore(scan): 3:30 PM post-market scan & evening archive sync [skip ci]" || true
+            git pull --rebase origin master || true
+            git push origin master || true
+            git push origin master:production || true
+          fi
 
       - name: Upload Daily Scan Artifact
         uses: actions/upload-artifact@v4

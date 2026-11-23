@@ -42,10 +42,14 @@ def test_archive_evening_snapshot_creates_all_artifacts(temp_analytics_dir):
     assert os.path.exists(res["paths"]["ledger_jsonl"])
 
     # 1. Verify daily equity table
+    from engine.strategies.registry import default_registry
+    num_tracks = len(default_registry.all())
+    expected_track_ids = {s.track_id for s in default_registry.all()}
+
     df_eq = load_equity_df(temp_analytics_dir)
     assert not df_eq.empty
-    assert len(df_eq) == 5  # Exactly 5 tracks
-    assert set(df_eq["track_id"]) == {1, 2, 3, 4, 5}
+    assert len(df_eq) == num_tracks
+    assert set(df_eq["track_id"]) == expected_track_ids
     assert "available_cash" in df_eq.columns
     assert "total_net_pnl_inr" in df_eq.columns
 
@@ -56,13 +60,16 @@ def test_archive_evening_snapshot_creates_all_artifacts(temp_analytics_dir):
 
 
 def test_upsert_equity_does_not_duplicate_same_day(temp_analytics_dir):
+    from engine.strategies.registry import default_registry
+    num_tracks = len(default_registry.all())
+
     # Run once
     archive_evening_snapshot(output_dir=temp_analytics_dir, perform_audit=False, custom_date="2026-11-23")
     df1 = load_equity_df(temp_analytics_dir)
-    assert len(df1) == 5
+    assert len(df1) == num_tracks
 
     # Run again for the same date (e.g. re-running in evening)
     archive_evening_snapshot(output_dir=temp_analytics_dir, perform_audit=False, custom_date="2026-11-23")
     df2 = load_equity_df(temp_analytics_dir)
-    # Must still have exactly 5 rows (updated, not duplicated!)
-    assert len(df2) == 5
+    # Must still have exactly num_tracks rows (updated, not duplicated!)
+    assert len(df2) == num_tracks

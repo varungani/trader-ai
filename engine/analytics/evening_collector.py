@@ -89,13 +89,11 @@ def archive_evening_snapshot(
         json.dump(snapshot_payload, f, indent=2, default=str)
     logger.info(f"Saved EOD JSON snapshot -> {snapshot_path}")
 
-    # Track metadata mapping
+    # Track metadata mapping (dynamically sourced from StrategyRegistry)
+    from engine.strategies.registry import default_registry
     track_meta = [
-        (1, "track_algo4", "Track 1: Algo 4 (20-EMA Bounce Pivot)"),
-        (2, "option_3", "Track 2: Algo 1 (Morning Ignition Thrust)"),
-        (3, "track_algo5", "Track 3: Algo 5 (52W Breakaway Blast)"),
-        (4, "option_2", "Track 4: Algo 2 (Minervini VCP Squeeze)"),
-        (5, "track_c", "Track 5: Algo 3 (Benchmark Velocity Sniper)"),
+        (strat.track_id, strat.key, strat.name)
+        for strat in default_registry.all()
     ]
 
     # 3. Update track_daily_equity.csv

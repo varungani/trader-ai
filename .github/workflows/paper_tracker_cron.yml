@@ -52,9 +52,9 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action [TraderAI]"
-          git add data/dual_tracker.json data/track_algo*.json
+          git add data/*.json data/analytics/
           if ! git diff --quiet || ! git diff --staged --quiet; then
-            git commit -m "chore(paper): auto-audit 30-min live paper trades [skip ci]"
+            git commit -m "chore(paper): auto-audit 9-way live paper tournament [skip ci]"
             git pull --rebase origin master || true
             git push origin master || true
             git push origin master:production || true

@@ -28,28 +28,27 @@ logger = logging.getLogger("AutoPaperRunner")
 
 
 def run_once() -> dict:
-    """Run one pass of auditing and updating all active paper trades across 5 tracks."""
-    logger.info("Executing automated 5-way paper trade audit...")
+    """Run one pass of auditing and updating all active paper trades across all 9 parallel tournament tracks."""
+    logger.info("Executing automated 9-way parallel paper trade audit...")
     summary = audit_and_update_dual_tracker()
     
-    t1 = summary.get("track_algo4", {})
-    t2 = summary.get("option_3", {})
-    t3 = summary.get("track_algo5", {})
-    t4 = summary.get("option_2", {})
-    t5 = summary.get("track_c", {})
+    tracks_dict = summary.get("tracks", {})
     
-    print("\n" + "="*75)
-    print(f"📊 AUTOMATED 5-WAY PARALLEL PAPER TOURNAMENT — {summary.get('updated_at')}")
-    print("="*75)
+    print("\n" + "="*80)
+    print(f"📊 AUTOMATED 9-WAY PARALLEL PAPER TOURNAMENT — {summary.get('updated_at')}")
+    print("="*80)
     print(f"🏆 Overall Leader: {summary.get('winner')}")
-    print("-" * 75)
+    print("-" * 80)
 
-    def _print_track_block(badge: str, track_data: dict, is_silent: bool = False):
+    badges = ["🥇", "🚀", "⚡", "🛡️", "🎯", "💎", "🔥", "👑", "🌊"]
+
+    def _print_track_block(badge: str, track_data: dict):
         name = track_data.get("name", "Track")
+        is_silent = "Silent" in name or "Benchmark" in name
         mode = "[SILENT BENCHMARK - ALERTS MUTED]" if is_silent else "[ACTIVE ALPHA - TELEGRAM ARMED]"
         print(f"{badge} {name} {mode}:")
         print(f"   • Pending GTT   : {track_data.get('pending_count', 0)} awaiting trigger")
-        print(f"   • Open Trades   : {track_data.get('open_count', 0)} active (max 5 slots)")
+        print(f"   • Open Trades   : {track_data.get('open_count', 0)} active")
         print(f"   • Closed Trades : {track_data.get('closed_count', 0)} completed")
         print(f"   • Win Rate      : {track_data.get('win_rate', 0.0):.1f}%")
         print(f"   • Profit Factor : {track_data.get('profit_factor', 1.0):.2f}")
@@ -60,16 +59,12 @@ def run_once() -> dict:
             for t in track_data["open_trades"]:
                 print(f"     - {t['name']:<12} Entry: ₹{t['entry_price']:<9.2f} Cur: ₹{t['current_price']:<9.2f} PnL: {t['pnl_pct']:+.2f}% (₹{t['pnl_rupees']:+,.0f})")
 
-    _print_track_block("🥇", t1, is_silent=False)
-    print("-" * 75)
-    _print_track_block("🚀", t2, is_silent=False)
-    print("-" * 75)
-    _print_track_block("⚡", t3, is_silent=False)
-    print("-" * 75)
-    _print_track_block("🛡️", t4, is_silent=True)
-    print("-" * 75)
-    _print_track_block("🎯", t5, is_silent=True)
-    print("="*75 + "\n")
+    for idx, (t_key, t_data) in enumerate(tracks_dict.items()):
+        badge = badges[idx % len(badges)]
+        _print_track_block(badge, t_data)
+        print("-" * 80)
+
+    print("="*80 + "\n")
     return summary
 
 

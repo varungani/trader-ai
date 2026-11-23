@@ -328,6 +328,7 @@ class PortfolioAccount:
             "description": self.description,
             "capital": self.capital,
             "max_slots": self.max_slots,
+            "slot_capital": self.slot_capital,
             "pending_triggers": [p.to_dict() for p in self.pending_triggers],
             "pending_confirmations": [p.to_dict() for p in self.pending_confirmations],
             "open_trades": [p.to_dict() for p in self.positions],

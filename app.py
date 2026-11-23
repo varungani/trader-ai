@@ -316,23 +316,27 @@ with tab_picks:
                     m4.metric("Win Rate", f"{bt_res.get('win_rate', 0):.1f}%")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TAB 2: AUTOMATED LIVE PAPER TRACKER (5-WAY PARALLEL TOURNAMENT)
+# TAB 2: AUTOMATED LIVE PAPER TRACKER (9-WAY PARALLEL TOURNAMENT)
 # ─────────────────────────────────────────────────────────────────────────────
 with tab_paper:
     st.subheader("🛡️ Automated Paper Testing Journal")
-    st.caption("100% automated forward-tracking: All 5 strategies are automatically paper-traded and audited every 5 minutes during market hours with live MTM.")
+    st.caption("100% automated forward-tracking: All 9 strategies are automatically paper-traded and audited every 5 minutes during market hours with live MTM.")
 
-    # Periodic live audit across all 5 strategies
+    # Periodic live audit across all 9 strategies
     dual_summary = audit_and_update_dual_tracker()
     t1 = dual_summary.get("track_algo4", dual_summary.get("track_1", {}))
     t2 = dual_summary.get("option_3", dual_summary.get("track_2", {}))
     t3 = dual_summary.get("track_algo5", dual_summary.get("track_3", {}))
     t4 = dual_summary.get("option_2", dual_summary.get("track_4", {}))
     t5 = dual_summary.get("track_c", dual_summary.get("track_5", {}))
+    t6 = dual_summary.get("track_apex_compounder", dual_summary.get("track_6", {}))
+    t7 = dual_summary.get("track_conviction_2slot", dual_summary.get("track_7", {}))
+    t8 = dual_summary.get("track_apex_1slot", dual_summary.get("track_8", {}))
+    t9 = dual_summary.get("track_monthly_swing", dual_summary.get("track_9", {}))
 
     r_col1, r_col2 = st.columns([3, 1])
     with r_col1:
-        st.info(f"### {dual_summary.get('winner', 'TIE (Evaluating)')}\n\nLast auto-audited: **{dual_summary.get('updated_at')}** | Simulated Corpus: ₹1,00,000 per strategy across 5 equal slots (₹20,000 / slot)")
+        st.info(f"### {dual_summary.get('winner', 'TIE (Evaluating)')}\n\nLast auto-audited: **{dual_summary.get('updated_at')}** | Simulated Corpus: ₹1,00,000 per strategy with custom slot risk management.")
     with r_col2:
         if st.button("🔄 Force Audit Now", use_container_width=True):
             dual_summary = audit_and_update_dual_tracker()
@@ -351,6 +355,57 @@ with tab_paper:
             st.markdown("##### 3️⃣ Bought On (Market Hours Fill)")
             st.caption("Orders **ONLY execute during live NSE hours (09:15 AM – 03:30 PM IST)** when price crosses the trigger. If flat, zero risk & zero loss!")
 
+    st.markdown("### 💎 High-CAGR Apex Compounders & Swing Engines")
+    sc6, sc7, sc8, sc9 = st.columns(4)
+    with sc6:
+        with st.container(border=True):
+            st.markdown("#### 💎 Track 6: Apex 3-Slot")
+            st.caption("Apex 3-Slot Compounder [57.9% CAGR]. 10W EMA trail + base-on-base pyramid. Slots: 40/30/30.")
+            st.metric("Total P&L", f"₹{t6.get('total_pnl_inr', 0.0):+,.0f}", f"{t6.get('total_pnl_pct', 0.0):+.2f}%")
+            wr_label_t6 = f"{t6.get('win_rate', 0.0):.1f}%" if t6.get("closed_count", 0) > 0 else "— (0 Closed)"
+            st.metric("Win Rate", wr_label_t6)
+            pf_label_t6 = f"{t6.get('profit_factor', 1.0):.2f}" if t6.get("closed_count", 0) > 0 else "—"
+            st.metric("Profit Factor", pf_label_t6)
+            st.metric("Active Trades", f"{t6.get('open_count', 0)} open", f"{t6.get('pending_count', 0)} pending")
+            st.caption("🔔 Telegram: **Armed**")
+
+    with sc7:
+        with st.container(border=True):
+            st.markdown("#### 🔥 Track 7: Conviction 2-Slot")
+            st.caption("2-Slot Conviction Compounder [53.5% CAGR]. Maximum focus, 50% capital per slot.")
+            st.metric("Total P&L", f"₹{t7.get('total_pnl_inr', 0.0):+,.0f}", f"{t7.get('total_pnl_pct', 0.0):+.2f}%")
+            wr_label_t7 = f"{t7.get('win_rate', 0.0):.1f}%" if t7.get("closed_count", 0) > 0 else "— (0 Closed)"
+            st.metric("Win Rate", wr_label_t7)
+            pf_label_t7 = f"{t7.get('profit_factor', 1.0):.2f}" if t7.get("closed_count", 0) > 0 else "—"
+            st.metric("Profit Factor", pf_label_t7)
+            st.metric("Active Trades", f"{t7.get('open_count', 0)} open", f"{t7.get('pending_count', 0)} pending")
+            st.caption("🔔 Telegram: **Armed**")
+
+    with sc8:
+        with st.container(border=True):
+            st.markdown("#### 👑 Track 8: 1-Slot Rocket")
+            st.caption("1-Slot Apex Leader Rocket [66.9% CAGR]. 100% all-in single monster trend rider.")
+            st.metric("Total P&L", f"₹{t8.get('total_pnl_inr', 0.0):+,.0f}", f"{t8.get('total_pnl_pct', 0.0):+.2f}%")
+            wr_label_t8 = f"{t8.get('win_rate', 0.0):.1f}%" if t8.get("closed_count", 0) > 0 else "— (0 Closed)"
+            st.metric("Win Rate", wr_label_t8)
+            pf_label_t8 = f"{t8.get('profit_factor', 1.0):.2f}" if t8.get("closed_count", 0) > 0 else "—"
+            st.metric("Profit Factor", pf_label_t8)
+            st.metric("Active Trades", f"{t8.get('open_count', 0)} open", f"{t8.get('pending_count', 0)} pending")
+            st.caption("🔔 Telegram: **Armed**")
+
+    with sc9:
+        with st.container(border=True):
+            st.markdown("#### 🌊 Track 9: Monthly Swing")
+            st.caption("Active 1-to-2 Month Swing Engine [25.6% CAGR]. 4 slots, Day 21 stagnation filter.")
+            st.metric("Total P&L", f"₹{t9.get('total_pnl_inr', 0.0):+,.0f}", f"{t9.get('total_pnl_pct', 0.0):+.2f}%")
+            wr_label_t9 = f"{t9.get('win_rate', 0.0):.1f}%" if t9.get("closed_count", 0) > 0 else "— (0 Closed)"
+            st.metric("Win Rate", wr_label_t9)
+            pf_label_t9 = f"{t9.get('profit_factor', 1.0):.2f}" if t9.get("closed_count", 0) > 0 else "—"
+            st.metric("Profit Factor", pf_label_t9)
+            st.metric("Active Trades", f"{t9.get('open_count', 0)} open", f"{t9.get('pending_count', 0)} pending")
+            st.caption("🔔 Telegram: **Armed**")
+
+    st.markdown("### ⚡ Rapid Momentum & Benchmark Tracks")
     # 5-Way Parallel Tournament Scorecards
     sc1, sc2, sc3, sc4, sc5 = st.columns(5)
     with sc1:
@@ -529,7 +584,11 @@ with tab_paper:
             ])
             st.dataframe(df_closed, use_container_width=True)
 
-    tab_trk1, tab_trk2, tab_trk3, tab_trk4, tab_trk5 = st.tabs([
+    tab_trk6, tab_trk7, tab_trk8, tab_trk9, tab_trk1, tab_trk2, tab_trk3, tab_trk4, tab_trk5 = st.tabs([
+        "💎 Track 6: Apex 3-Slot (57.9%)",
+        "🔥 Track 7: 2-Slot Conviction (53.5%)",
+        "👑 Track 8: 1-Slot Apex Rocket (66.9%)",
+        "🌊 Track 9: Active 1-2M Swing (25.6%)",
         "🥇 Track 1: Algo 4 (20-EMA Bounce)",
         "🚀 Track 2: Algo 1 (Morning Ignition)",
         "⚡ Track 3: Algo 5 (52W Breakaway Blast)",
@@ -537,6 +596,14 @@ with tab_paper:
         "🎯 Track 5: Algo 3 (Benchmark Sniper)",
     ])
 
+    with tab_trk6:
+        render_track_details(t6, is_gtt=True, is_silent=False)
+    with tab_trk7:
+        render_track_details(t7, is_gtt=True, is_silent=False)
+    with tab_trk8:
+        render_track_details(t8, is_gtt=True, is_silent=False)
+    with tab_trk9:
+        render_track_details(t9, is_gtt=True, is_silent=False)
     with tab_trk1:
         render_track_details(t1, is_gtt=True, is_silent=False)
     with tab_trk2:

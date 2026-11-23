@@ -34,7 +34,7 @@ class TournamentService:
                 name=strat.name,
                 description=strat.description,
                 capital=100000.0,
-                max_slots=5,
+                max_slots=getattr(strat, "max_slots", 5),
                 slot_capital=strat.slot_capital,
             )
 
@@ -47,13 +47,15 @@ class TournamentService:
                 account = PortfolioAccount.from_dict(strat_data)
                 account.name = strat.name
                 account.description = strat.description
+                account.max_slots = getattr(strat, "max_slots", getattr(account, "max_slots", 5))
+                account.slot_capital = strat.slot_capital
                 self.accounts[strat.key] = account
             else:
                 self.accounts[strat.key] = PortfolioAccount(
                     name=strat.name,
                     description=strat.description,
                     capital=100000.0,
-                    max_slots=5,
+                    max_slots=getattr(strat, "max_slots", 5),
                     slot_capital=strat.slot_capital,
                 )
 
@@ -85,6 +87,10 @@ class TournamentService:
             "track_algo3_velocity.json": data.get("track_c", {}),
             "track_algo4_ema_bounce.json": data.get("track_algo4", {}),
             "track_algo5_rs_blast.json": data.get("track_algo5", {}),
+            "track_apex_compounder.json": data.get("track_apex_compounder", {}),
+            "track_conviction_2slot.json": data.get("track_conviction_2slot", {}),
+            "track_apex_1slot.json": data.get("track_apex_1slot", {}),
+            "track_monthly_swing.json": data.get("track_monthly_swing", {}),
         }
         base_dir = os.path.dirname(primary_file)
         for fname, content in algo_map.items():
@@ -169,21 +175,17 @@ class TournamentService:
                 "aborted_trades": aborted,
             }
 
-        s1 = _stats(self.accounts.get("track_algo4", PortfolioAccount()))
-        s2 = _stats(self.accounts.get("option_3", PortfolioAccount()))
-        s3 = _stats(self.accounts.get("track_algo5", PortfolioAccount()))
-        s4 = _stats(self.accounts.get("option_2", PortfolioAccount()))
-        s5 = _stats(self.accounts.get("track_c", PortfolioAccount()))
+        track_stats = {}
+        pnl_scores = []
+        total_closed = 0
+        for strat in self.registry.all():
+            acc = self.accounts.get(strat.key, PortfolioAccount())
+            st = _stats(acc)
+            track_stats[strat.key] = st
+            pnl_scores.append((strat.name, st["total_pnl_inr"]))
+            total_closed += st["closed_count"]
 
-        total_closed = s1["closed_count"] + s2["closed_count"] + s3["closed_count"] + s4["closed_count"] + s5["closed_count"]
-        pnl_scores = [
-            ("Track 1: Algo 4 (20-EMA Bounce Pivot)", s1["total_pnl_inr"]),
-            ("Track 2: Algo 1 (Option 3 Morning Ignition)", s2["total_pnl_inr"]),
-            ("Track 3: Algo 5 (52W Breakaway Blast)", s3["total_pnl_inr"]),
-            ("Track 4: Algo 2 (Option 2 Minervini VCP)", s4["total_pnl_inr"]),
-            ("Track 5: Algo 3 (Track C Benchmark Sniper)", s5["total_pnl_inr"]),
-        ]
-        best = max(pnl_scores, key=lambda x: x[1])
+        best = max(pnl_scores, key=lambda x: x[1]) if pnl_scores else ("None", 0.0)
         if best[1] != 0:
             if total_closed == 0:
                 winner = f"⚖️ Forward-Testing (MTM Leader: {best[0]} at ₹{best[1]:+,.2f})"
@@ -194,17 +196,26 @@ class TournamentService:
 
         return {
             "updated_at": self.updated_at,
-            # Backward-compatible keys
-            "option_2": s4,
-            "option_3": s2,
-            "track_c": s5,
-            "track_algo4": s1,
-            "track_algo5": s3,
-            # Numbered track aliases
-            "track_1": s1,
-            "track_2": s2,
-            "track_3": s3,
-            "track_4": s4,
-            "track_5": s5,
             "winner": winner,
+            "tracks": track_stats,
+            # Backward-compatible keys
+            "option_2": track_stats.get("option_2", {}),
+            "option_3": track_stats.get("option_3", {}),
+            "track_c": track_stats.get("track_c", {}),
+            "track_algo4": track_stats.get("track_algo4", {}),
+            "track_algo5": track_stats.get("track_algo5", {}),
+            "track_apex_compounder": track_stats.get("track_apex_compounder", {}),
+            "track_conviction_2slot": track_stats.get("track_conviction_2slot", {}),
+            "track_apex_1slot": track_stats.get("track_apex_1slot", {}),
+            "track_monthly_swing": track_stats.get("track_monthly_swing", {}),
+            # Numbered track aliases
+            "track_1": track_stats.get("track_algo4", {}),
+            "track_2": track_stats.get("option_3", {}),
+            "track_3": track_stats.get("track_algo5", {}),
+            "track_4": track_stats.get("option_2", {}),
+            "track_5": track_stats.get("track_c", {}),
+            "track_6": track_stats.get("track_apex_compounder", {}),
+            "track_7": track_stats.get("track_conviction_2slot", {}),
+            "track_8": track_stats.get("track_apex_1slot", {}),
+            "track_9": track_stats.get("track_monthly_swing", {}),
         }

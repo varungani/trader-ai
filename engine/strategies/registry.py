@@ -12,6 +12,10 @@ from engine.strategies.implementations import (
     BreakawayBlastStrategy,
     MinerviniVCPStrategy,
     VelocitySniperStrategy,
+    ApexCompounderStrategy,
+    Conviction2SlotStrategy,
+    ApexMonster1SlotStrategy,
+    SuperchargedMonthlySwingStrategy,
 )
 
 
@@ -33,11 +37,18 @@ class StrategyRegistry:
     @classmethod
     def create_default(cls) -> StrategyRegistry:
         reg = cls()
+        # Benchmark Tracks (Tracks 1 - 5)
         reg.register(EMABouncePivotStrategy())
         reg.register(MorningIgnitionStrategy())
         reg.register(BreakawayBlastStrategy())
         reg.register(MinerviniVCPStrategy())
         reg.register(VelocitySniperStrategy())
+
+        # Audited High-Alpha Empirical Compounders (Tracks 6 - 9)
+        reg.register(ApexCompounderStrategy())
+        reg.register(Conviction2SlotStrategy())
+        reg.register(ApexMonster1SlotStrategy())
+        reg.register(SuperchargedMonthlySwingStrategy())
         return reg
 
 

@@ -57,6 +57,7 @@ class BaseStrategy(ABC):
     breakeven_lock_pct: float = 0.006
     slippage_pct: float = 0.0025
     slot_capital: float = 20000.0
+    max_slots: int = 5
     anti_fomo_max_gap_pct: float = 0.025
     enable_velocity_kill: bool = True
     velocity_kill_days: int = 3
