@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-23 17:29:21",
+  "updated_at": "2026-11-23 18:48:59",
   "track": {
     "name": "Track 2: Algo 1 - Morning Ignition Thrust (Option 3) [Alpha Rocket]",
     "description": "GTT Buy-Stop trigger at consolidation pivot resistance with 09:30 AM volume run-rate check. Fills on breakout. Sells 50% at +5% T1 profit target, locks rest at breakeven + friction (+0.6%), trails runner with +12% target.",
