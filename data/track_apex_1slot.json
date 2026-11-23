@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-23 22:49:26",
+  "updated_at": "2026-11-23 17:29:21",
   "track": {
     "name": "Track 8: 1-Slot Apex Leader Rocket [66.9% CAGR]",
     "description": "Single-stock 100% conviction allocation (\u20b9100,000 all-in) into the #1 ranked Apex Rocket in India. Multi-stage base pyramiding on floating gains with Weekly 10W EMA trailing. Audited +66.91% 5Y CAGR, 8.25 Profit Factor.",
@@ -114,6 +114,24 @@
         "pattern": "INSTITUTIONAL_BLAST",
         "readiness": "APEX_COMPOUNDER",
         "sector": "General"
+      },
+      {
+        "ticker": "PRESTIGE.NS",
+        "name": "PRESTIGE",
+        "shortlist_date": "2026-11-23",
+        "log_date": "2026-11-23",
+        "fill_date": "",
+        "scan_price": 1691.5,
+        "pivot_trigger": 1706.65,
+        "target_price": 17066.5,
+        "stop_loss": 1587.18,
+        "breakeven_lock": 1791.98,
+        "shares": 58,
+        "planned_rupees": 98985.7,
+        "status": "PENDING_BREAKOUT_TRIGGER",
+        "pattern": "INSTITUTIONAL_BLAST",
+        "readiness": "APEX_COMPOUNDER",
+        "sector": "Infra"
       }
     ],
     "pending_confirmations": [],

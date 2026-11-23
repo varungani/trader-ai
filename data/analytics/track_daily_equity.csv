@@ -1,6 +1,10 @@
 date,track_id,track_key,track_name,available_cash,capital_deployed,floating_mtm_inr,realized_pnl_inr,total_net_pnl_inr,total_net_pnl_pct,roc_on_deployed_pct,open_positions_count,pending_triggers_count,closed_trades_count,win_rate,profit_factor
-2026-11-23,1,track_algo4,Track 1: Algo 4 (20-EMA Bounce Pivot),100000.0,0,0,0,0,0.0,0.0,0,9,0,0.0,1.0
-2026-11-23,2,option_3,Track 2: Algo 1 (Morning Ignition Thrust),100000.0,0,0,0,0,0.0,0.0,0,20,0,0.0,1.0
-2026-11-23,3,track_algo5,Track 3: Algo 5 (52W Breakaway Blast),100000.0,0,0,0,0,0.0,0.0,0,3,0,0.0,1.0
-2026-11-23,4,option_2,Track 4: Algo 2 (Minervini VCP Squeeze),100000.0,0,0,0,0,0.0,0.0,0,5,0,0.0,1.0
-2026-11-23,5,track_c,Track 5: Algo 3 (Benchmark Velocity Sniper),100000.0,0,0,0,0,0.0,0.0,0,9,0,0.0,1.0
+2026-11-23,1,track_algo4,Track 1: Algo 4 - Confirmed 20-EMA Bounce Pivot [Alpha Leader],100000.0,0,0,0,0,0.0,0.0,0,23,0,0.0,1.0
+2026-11-23,2,option_3,Track 2: Algo 1 - Morning Ignition Thrust (Option 3) [Alpha Rocket],100000.0,0,0,0,0,0.0,0.0,0,33,0,0.0,1.0
+2026-11-23,3,track_algo5,Track 3: Algo 5 - High-RS 52W Breakaway Blast [Momentum Runner],100000.0,0,0,0,0,0.0,0.0,0,5,0,0.0,1.0
+2026-11-23,4,option_2,Track 4: Algo 2 - Minervini VCP Squeeze (Option 2) [Silent Benchmark],100000.0,0,0,0,0,0.0,0.0,0,9,0,0.0,1.0
+2026-11-23,5,track_c,Track 5: Algo 3 - Benchmark Velocity Sniper [Silent Benchmark],100000.0,0,0,0,0,0.0,0.0,0,28,0,0.0,1.0
+2026-11-23,6,track_apex_compounder,Track 6: Apex 3-Slot Compounder [57.9% CAGR],100000.0,0,0,0,0,0.0,0.0,0,21,0,0.0,1.0
+2026-11-23,7,track_conviction_2slot,Track 7: 2-Slot Conviction Compounder [53.5% CAGR],100000.0,0,0,0,0,0.0,0.0,0,14,0,0.0,1.0
+2026-11-23,8,track_apex_1slot,Track 8: 1-Slot Apex Leader Rocket [66.9% CAGR],100000.0,0,0,0,0,0.0,0.0,0,7,0,0.0,1.0
+2026-11-23,9,track_monthly_swing,Track 9: Active 1-to-2 Month Swing Engine [25.6% CAGR],100000.0,0,0,0,0,0.0,0.0,0,28,0,0.0,1.0
