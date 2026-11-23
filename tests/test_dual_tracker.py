@@ -140,13 +140,21 @@ def test_can_trigger_breakout_market_rules():
 
     # 2. Same-day evening scan (shortlisted today) cannot trigger when market is closed
     today_str = datetime.now().strftime("%Y-%m-%d")
-    # Outside market hours, a stock shortlisted today should not trigger
-    # Note: If test runs outside market hours, this returns False
     from data.market_calendar import get_market_status
     mkt = get_market_status()
     if not mkt.get("is_open"):
         can_exec_today, _ = _can_trigger_breakout(today_str, force_market_open=False)
         assert can_exec_today is False
+
+    # 3. Pre-market morning hours (before 09:15 AM) on a trading day: pending triggers CANNOT execute
+    from unittest.mock import patch
+    from datetime import datetime as real_datetime
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo("Asia/Kolkata")
+    fake_morning = real_datetime(2026, 11, 23, 8, 5, 0, tzinfo=tz)  # 08:05 AM Monday
+    with patch("engine.strategies.base.get_ist_now", return_value=fake_morning):
+        can_exec_morning, _ = _can_trigger_breakout("2026-11-22", force_market_open=False)
+        assert can_exec_morning is False
 
 
 def test_log_today_picks_sets_shortlist_and_fill_dates(sample_picks):

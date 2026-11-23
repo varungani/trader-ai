@@ -33,10 +33,12 @@ def can_trigger_breakout(shortlist_date_str: str, force_market_open: bool = Fals
     if mkt.get("is_open", False):
         return True, now.strftime("%Y-%m-%d %H:%M")
 
-    # 2. Market is currently closed: verify if today was a trading day and order was pre-placed
+    # 2. Market is currently closed: verify if today was a trading day and the session has concluded
+    # A GTT trigger can NEVER execute before market opens at 09:15 AM IST!
     is_td, _ = is_trading_day(now.date())
     if is_td and shortlist_date_str and str(shortlist_date_str) < today_str:
-        return True, f"{today_str} (Market Hours)"
+        if now.time() >= dtime(15, 30):
+            return True, f"{today_str} (Market Hours)"
 
     return False, ""
 
