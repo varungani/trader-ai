@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-23 18:48:59",
+  "updated_at": "2026-11-23 21:49:04",
   "track": {
     "name": "Track 8: 1-Slot Apex Leader Rocket [66.9% CAGR]",
     "description": "Single-stock 100% conviction allocation (\u20b9100,000 all-in) into the #1 ranked Apex Rocket in India. Multi-stage base pyramiding on floating gains with Weekly 10W EMA trailing. Audited +66.91% 5Y CAGR, 8.25 Profit Factor.",
@@ -132,6 +132,24 @@
         "pattern": "INSTITUTIONAL_BLAST",
         "readiness": "APEX_COMPOUNDER",
         "sector": "Infra"
+      },
+      {
+        "ticker": "FEDERALBNK.NS",
+        "name": "FEDERALBNK",
+        "shortlist_date": "2026-11-24",
+        "log_date": "2026-11-24",
+        "fill_date": "",
+        "scan_price": 365.8,
+        "pivot_trigger": 374.85,
+        "target_price": 3748.5,
+        "stop_loss": 348.61,
+        "breakeven_lock": 393.59,
+        "shares": 266,
+        "planned_rupees": 99710.1,
+        "status": "PENDING_BREAKOUT_TRIGGER",
+        "pattern": "52W_HIGH_BREAKOUT",
+        "readiness": "APEX_COMPOUNDER",
+        "sector": "Banking"
       }
     ],
     "pending_confirmations": [],

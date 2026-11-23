@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-23 18:48:59",
+  "updated_at": "2026-11-23 21:49:04",
   "track": {
     "name": "Track 7: 2-Slot Conviction Compounder [53.5% CAGR]",
     "description": "2 Conviction Slots (50/50 allocation = \u20b950,000 each). Weekly 10W EMA trailing stop, Base-on-Base Pyramiding (+35% size add-on when gain >= +25%), -7% hard stop. Audited +53.49% 5Y CAGR, 4.74 Profit Factor.",
@@ -258,6 +258,42 @@
         "pattern": "INSTITUTIONAL_BLAST",
         "readiness": "APEX_COMPOUNDER",
         "sector": "General"
+      },
+      {
+        "ticker": "FEDERALBNK.NS",
+        "name": "FEDERALBNK",
+        "shortlist_date": "2026-11-24",
+        "log_date": "2026-11-24",
+        "fill_date": "",
+        "scan_price": 365.8,
+        "pivot_trigger": 374.85,
+        "target_price": 3748.5,
+        "stop_loss": 348.61,
+        "breakeven_lock": 393.59,
+        "shares": 133,
+        "planned_rupees": 49855.05,
+        "status": "PENDING_BREAKOUT_TRIGGER",
+        "pattern": "52W_HIGH_BREAKOUT",
+        "readiness": "APEX_COMPOUNDER",
+        "sector": "Banking"
+      },
+      {
+        "ticker": "IDFCFIRSTB.NS",
+        "name": "IDFCFIRSTB",
+        "shortlist_date": "2026-11-24",
+        "log_date": "2026-11-24",
+        "fill_date": "",
+        "scan_price": 87.26,
+        "pivot_trigger": 87.75,
+        "target_price": 877.5,
+        "stop_loss": 81.61,
+        "breakeven_lock": 92.14,
+        "shares": 569,
+        "planned_rupees": 49929.75,
+        "status": "PENDING_BREAKOUT_TRIGGER",
+        "pattern": "52W_HIGH_BREAKOUT",
+        "readiness": "APEX_COMPOUNDER",
+        "sector": "Banking"
       }
     ],
     "pending_confirmations": [],
