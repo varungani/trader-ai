@@ -555,3 +555,86 @@ def test_silent_benchmarks_do_not_send_telegram_alerts(monkeypatch):
 
 
 
+
+def test_day0_pre_entry_morning_dip_does_not_stop_out_profitable_trade():
+    """Verify that a morning dip before entry on Day 0 does not trigger stop loss for a profitable position."""
+    from datetime import date
+    from engine.domain.models import Position
+    pos = Position(
+        ticker="INTRADAY.NS",
+        name="INTRADAY",
+        entry_date="2026-11-23",
+        shortlist_date="2026-11-22",
+        fill_date="2026-11-23 11:30",
+        entry_price=100.0,
+        current_price=101.0,
+        stop_loss=96.0,
+        target_price=112.0,
+        breakeven_lock=105.0,
+        shares=100,
+        allocated_rupees=10000.0,
+        days_held=0,
+    )
+    # Morning low was 95.0 (below stop 96.0), but cur_px is 101.0 (in profit!)
+    pos.update_quote(cur_px=101.0, high_px=102.0, low_px=95.0, today=date(2026, 11, 23))
+    is_closed, reason, exit_px = pos.evaluate_exit(high_px=102.0, low_px=95.0, cur_px=101.0)
+    assert not is_closed, f"Position should not close from pre-entry dip! Got {reason}"
+    assert pos.pnl_pct == 1.0
+
+
+def test_day0_actual_drop_after_entry_stops_out_trade():
+    """Verify that if live price drops below stop loss after entry on Day 0, it is stopped out properly."""
+    from datetime import date
+    from engine.domain.models import Position
+    pos = Position(
+        ticker="DUMP.NS",
+        name="DUMP",
+        entry_date="2026-11-23",
+        shortlist_date="2026-11-22",
+        fill_date="2026-11-23 11:30",
+        entry_price=100.0,
+        current_price=100.0,
+        stop_loss=96.0,
+        target_price=112.0,
+        breakeven_lock=105.0,
+        shares=100,
+        allocated_rupees=10000.0,
+        days_held=0,
+    )
+    # Price actually drops to 95.0 after entry
+    pos.update_quote(cur_px=95.0, high_px=100.0, low_px=95.0, today=date(2026, 11, 23))
+    is_closed, reason, exit_px = pos.evaluate_exit(high_px=100.0, low_px=95.0, cur_px=95.0)
+    assert is_closed, "Position must close when current price falls below stop loss!"
+    assert "STOP_LOSS_HIT" in reason
+    assert exit_px < 96.0
+
+
+def test_track4_uses_ist_for_920_open_confirmation(monkeypatch):
+    """Verify that Track 4 uses IST time so remote cloud deployments (running UTC) evaluate 09:20 AM correctly."""
+    from datetime import datetime, date, time as dtime
+    from zoneinfo import ZoneInfo
+    from engine.domain.models import PortfolioAccount, GTTOrder
+    from engine.strategies.implementations import MinerviniVCPStrategy
+
+    strat = MinerviniVCPStrategy()
+    acc = PortfolioAccount(name="Track 4", capital=100000.0)
+    acc.pending_confirmations.append(
+        GTTOrder(
+            ticker="VCP_TEST.NS",
+            name="VCP_TEST",
+            shortlist_date="2026-11-22",
+            scheduled_date="2026-11-23",
+            scan_price=100.0,
+            shares=100,
+            status="AWAITING_920_OPEN",
+        )
+    )
+
+    # Mock IST time as 09:25 AM IST (on UTC server, UTC would be 03:55 AM)
+    fake_ist = datetime(2026, 11, 23, 9, 25, tzinfo=ZoneInfo("Asia/Kolkata"))
+    monkeypatch.setattr("engine.strategies.implementations.get_ist_now", lambda: fake_ist)
+    monkeypatch.setattr("engine.strategies.implementations.fetch_live_quote", lambda t: {"open": 100.5, "price": 101.0})
+
+    strat.audit_pending(acc, "2026-11-23", date(2026, 11, 23), force_market_open=False)
+    assert len(acc.positions) == 1, "Track 4 must confirm and fill at 09:25 IST regardless of server host UTC timezone!"
+    assert acc.positions[0].ticker == "VCP_TEST.NS"

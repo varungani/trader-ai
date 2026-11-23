@@ -23,7 +23,7 @@ def can_trigger_breakout(shortlist_date_str: str, force_market_open: bool = Fals
     Returns: (can_execute, fill_timestamp_str)
     """
     if force_market_open:
-        return True, datetime.now().strftime("%Y-%m-%d %H:%M")
+        return True, get_ist_now().strftime("%Y-%m-%d %H:%M")
 
     now = get_ist_now()
     today_str = now.strftime("%Y-%m-%d")
@@ -121,7 +121,7 @@ class BaseStrategy(ABC):
             # Trigger only during market hours when price hit or crossed pivot resistance
             if can_exec and high_px >= trigger_px:
                 # 1. Anti-FOMO Gap Ceiling: Never chase if opened > +2.5% above trigger
-                open_px = float(quote.get("open") or 0.0)
+                open_px = float(quote.get("open") or quote.get("price") or 0.0)
                 if open_px > 0 and open_px > trigger_px * (1.0 + self.anti_fomo_max_gap_pct):
                     logger.info(f"🚫 [Anti-FOMO Abort] {ticker} opened @ ₹{open_px:.2f} (> +{self.anti_fomo_max_gap_pct*100}% above trigger). Aborting chase.")
                     pending.status = "FOMO_GAP_ABORTED"

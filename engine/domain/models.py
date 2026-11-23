@@ -95,6 +95,8 @@ class Position:
     realized_pnl_inr: float = 0.0
     alert_be_lock_sent: bool = False
     gap_pct: float = 0.0
+    highest_since_entry: float = 0.0
+    lowest_since_entry: float = 0.0
 
     def __post_init__(self):
         if not self.name:
@@ -103,6 +105,11 @@ class Position:
             self.orig_shares = self.shares
         if not self.allocated_rupees and self.shares > 0 and self.entry_price > 0:
             self.allocated_rupees = round(self.shares * self.entry_price, 2)
+        if self.entry_price > 0:
+            if not self.highest_since_entry:
+                self.highest_since_entry = self.entry_price
+            if not self.lowest_since_entry:
+                self.lowest_since_entry = self.entry_price
 
     def update_quote(self, cur_px: float, high_px: float, low_px: float, today: date) -> None:
         """Update live quote and mark-to-market calculations."""
@@ -115,6 +122,18 @@ class Position:
             self.days_held = count_trading_days(entry_d, today)
         except Exception:
             self.days_held = 1
+
+        # Track extremes strictly after entry
+        base_low = self.lowest_since_entry if self.lowest_since_entry > 0 else (self.entry_price or cur_px)
+        base_high = self.highest_since_entry if self.highest_since_entry > 0 else (self.entry_price or cur_px)
+        if self.days_held == 0:
+            # Intraday Day 0: only prices reached at or after entry count
+            self.lowest_since_entry = min(base_low, cur_px) if cur_px > 0 else base_low
+            self.highest_since_entry = max(base_high, cur_px) if cur_px > 0 else base_high
+        else:
+            # Held overnight: entire trading session high/low applies
+            self.lowest_since_entry = min(base_low, low_px if low_px > 0 else cur_px)
+            self.highest_since_entry = max(base_high, high_px if high_px > 0 else cur_px)
 
     def process_t1_harvest(
         self,
@@ -129,7 +148,8 @@ class Position:
         and returns alert metadata if an alert should be dispatched.
         """
         be_trigger = self.breakeven_lock
-        if high_px < be_trigger and cur_px < be_trigger:
+        eff_high = cur_px if self.days_held == 0 else max(high_px if high_px > 0 else cur_px, cur_px)
+        if eff_high < be_trigger and cur_px < be_trigger:
             return None
 
         # Case 1: First time touching +5.0% and has at least 2 shares to split
@@ -190,16 +210,21 @@ class Position:
     ) -> Tuple[bool, str, float]:
         """
         Conservative Stop-First Intrabar Exit Evaluation.
+        On Day 0 (days_held == 0), price extremes occurring before entry are ignored.
+        On Day >= 1 (held overnight), full session low_px and high_px apply.
         Returns: (is_closed, exit_reason, exit_price)
         """
+        eff_low = cur_px if self.days_held == 0 else (low_px if low_px > 0 else cur_px)
+        eff_high = cur_px if self.days_held == 0 else (high_px if high_px > 0 else cur_px)
+
         # 1. Stop Loss Hit / Breakeven Lock Hit (Conservative Stop-First Ordering)
-        if low_px <= self.stop_loss or cur_px <= self.stop_loss:
+        if eff_low <= self.stop_loss or cur_px <= self.stop_loss:
             reason = "BREAKEVEN_LOCK_HIT (Zero Loss)" if self.is_breakeven_locked else "STOP_LOSS_HIT (-4% Base Floor)"
             exit_px = round(self.stop_loss * (1.0 - slippage_pct), 2)
             return True, reason, exit_px
 
         # 2. Target Hit (+12% Velocity)
-        if high_px >= self.target_price or cur_px >= self.target_price:
+        if eff_high >= self.target_price or cur_px >= self.target_price:
             reason = "TARGET_HIT (+12% Velocity)"
             exit_px = round(self.target_price * (1.0 - slippage_pct), 2)
             return True, reason, exit_px
