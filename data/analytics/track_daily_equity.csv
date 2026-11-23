@@ -1,0 +1,6 @@
+date,track_id,track_key,track_name,available_cash,capital_deployed,floating_mtm_inr,realized_pnl_inr,total_net_pnl_inr,total_net_pnl_pct,roc_on_deployed_pct,open_positions_count,pending_triggers_count,closed_trades_count,win_rate,profit_factor
+2026-11-23,1,track_algo4,Track 1: Algo 4 (20-EMA Bounce Pivot),100000.0,0,0,0,0,0.0,0.0,0,6,0,0.0,1.0
+2026-11-23,2,option_3,Track 2: Algo 1 (Morning Ignition Thrust),100000.0,0,0,0,0,0.0,0.0,0,20,0,0.0,1.0
+2026-11-23,3,track_algo5,Track 3: Algo 5 (52W Breakaway Blast),100000.0,0,0,0,0,0.0,0.0,0,3,0,0.0,1.0
+2026-11-23,4,option_2,Track 4: Algo 2 (Minervini VCP Squeeze),100000.0,0,0,0,0,0.0,0.0,0,5,0,0.0,1.0
+2026-11-23,5,track_c,Track 5: Algo 3 (Benchmark Velocity Sniper),100000.0,0,0,0,0,0.0,0.0,0,6,0,0.0,1.0

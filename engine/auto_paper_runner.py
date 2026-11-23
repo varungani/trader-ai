@@ -157,6 +157,12 @@ def run_hawk_surveillance(
                     if is_eod:
                         logger.info("⏰ [MARKET CLOSED] 03:30 PM IST reached. Running final post-market audit & daily recap...")
                         final_summary = run_once()
+                        try:
+                            from engine.analytics.evening_collector import archive_evening_snapshot
+                            logger.info("📦 Archiving evening snapshot & updating local analytics ledger...")
+                            archive_evening_snapshot()
+                        except Exception as snap_err:
+                            logger.error(f"Failed to archive evening snapshot: {snap_err}", exc_info=True)
                         default_telegram_notifier.notify_daily_recap(final_summary)
                     else:
                         logger.info("⏰ [MIDDAY CHECKPOINT] 12:30 PM IST reached. Saving midday state cleanly for afternoon runner...")
@@ -239,6 +245,7 @@ if __name__ == "__main__":
     parser.add_argument("--interval", type=int, default=300, help="Interval in seconds for daemon mode (default: 300 = 5 mins)")
     parser.add_argument("--scan-interval", type=int, default=15, help="Scan interval in minutes for hawk mode (default: 15 mins)")
     parser.add_argument("--max-cycles", type=int, default=None, help="Optional max loop iterations")
+    parser.add_argument("--archive", action="store_true", help="Run audit and immediately archive evening snapshot")
     args = parser.parse_args()
 
     if args.hawk:
@@ -253,4 +260,7 @@ if __name__ == "__main__":
         run_daemon(args.interval)
     else:
         run_once()
+        if args.archive:
+            from engine.analytics.evening_collector import archive_evening_snapshot
+            archive_evening_snapshot()
 
