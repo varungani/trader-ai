@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-23 12:18:12",
+  "updated_at": "2026-11-23 17:53:39",
   "track": {
     "name": "Track 4: Algo 2 - Minervini VCP Squeeze [Silent Benchmark]",
     "description": "Checks open at 9:20 AM after VCP volatility contraction. Fills on normal open (-0.5% to +1.5%), aborts bad gap downs (<-1.5%). Banks 50% at +5% T1, locks rest at breakeven + friction (+0.6%), Target +12%. Muted alerts.",
