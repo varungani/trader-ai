@@ -58,6 +58,7 @@ NSE_HOLIDAYS: dict[str, str] = {
     "2026-10-02": "Mahatma Gandhi Jayanti",
     "2026-10-20": "Dussehra",
     "2026-11-08": "Diwali Laxmi Pujan (Muhurat Trading)",
+    "2026-11-24": "Guru Nanak Jayanti",
     "2026-12-25": "Christmas",
 }
 
