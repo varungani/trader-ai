@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-24 10:52:35",
+  "updated_at": "2026-11-24 05:27:42",
   "track": {
     "name": "Track 7: 2-Slot Conviction Compounder [53.5% CAGR]",
     "description": "2 Conviction Slots (50/50 allocation = \u20b950,000 each). Weekly 10W EMA trailing stop, Base-on-Base Pyramiding (+35% size add-on when gain >= +25%), -7% hard stop. Audited +53.49% 5Y CAGR, 4.74 Profit Factor.",
@@ -239,6 +239,42 @@
         "status": "PENDING_SLOT_CAPACITY",
         "pattern": "52W_HIGH_BREAKOUT",
         "readiness": "APEX_COMPOUNDER",
+        "sector": "Banking"
+      },
+      {
+        "ticker": "SUBEXLTD.NS",
+        "name": "SUBEXLTD",
+        "shortlist_date": "2026-11-24",
+        "log_date": "2026-11-24",
+        "fill_date": "",
+        "scan_price": 17.51,
+        "pivot_trigger": 19.25,
+        "target_price": 192.5,
+        "stop_loss": 17.9,
+        "breakeven_lock": 20.21,
+        "shares": 2597,
+        "planned_rupees": 49992.25,
+        "status": "PENDING_BREAKOUT_TRIGGER",
+        "pattern": "INSTITUTIONAL_IGNITION",
+        "readiness": "APEX_COMPOUNDER",
+        "sector": "General"
+      },
+      {
+        "ticker": "HDFCBANK.NS",
+        "name": "HDFCBANK",
+        "shortlist_date": "2026-11-24",
+        "log_date": "2026-11-24",
+        "fill_date": "",
+        "scan_price": 814.95,
+        "pivot_trigger": 861.0,
+        "target_price": 8610.0,
+        "stop_loss": 800.73,
+        "breakeven_lock": 904.05,
+        "shares": 58,
+        "planned_rupees": 49938.0,
+        "status": "PENDING_BREAKOUT_TRIGGER",
+        "pattern": "PRE_IGNITION_COIL",
+        "readiness": "\u23f3 COILING AT 52W HIGH (Awaiting Blast)",
         "sector": "Banking"
       }
     ],
