@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-24 09:30:36",
+  "updated_at": "2026-11-24 04:06:26",
   "track": {
     "name": "Track 8: 1-Slot Apex Leader Rocket [66.9% CAGR]",
     "description": "Single-stock 100% conviction allocation (\u20b9100,000 all-in) into the #1 ranked Apex Rocket in India. Multi-stage base pyramiding on floating gains with Weekly 10W EMA trailing. Audited +66.91% 5Y CAGR, 8.25 Profit Factor.",
@@ -132,6 +132,24 @@
         "pattern": "52W_HIGH_BREAKOUT",
         "readiness": "APEX_COMPOUNDER",
         "sector": "Banking"
+      },
+      {
+        "ticker": "JSWINFRA.NS",
+        "name": "JSWINFRA",
+        "shortlist_date": "2026-11-24",
+        "log_date": "2026-11-24",
+        "fill_date": "",
+        "scan_price": 341.25,
+        "pivot_trigger": 355.65,
+        "target_price": 3556.5,
+        "stop_loss": 330.75,
+        "breakeven_lock": 373.43,
+        "shares": 281,
+        "planned_rupees": 99937.65,
+        "status": "PENDING_BREAKOUT_TRIGGER",
+        "pattern": "INSTITUTIONAL_BLAST",
+        "readiness": "APEX_COMPOUNDER",
+        "sector": "General"
       }
     ],
     "pending_confirmations": [],
