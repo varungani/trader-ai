@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-24 18:26:10",
+  "updated_at": "2026-11-24 20:26:20",
   "track": {
     "name": "Track 1: Algo 4 - Confirmed 20-EMA Bounce Pivot [Alpha Leader]",
     "description": "Tests 20-day EMA on drying volume and triggers on break of prior high with RVOL >= 1.5x. Sells 50% at +5% T1, trails stop to breakeven (+0.6%), target +12%. Audited +75.0% 5Y CAGR, 67.6% Win Rate, -8.5% DD.",

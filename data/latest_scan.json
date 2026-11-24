@@ -4,15 +4,15 @@
   "nifty_cleared": true,
   "regime_desc": "Market regime healthy",
   "capital": 100000.0,
-  "total_deployed": 96533.39,
-  "cash_remaining": 3466.61,
+  "total_deployed": 96502.17,
+  "cash_remaining": 3497.83,
   "slot_count": 5,
   "picks": [
     {
       "ticker": "AJMERA.NS",
       "name": "AJMERA",
       "action": "STRONG_BUY",
-      "final_score": 82.3,
+      "final_score": 82.9,
       "pattern": "ULTRA_ALPHA_LEADER",
       "rvol": 11.83,
       "rs_vs_nifty": 16.99,
@@ -34,13 +34,13 @@
       "holding_window": "3 to 7 Sessions (Velocity Gate)",
       "stop_basis": "Daily Close Base Support",
       "tier": "TIER_1_EXECUTION",
-      "rationale": "[INSTITUTIONAL_IGNITION] High-Conviction Super-Mover BUY: Multi-factor score (82.3) cleared institutional edge gates with confirmed volume conviction (6.67x RVOL)."
+      "rationale": "[INSTITUTIONAL_IGNITION] High-Conviction Super-Mover BUY: Multi-factor score (82.9) cleared institutional edge gates with confirmed volume conviction (6.67x RVOL)."
     },
     {
       "ticker": "PRESTIGE.NS",
       "name": "PRESTIGE",
       "action": "STRONG_BUY",
-      "final_score": 87.8,
+      "final_score": 88.9,
       "pattern": "INSTITUTIONAL_BLAST",
       "rvol": 2.99,
       "rs_vs_nifty": 7.58,
@@ -62,13 +62,13 @@
       "holding_window": "3 to 7 Sessions (Velocity Gate)",
       "stop_basis": "Daily Close Base Support",
       "tier": "TIER_1_EXECUTION",
-      "rationale": "[VCP_BREAKOUT] High-Conviction Super-Mover BUY: Multi-factor score (87.8) cleared institutional edge gates with confirmed volume conviction (1.26x RVOL)."
+      "rationale": "[VCP_BREAKOUT] High-Conviction Super-Mover BUY: Multi-factor score (88.9) cleared institutional edge gates with confirmed volume conviction (1.26x RVOL)."
     },
     {
       "ticker": "JSWINFRA.NS",
       "name": "JSWINFRA",
       "action": "BUY",
-      "final_score": 67.9,
+      "final_score": 68.1,
       "pattern": "INSTITUTIONAL_BLAST",
       "rvol": 2.47,
       "rs_vs_nifty": -0.46,
@@ -90,13 +90,13 @@
       "holding_window": "3 to 7 Sessions (Velocity Gate)",
       "stop_basis": "Daily Close Base Support",
       "tier": "TIER_1_EXECUTION",
-      "rationale": "[VCP_BREAKOUT] High-Conviction Super-Mover BUY: Multi-factor score (67.9) cleared institutional edge gates with confirmed volume conviction (1.29x RVOL)."
+      "rationale": "[VCP_BREAKOUT] High-Conviction Super-Mover BUY: Multi-factor score (68.1) cleared institutional edge gates with confirmed volume conviction (1.29x RVOL)."
     },
     {
       "ticker": "PHOENIXLTD.NS",
       "name": "PHOENIXLTD",
       "action": "STRONG_BUY",
-      "final_score": 76.0,
+      "final_score": 76.3,
       "pattern": "PRE_IGNITION_COIL",
       "rvol": 1.51,
       "rs_vs_nifty": 8.79,
@@ -118,35 +118,35 @@
       "holding_window": "3 to 7 Sessions (Velocity Gate)",
       "stop_basis": "Daily Close Base Support",
       "tier": "TIER_1_EXECUTION",
-      "rationale": "[SUPER_MOVER_COIL_IGNITION] High-Conviction Super-Mover BUY: Multi-factor score (76.0) cleared institutional edge gates with confirmed volume conviction (1.77x RVOL)."
+      "rationale": "[SUPER_MOVER_COIL_IGNITION] High-Conviction Super-Mover BUY: Multi-factor score (76.3) cleared institutional edge gates with confirmed volume conviction (1.77x RVOL)."
     },
     {
-      "ticker": "SUBEXLTD.NS",
-      "name": "SUBEXLTD",
-      "action": "STRONG_BUY",
-      "final_score": 79.3,
+      "ticker": "HONASA.NS",
+      "name": "HONASA",
+      "action": "BUY",
+      "final_score": 75.1,
       "pattern": "INSTITUTIONAL_IGNITION",
-      "rvol": 2.36,
-      "rs_vs_nifty": -0.33,
-      "est_delivery_pct": 77.3,
+      "rvol": 1.7,
+      "rs_vs_nifty": 11.61,
+      "est_delivery_pct": 73.9,
       "sector": "General",
       "sector_status": "NEUTRAL",
-      "current_price": 17.51,
-      "pivot_buy_stop": 19.25,
-      "max_buy_zone": 19.75,
-      "target_price": 21.55,
-      "target_pct": 11.9,
-      "breakeven_lock": 20.2,
-      "stop_loss": 18.48,
+      "current_price": 525.4,
+      "pivot_buy_stop": 543.8,
+      "max_buy_zone": 557.4,
+      "target_price": 609.05,
+      "target_pct": 12.0,
+      "breakeven_lock": 571.0,
+      "stop_loss": 522.05,
       "stop_loss_pct": 4.0,
-      "reward_risk": 2.99,
-      "shares": 1142,
-      "allocated_rupees": 19996.42,
-      "weight_pct": 20.0,
+      "reward_risk": 3.0,
+      "shares": 38,
+      "allocated_rupees": 19965.2,
+      "weight_pct": 19.97,
       "holding_window": "3 to 7 Sessions (Velocity Gate)",
       "stop_basis": "Daily Close Base Support",
       "tier": "TIER_1_EXECUTION",
-      "rationale": "High-Conviction Super-Mover BUY: Multi-factor score (79.3) cleared institutional edge gates with confirmed volume conviction (1.20x RVOL)."
+      "rationale": "High-Conviction Super-Mover BUY: Multi-factor score (75.1) cleared institutional edge gates with confirmed volume conviction (0.75x RVOL)."
     }
   ],
   "radar_watchlist": [
@@ -167,7 +167,7 @@
       "est_delivery_pct": 43.9,
       "sector": "Banking",
       "sector_status": "LEADING",
-      "final_score": 99.5,
+      "final_score": 99.8,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -187,7 +187,7 @@
       "est_delivery_pct": 70.3,
       "sector": "Infra",
       "sector_status": "LEADING",
-      "final_score": 84.1,
+      "final_score": 88.6,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -207,7 +207,7 @@
       "est_delivery_pct": 46.0,
       "sector": "Banking",
       "sector_status": "LEADING",
-      "final_score": 82.2,
+      "final_score": 82.0,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -227,7 +227,7 @@
       "est_delivery_pct": 43.1,
       "sector": "Banking",
       "sector_status": "LEADING",
-      "final_score": 80.8,
+      "final_score": 81.1,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -247,7 +247,7 @@
       "est_delivery_pct": 43.9,
       "sector": "Banking",
       "sector_status": "LEADING",
-      "final_score": 84.9,
+      "final_score": 85.1,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -267,7 +267,7 @@
       "est_delivery_pct": 43.7,
       "sector": "Infra",
       "sector_status": "LEADING",
-      "final_score": 75.6,
+      "final_score": 79.1,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -287,27 +287,7 @@
       "est_delivery_pct": 75.6,
       "sector": "General",
       "sector_status": "NEUTRAL",
-      "final_score": 74.8,
-      "tier": "TIER_2_RADAR"
-    },
-    {
-      "ticker": "NAVINFLUOR.NS",
-      "name": "NAVINFLUOR",
-      "current_price": 10077.0,
-      "target_price": 11620.6,
-      "target_pct": 20.0,
-      "stop_loss": 9960.53,
-      "stop_loss_pct": 7.0,
-      "pivot_buy_stop": 10375.55,
-      "pattern": "PRE_IGNITION_COIL",
-      "readiness": "\u23f3 COILING AT 52W HIGH (Awaiting Blast)",
-      "action_plan": "Tight base consolidation. Place alert/GTT Buy Stop at \u20b910,375.55 with volume confirmation.",
-      "rs_vs_nifty": 17.5,
-      "rvol": 0.64,
-      "est_delivery_pct": 56.1,
-      "sector": "General",
-      "sector_status": "NEUTRAL",
-      "final_score": 77.7,
+      "final_score": 75.1,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -327,27 +307,27 @@
       "est_delivery_pct": 59.1,
       "sector": "General",
       "sector_status": "NEUTRAL",
-      "final_score": 78.0,
+      "final_score": 78.2,
       "tier": "TIER_2_RADAR"
     },
     {
-      "ticker": "MEDANTA.NS",
-      "name": "MEDANTA",
-      "current_price": 1480.2,
-      "target_price": 1722.9,
+      "ticker": "MOTILALOFS.NS",
+      "name": "MOTILALOFS",
+      "current_price": 1205.65,
+      "target_price": 1433.25,
       "target_pct": 20.0,
-      "stop_loss": 1476.77,
+      "stop_loss": 1228.51,
       "stop_loss_pct": 7.0,
-      "pivot_buy_stop": 1538.3,
+      "pivot_buy_stop": 1279.7,
       "pattern": "PRE_IGNITION_COIL",
       "readiness": "\u23f3 COILING AT 52W HIGH (Awaiting Blast)",
-      "action_plan": "Tight base consolidation. Place alert/GTT Buy Stop at \u20b91,538.30 with volume confirmation.",
-      "rs_vs_nifty": 14.81,
-      "rvol": 1.16,
-      "est_delivery_pct": 54.2,
+      "action_plan": "Tight base consolidation. Place alert/GTT Buy Stop at \u20b91,279.70 with volume confirmation.",
+      "rs_vs_nifty": 16.01,
+      "rvol": 1.01,
+      "est_delivery_pct": 69.2,
       "sector": "General",
       "sector_status": "NEUTRAL",
-      "final_score": 75.8,
+      "final_score": 76.7,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -367,7 +347,47 @@
       "est_delivery_pct": 61.5,
       "sector": "General",
       "sector_status": "NEUTRAL",
-      "final_score": 77.8,
+      "final_score": 78.0,
+      "tier": "TIER_2_RADAR"
+    },
+    {
+      "ticker": "APOLLOHOSP.NS",
+      "name": "APOLLOHOSP",
+      "current_price": 8712.5,
+      "target_price": 10555.0,
+      "target_pct": 20.0,
+      "stop_loss": 9047.14,
+      "stop_loss_pct": 7.0,
+      "pivot_buy_stop": 9424.1,
+      "pattern": "PRE_IGNITION_COIL",
+      "readiness": "\u23f3 COILING AT 52W HIGH (Awaiting Blast)",
+      "action_plan": "Tight base consolidation. Place alert/GTT Buy Stop at \u20b99,424.10 with volume confirmation.",
+      "rs_vs_nifty": 11.34,
+      "rvol": 1.34,
+      "est_delivery_pct": 46.5,
+      "sector": "Pharma",
+      "sector_status": "LAGGING",
+      "final_score": 78.4,
+      "tier": "TIER_2_RADAR"
+    },
+    {
+      "ticker": "LODHA.NS",
+      "name": "LODHA",
+      "current_price": 1218.7,
+      "target_price": 1388.4,
+      "target_pct": 20.0,
+      "stop_loss": 1190.06,
+      "stop_loss_pct": 7.0,
+      "pivot_buy_stop": 1239.65,
+      "pattern": "PRE_IGNITION_COIL",
+      "readiness": "\u23f3 COILING AT 52W HIGH (Awaiting Blast)",
+      "action_plan": "Tight base consolidation. Place alert/GTT Buy Stop at \u20b91,239.65 with volume confirmation.",
+      "rs_vs_nifty": 10.73,
+      "rvol": 0.75,
+      "est_delivery_pct": 60.0,
+      "sector": "General",
+      "sector_status": "NEUTRAL",
+      "final_score": 78.9,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -387,7 +407,7 @@
       "est_delivery_pct": 69.6,
       "sector": "General",
       "sector_status": "NEUTRAL",
-      "final_score": 79.5,
+      "final_score": 79.7,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -407,27 +427,27 @@
       "est_delivery_pct": 42.1,
       "sector": "General",
       "sector_status": "NEUTRAL",
-      "final_score": 79.5,
+      "final_score": 79.8,
       "tier": "TIER_2_RADAR"
     },
     {
-      "ticker": "PVRINOX.NS",
-      "name": "PVRINOX",
-      "current_price": 1652.2,
-      "target_price": 1959.55,
+      "ticker": "ANTHEM.NS",
+      "name": "ANTHEM",
+      "current_price": 951.05,
+      "target_price": 1082.3,
       "target_pct": 20.0,
-      "stop_loss": 1679.62,
+      "stop_loss": 927.7,
       "stop_loss_pct": 7.0,
-      "pivot_buy_stop": 1749.6,
+      "pivot_buy_stop": 966.35,
       "pattern": "PRE_IGNITION_COIL",
       "readiness": "\u23f3 COILING AT 52W HIGH (Awaiting Blast)",
-      "action_plan": "Tight base consolidation. Place alert/GTT Buy Stop at \u20b91,749.60 with volume confirmation.",
-      "rs_vs_nifty": 9.31,
-      "rvol": 1.16,
-      "est_delivery_pct": 62.0,
+      "action_plan": "Tight base consolidation. Place alert/GTT Buy Stop at \u20b9966.35 with volume confirmation.",
+      "rs_vs_nifty": 9.16,
+      "rvol": 0.86,
+      "est_delivery_pct": 63.9,
       "sector": "General",
       "sector_status": "NEUTRAL",
-      "final_score": 77.3,
+      "final_score": 79.3,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -447,27 +467,7 @@
       "est_delivery_pct": 45.9,
       "sector": "General",
       "sector_status": "NEUTRAL",
-      "final_score": 77.0,
-      "tier": "TIER_2_RADAR"
-    },
-    {
-      "ticker": "MARICO.NS",
-      "name": "MARICO",
-      "current_price": 917.0,
-      "target_price": 1036.8,
-      "target_pct": 20.0,
-      "stop_loss": 897.93,
-      "stop_loss_pct": 7.0,
-      "pivot_buy_stop": 925.7,
-      "pattern": "PRE_IGNITION_COIL",
-      "readiness": "\u23f3 COILING AT 52W HIGH (Awaiting Blast)",
-      "action_plan": "Tight base consolidation. Place alert/GTT Buy Stop at \u20b9925.70 with volume confirmation.",
-      "rs_vs_nifty": 8.25,
-      "rvol": 0.8,
-      "est_delivery_pct": 66.4,
-      "sector": "General",
-      "sector_status": "NEUTRAL",
-      "final_score": 76.0,
+      "final_score": 77.9,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -487,7 +487,7 @@
       "est_delivery_pct": 68.4,
       "sector": "General",
       "sector_status": "NEUTRAL",
-      "final_score": 80.4,
+      "final_score": 80.6,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -507,7 +507,7 @@
       "est_delivery_pct": 43.5,
       "sector": "General",
       "sector_status": "NEUTRAL",
-      "final_score": 77.9,
+      "final_score": 77.0,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -527,7 +527,7 @@
       "est_delivery_pct": 65.6,
       "sector": "General",
       "sector_status": "NEUTRAL",
-      "final_score": 79.2,
+      "final_score": 79.4,
       "tier": "TIER_2_RADAR"
     },
     {
@@ -547,7 +547,7 @@
       "est_delivery_pct": 45.4,
       "sector": "General",
       "sector_status": "NEUTRAL",
-      "final_score": 76.0,
+      "final_score": 82.1,
       "tier": "TIER_2_RADAR"
     }
   ],
