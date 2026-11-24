@@ -179,8 +179,28 @@ with tab_picks:
             t2_radar = res.get("radar_watchlist") or []
             if t1_picks or t2_radar:
                 log_today_picks(t1_picks, t2_radar)
+            try:
+                import json
+                latest_scan_path = os.path.join(ROOT, "data", "latest_scan.json")
+                with open(latest_scan_path, "w", encoding="utf-8") as f:
+                    json.dump(res, f, indent=2, default=str)
+            except Exception:
+                pass
 
     brief = st.session_state.get("brief")
+    if not brief or not (brief.get("picks") or brief.get("top_picks")):
+        latest_scan_path = os.path.join(ROOT, "data", "latest_scan.json")
+        if os.path.exists(latest_scan_path):
+            try:
+                import json
+                with open(latest_scan_path, "r", encoding="utf-8") as f:
+                    cached_brief = json.load(f)
+                if cached_brief and (cached_brief.get("picks") or cached_brief.get("top_picks")):
+                    st.session_state["brief"] = cached_brief
+                    brief = cached_brief
+            except Exception:
+                pass
+
     if not brief or not (brief.get("picks") or brief.get("top_picks")):
         with st.spinner("Loading live Apex market intelligence…"):
             res = get_cached_apex_scan(swing_capital, 5, 20, universe)
@@ -329,8 +349,25 @@ with tab_paper:
     st.subheader("🛡️ Automated Paper Testing Journal")
     st.caption("100% automated forward-tracking: All 9 strategies are automatically paper-traded and audited every 5 minutes during market hours with live MTM.")
 
-    # Periodic live audit across all 9 strategies
-    dual_summary = audit_and_update_dual_tracker()
+    # High-speed cached summary: reads data/dual_tracker.json in <2ms
+    @st.cache_data(ttl=15, show_spinner=False)
+    def get_fast_tournament_summary() -> dict:
+        return compute_dual_summary()
+
+    force_audit_clicked = False
+    r_col1, r_col2 = st.columns([3, 1])
+    with r_col2:
+        if st.button("🔄 Force Audit Now", use_container_width=True):
+            force_audit_clicked = True
+
+    if force_audit_clicked:
+        with st.spinner("Auditing all live ticks across all 9 tracks…"):
+            dual_summary = audit_and_update_dual_tracker()
+            st.cache_data.clear()
+            st.rerun()
+    else:
+        dual_summary = get_fast_tournament_summary()
+
     t1 = dual_summary.get("track_algo4", dual_summary.get("track_1", {}))
     t2 = dual_summary.get("option_3", dual_summary.get("track_2", {}))
     t3 = dual_summary.get("track_algo5", dual_summary.get("track_3", {}))
@@ -341,13 +378,8 @@ with tab_paper:
     t8 = dual_summary.get("track_apex_1slot", dual_summary.get("track_8", {}))
     t9 = dual_summary.get("track_monthly_swing", dual_summary.get("track_9", {}))
 
-    r_col1, r_col2 = st.columns([3, 1])
     with r_col1:
         st.info(f"### {dual_summary.get('winner', 'TIE (Evaluating)')}\n\nLast auto-audited: **{dual_summary.get('updated_at')}** | Simulated Corpus: ₹1,00,000 per strategy with custom slot risk management.")
-    with r_col2:
-        if st.button("🔄 Force Audit Now", use_container_width=True):
-            dual_summary = audit_and_update_dual_tracker()
-            st.rerun()
 
     # 📖 Order & Table Guide for User Clarity
     with st.expander("📖 Order Guide: How to Read Tables & When to Place Orders", expanded=False):
