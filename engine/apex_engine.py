@@ -288,8 +288,19 @@ def run_apex_scan(
 
 
 if __name__ == "__main__":
+    import json
     logging.basicConfig(level=logging.INFO)
-    res = run_apex_scan(capital=100000.0, top_slots=3, radar_slots=10)
+    res = run_apex_scan(capital=100000.0, top_slots=5, radar_slots=20)
+    
+    # Persist latest scan to data/latest_scan.json for instantaneous dashboard load
+    try:
+        scan_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "latest_scan.json")
+        with open(scan_path, "w", encoding="utf-8") as f:
+            json.dump(res, f, indent=2, default=str)
+        print(f"✅ Successfully cached latest scan to {scan_path}")
+    except Exception as e:
+        print(f"Warning: could not save latest_scan.json: {e}")
+
     print("\n================ APEX HIGH-VELOCITY SCAN RESULTS ================")
     print(f"Market Regime: {res['regime']} (Nifty Cleared: {res['nifty_cleared']})")
     print(f"Total Capital: ₹{res['capital']:,.2f} | Deployed: ₹{res['total_deployed']:,.2f} | Cash: ₹{res['cash_remaining']:,.2f}")
