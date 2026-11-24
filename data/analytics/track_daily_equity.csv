@@ -8,12 +8,12 @@ date,track_id,track_key,track_name,available_cash,capital_deployed,floating_mtm_
 2026-11-23,7,track_conviction_2slot,Track 7: 2-Slot Conviction Compounder [53.5% CAGR],100000.0,0,0,0,0,0.0,0.0,0,14,0,0.0,1.0
 2026-11-23,8,track_apex_1slot,Track 8: 1-Slot Apex Leader Rocket [66.9% CAGR],100000.0,0,0,0,0,0.0,0.0,0,7,0,0.0,1.0
 2026-11-23,9,track_monthly_swing,Track 9: Active 1-to-2 Month Swing Engine [25.6% CAGR],100000.0,0,0,0,0,0.0,0.0,0,28,0,0.0,1.0
-2026-11-24,1,track_algo4,Track 1: Algo 4 - Confirmed 20-EMA Bounce Pivot [Alpha Leader],100000.0,0,0,0,0,0.0,0.0,0,29,0,0.0,1.0
-2026-11-24,2,option_3,Track 2: Algo 1 - Morning Ignition Thrust (Option 3) [Alpha Rocket],100000.0,0,0,0,0,0.0,0.0,0,36,0,0.0,1.0
-2026-11-24,3,track_algo5,Track 3: Algo 5 - High-RS 52W Breakaway Blast [Momentum Runner],100000.0,0,0,0,0,0.0,0.0,0,5,0,0.0,1.0
+2026-11-24,1,track_algo4,Track 1: Algo 4 - Confirmed 20-EMA Bounce Pivot [Alpha Leader],744.19,99255.81,-1504.28,0.0,-1504.28,-1.5,-1.52,5,21,0,0.0,1.0
+2026-11-24,2,option_3,Track 2: Algo 1 - Morning Ignition Thrust (Option 3) [Alpha Rocket],744.19,99255.81,-1504.28,0.0,-1504.28,-1.5,-1.52,5,31,0,0.0,1.0
+2026-11-24,3,track_algo5,Track 3: Algo 5 - High-RS 52W Breakaway Blast [Momentum Runner],51435.6,48986.82,115.88,422.42,538.3,0.54,1.1,3,2,0,0.0,99.0
 2026-11-24,4,option_2,Track 4: Algo 2 - Minervini VCP Squeeze (Option 2) [Silent Benchmark],100000.0,0,0,0,0,0.0,0.0,0,12,0,0.0,1.0
-2026-11-24,5,track_c,Track 5: Algo 3 - Benchmark Velocity Sniper [Silent Benchmark],100000.0,0,0,0,0,0.0,0.0,0,34,0,0.0,1.0
-2026-11-24,6,track_apex_compounder,Track 6: Apex 3-Slot Compounder [57.9% CAGR],100000.0,0,0,0,0,0.0,0.0,0,27,0,0.0,1.0
-2026-11-24,7,track_conviction_2slot,Track 7: 2-Slot Conviction Compounder [53.5% CAGR],100000.0,0,0,0,0,0.0,0.0,0,18,0,0.0,1.0
-2026-11-24,8,track_apex_1slot,Track 8: 1-Slot Apex Leader Rocket [66.9% CAGR],100000.0,0,0,0,0,0.0,0.0,0,9,0,0.0,1.0
-2026-11-24,9,track_monthly_swing,Track 9: Active 1-to-2 Month Swing Engine [25.6% CAGR],100000.0,0,0,0,0,0.0,0.0,0,36,0,0.0,1.0
+2026-11-24,5,track_c,Track 5: Algo 3 - Benchmark Velocity Sniper [Silent Benchmark],744.19,99255.81,-1504.28,0.0,-1504.28,-1.5,-1.52,5,26,0,0.0,1.0
+2026-11-24,6,track_apex_compounder,Track 6: Apex 3-Slot Compounder [57.9% CAGR],182.13,99817.87,1364.81,0.0,1364.81,1.36,1.37,3,23,0,0.0,1.0
+2026-11-24,7,track_conviction_2slot,Track 7: 2-Slot Conviction Compounder [53.5% CAGR],323.19,99676.81,2347.11,0.0,2347.11,2.35,2.35,2,15,0,0.0,1.0
+2026-11-24,8,track_apex_1slot,Track 8: 1-Slot Apex Leader Rocket [66.9% CAGR],115.95,99884.05,-1531.05,0.0,-1531.05,-1.53,-1.53,1,8,0,0.0,1.0
+2026-11-24,9,track_monthly_swing,Track 9: Active 1-to-2 Month Swing Engine [25.6% CAGR],1797.17,98202.83,549.23,0.0,549.23,0.55,0.56,4,30,0,0.0,1.0
