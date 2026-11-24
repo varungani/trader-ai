@@ -152,26 +152,13 @@ with st.sidebar:
             upsert_holding(m_tick.strip().upper(), int(m_q), float(m_px), timeframe="short_term")
             st.success(f"Saved {m_tick} to Demat holdings!")
 
-# ─── Run Pipeline / Load Cached Scan ─────────────────────────────────────────
-if run_btn:
-    with st.spinner(f"Scanning {universe.upper()} for institutional volume, breakout pivots & relative strength…"):
-        res = run_apex_scan(capital=swing_capital, top_slots=5, radar_slots=20, universe_preset=universe)
-        st.session_state["brief"] = res
-        t1_picks = res.get("picks") or res.get("top_picks") or []
-        t2_radar = res.get("radar_watchlist") or []
-        if t1_picks or t2_radar:
-            log_today_picks(t1_picks, t2_radar)
+# ─── Cached Apex Scanner (Prevents Blocking App Load) ────────────────────────
+@st.cache_data(ttl=900, show_spinner=False)
+def get_cached_apex_scan(cap: float, slots: int, radar: int, univ: str) -> dict:
+    """Cache full market scans for 15 minutes across user sessions."""
+    return run_apex_scan(capital=cap, top_slots=slots, radar_slots=radar, universe_preset=univ)
 
-brief = st.session_state.get("brief")
-if not brief or not (brief.get("picks") or brief.get("top_picks")):
-    with st.spinner("Loading live Apex market intelligence…"):
-        res = run_apex_scan(capital=swing_capital, top_slots=5, radar_slots=20, universe_preset=universe)
-        st.session_state["brief"] = res
-        brief = res
-        t1_picks = res.get("picks") or res.get("top_picks") or []
-        t2_radar = res.get("radar_watchlist") or []
-        if t1_picks or t2_radar:
-            log_today_picks(t1_picks, t2_radar)
+picks: list[dict] = []
 
 # ─── Streamlined 3-Tab Interface ─────────────────────────────────────────────
 tab_picks, tab_paper, tab_portfolio = st.tabs([
@@ -184,6 +171,26 @@ tab_picks, tab_paper, tab_portfolio = st.tabs([
 # TAB 1: APEX PICKS & RADAR (EXECUTION)
 # ─────────────────────────────────────────────────────────────────────────────
 with tab_picks:
+    if run_btn:
+        with st.spinner(f"Scanning {universe.upper()} for institutional volume, breakout pivots & relative strength…"):
+            res = run_apex_scan(capital=swing_capital, top_slots=5, radar_slots=20, universe_preset=universe)
+            st.session_state["brief"] = res
+            t1_picks = res.get("picks") or res.get("top_picks") or []
+            t2_radar = res.get("radar_watchlist") or []
+            if t1_picks or t2_radar:
+                log_today_picks(t1_picks, t2_radar)
+
+    brief = st.session_state.get("brief")
+    if not brief or not (brief.get("picks") or brief.get("top_picks")):
+        with st.spinner("Loading live Apex market intelligence…"):
+            res = get_cached_apex_scan(swing_capital, 5, 20, universe)
+            st.session_state["brief"] = res
+            brief = res
+            t1_picks = res.get("picks") or res.get("top_picks") or []
+            t2_radar = res.get("radar_watchlist") or []
+            if t1_picks or t2_radar:
+                log_today_picks(t1_picks, t2_radar)
+
     picks = brief.get("picks") or brief.get("top_picks") or []
     radar = brief.get("radar_watchlist") or []
     macro = brief.get("macro") or {
