@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-23 21:49:04",
+  "updated_at": "2026-11-24 03:41:42",
   "track": {
     "name": "Track 7: 2-Slot Conviction Compounder [53.5% CAGR]",
     "description": "2 Conviction Slots (50/50 allocation = \u20b950,000 each). Weekly 10W EMA trailing stop, Base-on-Base Pyramiding (+35% size add-on when gain >= +25%), -7% hard stop. Audited +53.49% 5Y CAGR, 4.74 Profit Factor.",
@@ -293,6 +293,42 @@
         "status": "PENDING_BREAKOUT_TRIGGER",
         "pattern": "52W_HIGH_BREAKOUT",
         "readiness": "APEX_COMPOUNDER",
+        "sector": "Banking"
+      },
+      {
+        "ticker": "SUBEXLTD.NS",
+        "name": "SUBEXLTD",
+        "shortlist_date": "2026-11-24",
+        "log_date": "2026-11-24",
+        "fill_date": "",
+        "scan_price": 17.51,
+        "pivot_trigger": 19.25,
+        "target_price": 192.5,
+        "stop_loss": 17.9,
+        "breakeven_lock": 20.21,
+        "shares": 2597,
+        "planned_rupees": 49992.25,
+        "status": "PENDING_BREAKOUT_TRIGGER",
+        "pattern": "INSTITUTIONAL_IGNITION",
+        "readiness": "APEX_COMPOUNDER",
+        "sector": "General"
+      },
+      {
+        "ticker": "AXISBANK.NS",
+        "name": "AXISBANK",
+        "shortlist_date": "2026-11-24",
+        "log_date": "2026-11-24",
+        "fill_date": "",
+        "scan_price": 1369.0,
+        "pivot_trigger": 1461.1,
+        "target_price": 14611.0,
+        "stop_loss": 1358.82,
+        "breakeven_lock": 1534.15,
+        "shares": 34,
+        "planned_rupees": 49677.4,
+        "status": "PENDING_BREAKOUT_TRIGGER",
+        "pattern": "NONE",
+        "readiness": "\ud83d\udc40 STAGE-2 EXPANSION (High Relative Strength)",
         "sector": "Banking"
       }
     ],
