@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-25 09:11:24",
+  "updated_at": "2026-11-25 12:02:39",
   "track": {
     "name": "Track 8: 1-Slot Apex Leader Rocket [66.9% CAGR]",
     "description": "Single-stock 100% conviction allocation (\u20b9100,000 all-in) into the #1 ranked Apex Rocket in India. Multi-stage base pyramiding on floating gains with Weekly 10W EMA trailing. Audited +66.91% 5Y CAGR, 8.25 Profit Factor.",
@@ -143,7 +143,7 @@
         "fill_date": "2026-11-25 10:42",
         "entry_date": "2026-11-25",
         "entry_price": 338.59,
-        "current_price": 334.15,
+        "current_price": 340.25,
         "target_price": 338590.0,
         "stop_loss": 314.89,
         "breakeven_lock": 355.52,
@@ -151,8 +151,8 @@
         "shares": 295,
         "orig_shares": 295,
         "allocated_rupees": 99884.05,
-        "pnl_pct": -1.31,
-        "pnl_rupees": -1309.8,
+        "pnl_pct": 0.49,
+        "pnl_rupees": 489.7,
         "pattern": "INSTITUTIONAL_BLAST",
         "sector": "General",
         "status": "TRIGGERED_ACTIVE",
@@ -164,7 +164,7 @@
         "realized_pnl_inr": 0.0,
         "alert_be_lock_sent": false,
         "gap_pct": 0.0,
-        "highest_since_entry": 338.59,
+        "highest_since_entry": 340.25,
         "lowest_since_entry": 334.15
       }
     ],
