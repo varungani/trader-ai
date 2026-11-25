@@ -17,6 +17,8 @@ _LOADED_CACHE: dict[str, pd.DataFrame] | None = None
 _LIVE_NETWORK_AVAILABLE: bool | None = None
 _QUOTE_CACHE: dict[str, tuple[float, dict]] = {}
 _QUOTE_CACHE_TTL_SEC = 15.0
+_HISTORY_CACHE: dict[tuple[str, str], tuple[float, pd.DataFrame]] = {}
+_HISTORY_CACHE_TTL_SEC = 60.0
 
 
 def _load_all_caches() -> dict[str, pd.DataFrame]:
@@ -95,6 +97,12 @@ def fetch_stock_history(ticker: str, period: str = "1y", interval: str = "1d", f
         if not cached.empty:
             return cached
 
+    if force_live:
+        now_ts = time.time()
+        cached_hist = _HISTORY_CACHE.get((ticker, f"{period}_{interval}"))
+        if cached_hist and (now_ts - cached_hist[0]) < _HISTORY_CACHE_TTL_SEC:
+            return cached_hist[1].copy()
+
     global _LIVE_NETWORK_AVAILABLE
     if _LIVE_NETWORK_AVAILABLE is not False:
         try:
@@ -104,6 +112,7 @@ def fetch_stock_history(ticker: str, period: str = "1y", interval: str = "1d", f
                 df = df.dropna(subset=["Close"])
                 df.index = df.index.tz_localize(None) if df.index.tz else df.index
                 _LIVE_NETWORK_AVAILABLE = True
+                _HISTORY_CACHE[(ticker, f"{period}_{interval}")] = (time.time(), df.copy())
                 return df
         except Exception as e:
             logger.debug(f"Live fetch failed for {ticker}: {e}, disabling live attempts and falling back to cache")

@@ -199,22 +199,25 @@ class TelegramNotifier:
         current_price: float,
         pnl_pct: float,
         new_stop_loss: float,
+        strategy_track: str = "",
     ) -> bool:
-        """Dispatches an alert when a trade touches +5.0% and stop is trailed to breakeven."""
+        """Dispatches an alert when a trade touches +5.0%/pyramid and stop is trailed."""
         clean_ticker = ticker.replace(".NS", "")
+        track_line = f"⚡ *Track:* {strategy_track}\n" if strategy_track else ""
         msg = (
             f"🛡️ *[BREAKEVEN STOP LOCKED: RISK ELIMINATED]*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"📈 *Stock:* `{clean_ticker}` reached *+{pnl_pct:.2f}%* gain!\n"
+            f"{track_line}"
             f"💵 *Entry:* ₹{entry_price:,.2f} ➔ *Current:* ₹{current_price:,.2f}\n"
-            f"🔒 *New Trailed Stop:* `₹{new_stop_loss:,.2f}` *(Entry + 0.3% friction)*\n"
+            f"🔒 *New Trailed Stop:* `₹{new_stop_loss:,.2f}` *(Protected floor)*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"👉 *EXACT ACTION IN YOUR BROKER:*\n"
             f"1️⃣ Open your broker app (Zerodha / Groww / Kotak).\n"
             f"2️⃣ Go to **GTT Orders** $\\rightarrow$ select `{clean_ticker}`.\n"
             f"3️⃣ Tap **Modify** $\\rightarrow$ change Stop-Loss trigger to `₹{new_stop_loss:,.2f}`.\n"
             f"4️⃣ Tap **Save**.\n"
-            f"✨ *Capital is now 100% protected. This trade CANNOT lose money.*"
+            f"✨ *Capital is now protected.*"
         )
         return self.send_message(msg)
 

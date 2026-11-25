@@ -97,6 +97,7 @@ class Position:
     gap_pct: float = 0.0
     highest_since_entry: float = 0.0
     lowest_since_entry: float = 0.0
+    pyramid_stage: int = 0
 
     def __post_init__(self):
         if not self.name:

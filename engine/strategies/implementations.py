@@ -15,10 +15,34 @@ from typing import Dict, Any, List, Optional, Callable
 
 from engine.domain.models import PortfolioAccount, GTTOrder, Position
 from engine.strategies.base import BaseStrategy
-from data.market_data import fetch_live_quote, _get_cached_history
+from data.market_data import fetch_live_quote, fetch_stock_history, _get_cached_history
 from data.market_calendar import get_next_trading_day, get_ist_now, get_market_status
 
 logger = logging.getLogger(__name__)
+
+
+def _get_live_history_series(ticker: str, period: str, cur_px: float, today: date):
+    """
+    Fetch up-to-date daily OHLCV history (with live Yahoo Finance + cache fallback)
+    and append/refresh today's live Close so EMA trails never use frozen pickle bars.
+    """
+    import pandas as pd
+    df_hist = fetch_stock_history(ticker, period=period, force_live=True)
+    if df_hist is None or df_hist.empty:
+        df_hist = _get_cached_history(ticker, period)
+    if df_hist is None or df_hist.empty:
+        return pd.DataFrame()
+
+    df_hist = df_hist.copy()
+    df_hist.columns = [str(c).title() for c in df_hist.columns]
+    if cur_px > 0 and "Close" in df_hist.columns:
+        today_ts = pd.Timestamp(today)
+        last_ts = pd.Timestamp(df_hist.index[-1]).normalize()
+        if last_ts == today_ts:
+            df_hist.iloc[-1, df_hist.columns.get_loc("Close")] = cur_px
+        elif last_ts < today_ts:
+            df_hist.loc[today_ts, "Close"] = cur_px
+    return df_hist
 
 
 class EMABouncePivotStrategy(BaseStrategy):
@@ -558,9 +582,8 @@ class BaseApexCompounderStrategy(BaseStrategy):
 
             # 1. Base-on-Base Pyramiding (+35% size add-on once gain >= +25%)
             if getattr(pos, "pyramid_stage", 0) == 0 and pos.days_held >= 15 and gain_pct >= 0.25:
-                df_hist = _get_cached_history(ticker, "6mo")
+                df_hist = _get_live_history_series(ticker, "6mo", cur_px, today)
                 if not df_hist.empty and len(df_hist) >= 20:
-                    df_hist.columns = [str(c).title() for c in df_hist.columns]
                     h20 = float(df_hist["High"].iloc[-21:-1].max())
                     vol_ma20 = float(df_hist["Volume"].iloc[-21:-1].mean())
                     cur_vol = float(quote.get("volume") or df_hist["Volume"].iloc[-1])
@@ -577,7 +600,15 @@ class BaseApexCompounderStrategy(BaseStrategy):
                             pos.stop_loss = max(pos.stop_loss, round(pos.entry_price * 0.98, 2))
                             pos.pyramid_stage = 1
                             if alert_callback and not self.is_silent:
-                                alert_callback("breakeven_lock", ticker=ticker, new_stop=pos.stop_loss, strategy_track=self.name)
+                                alert_callback(
+                                    "breakeven_lock",
+                                    ticker=ticker,
+                                    entry_price=pos.entry_price,
+                                    current_price=cur_px,
+                                    pnl_pct=round(gain_pct * 100.0, 2),
+                                    new_stop_loss=pos.stop_loss,
+                                    strategy_track=self.name,
+                                )
 
             # 2. Hard Stop Loss Evaluation (-7% floor)
             eff_low = cur_px if pos.days_held == 0 else (low_px if low_px > 0 else cur_px)
@@ -585,15 +616,17 @@ class BaseApexCompounderStrategy(BaseStrategy):
             exit_reason = ""
             exit_px = 0.0
 
+            now_ist = get_ist_now()
+            is_close_check = (now_ist.time() >= dtime(15, 15)) or (today < now_ist.date())
+
             if eff_low <= pos.stop_loss or cur_px <= pos.stop_loss:
                 is_closed = True
                 exit_reason = "HARD_STOP_LOSS_HIT (-7% Floor)"
                 exit_px = round(pos.stop_loss * (1.0 - self.slippage_pct), 2)
-            elif is_friday and pos.days_held >= 5:
-                # Weekly 10W EMA Trailing Stop
-                df_hist = _get_cached_history(ticker, "1y")
+            elif is_friday and is_close_check and pos.days_held >= 5:
+                # Weekly 10W EMA Trailing Stop (evaluated strictly at Friday close, never intraday dips)
+                df_hist = _get_live_history_series(ticker, "1y", cur_px, today)
                 if not df_hist.empty and len(df_hist) >= 50:
-                    df_hist.columns = [str(c).title() for c in df_hist.columns]
                     w_c = df_hist["Close"].resample("W-FRI").last().dropna()
                     if len(w_c) >= 10:
                         w_10 = float(w_c.ewm(span=10, adjust=False).mean().iloc[-1])
@@ -788,11 +821,10 @@ class SuperchargedMonthlySwingStrategy(BaseStrategy):
                 is_closed = True
                 exit_reason = "DAY21_STAGNATION_CUTOFF (Dead Money < +3%)"
                 exit_px = round(cur_px * (1.0 - self.slippage_pct), 2)
-            # 3. Daily 20-EMA Trail
-            elif pos.days_held >= 5 and gain_pct >= 3.0:
-                df_hist = _get_cached_history(ticker, "6mo")
+            # 3. Daily 20-EMA Trail (evaluated near daily close >= 15:15 IST to avoid morning shakeouts)
+            elif pos.days_held >= 5 and gain_pct >= 3.0 and (get_ist_now().time() >= dtime(15, 15) or today < get_ist_now().date()):
+                df_hist = _get_live_history_series(ticker, "6mo", cur_px, today)
                 if not df_hist.empty and len(df_hist) >= 25:
-                    df_hist.columns = [str(c).title() for c in df_hist.columns]
                     ema20 = float(df_hist["Close"].ewm(span=20, adjust=False).mean().iloc[-1])
                     if cur_px < ema20:
                         is_closed = True
