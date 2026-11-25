@@ -87,27 +87,30 @@ class TournamentService:
         with open(primary_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, default=str)
 
-        # Conflict-free individual state file sync
-        algo_map = {
-            "track_algo1_ignition.json": data.get("option_3", {}),
-            "track_algo2_vcp.json": data.get("option_2", {}),
-            "track_algo3_velocity.json": data.get("track_c", {}),
-            "track_algo4_ema_bounce.json": data.get("track_algo4", {}),
-            "track_algo5_rs_blast.json": data.get("track_algo5", {}),
-            "track_apex_compounder.json": data.get("track_apex_compounder", {}),
-            "track_conviction_2slot.json": data.get("track_conviction_2slot", {}),
-            "track_apex_1slot.json": data.get("track_apex_1slot", {}),
-            "track_monthly_swing.json": data.get("track_monthly_swing", {}),
+        # Conflict-free individual state file sync (all 9 primary + 9 legacy twins)
+        legacy_filename_map = {
+            "option_3": "track_algo1_ignition.json",
+            "option_2": "track_algo2_vcp.json",
+            "track_c": "track_algo3_velocity.json",
+            "track_algo4": "track_algo4_ema_bounce.json",
+            "track_algo5": "track_algo5_rs_blast.json",
+            "track_apex_compounder": "track_apex_compounder.json",
+            "track_conviction_2slot": "track_conviction_2slot.json",
+            "track_apex_1slot": "track_apex_1slot.json",
+            "track_monthly_swing": "track_monthly_swing.json",
         }
         base_dir = os.path.dirname(primary_file)
-        for fname, content in algo_map.items():
-            if content:
-                p = os.path.join(base_dir, fname)
-                try:
-                    with open(p, "w", encoding="utf-8") as f:
-                        json.dump({"updated_at": self.updated_at, "track": content}, f, indent=2, default=str)
-                except Exception as e:
-                    logger.debug(f"Error saving {fname}: {e}")
+        for strat in self.registry.all():
+            content = data.get(strat.key, {})
+            if not content:
+                continue
+            fname = legacy_filename_map.get(strat.key, f"track_{strat.key}.json")
+            p = os.path.join(base_dir, fname)
+            try:
+                with open(p, "w", encoding="utf-8") as f:
+                    json.dump({"updated_at": self.updated_at, "track": content}, f, indent=2, default=str)
+            except Exception as e:
+                logger.debug(f"Error saving {fname}: {e}")
 
     def log_today_picks(self, tier1_picks: list[dict], tier2_radar: list[dict]) -> None:
         """Route shortlisted radar & picks to all registered strategies."""
@@ -215,7 +218,7 @@ class TournamentService:
             "track_conviction_2slot": track_stats.get("track_conviction_2slot", {}),
             "track_apex_1slot": track_stats.get("track_apex_1slot", {}),
             "track_monthly_swing": track_stats.get("track_monthly_swing", {}),
-            # Numbered track aliases
+            # Numbered track aliases (Group B: Quant EDA Shortlist)
             "track_1": track_stats.get("track_algo4", {}),
             "track_2": track_stats.get("option_3", {}),
             "track_3": track_stats.get("track_algo5", {}),
@@ -225,4 +228,14 @@ class TournamentService:
             "track_7": track_stats.get("track_conviction_2slot", {}),
             "track_8": track_stats.get("track_apex_1slot", {}),
             "track_9": track_stats.get("track_monthly_swing", {}),
+            # Numbered track aliases (Group A: Legacy Shortlist Twins)
+            "track_1_legacy": track_stats.get("track_algo4_legacy", {}),
+            "track_2_legacy": track_stats.get("option_3_legacy", {}),
+            "track_3_legacy": track_stats.get("track_algo5_legacy", {}),
+            "track_4_legacy": track_stats.get("option_2_legacy", {}),
+            "track_5_legacy": track_stats.get("track_c_legacy", {}),
+            "track_6_legacy": track_stats.get("track_apex_compounder_legacy", {}),
+            "track_7_legacy": track_stats.get("track_conviction_2slot_legacy", {}),
+            "track_8_legacy": track_stats.get("track_apex_1slot_legacy", {}),
+            "track_9_legacy": track_stats.get("track_monthly_swing_legacy", {}),
         }

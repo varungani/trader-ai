@@ -37,18 +37,25 @@ class StrategyRegistry:
     @classmethod
     def create_default(cls) -> StrategyRegistry:
         reg = cls()
-        # Benchmark Tracks (Tracks 1 - 5)
-        reg.register(EMABouncePivotStrategy())
-        reg.register(MorningIgnitionStrategy())
-        reg.register(BreakawayBlastStrategy())
-        reg.register(MinerviniVCPStrategy())
-        reg.register(VelocitySniperStrategy())
+        core_classes = [
+            EMABouncePivotStrategy,
+            MorningIgnitionStrategy,
+            BreakawayBlastStrategy,
+            MinerviniVCPStrategy,
+            VelocitySniperStrategy,
+            ApexCompounderStrategy,
+            Conviction2SlotStrategy,
+            ApexMonster1SlotStrategy,
+            SuperchargedMonthlySwingStrategy,
+        ]
+        # Technique B: Quant EDA Shortlist (Tracks 1 - 9, primary keys preserved)
+        for strat_cls in core_classes:
+            reg.register(strat_cls(legacy_mode=False))
 
-        # Audited High-Alpha Empirical Compounders (Tracks 6 - 9)
-        reg.register(ApexCompounderStrategy())
-        reg.register(Conviction2SlotStrategy())
-        reg.register(ApexMonster1SlotStrategy())
-        reg.register(SuperchargedMonthlySwingStrategy())
+        # Technique A: Legacy Shortlist Twins (Tracks 1A - 9A, 100% Telegram-muted A/B benchmarks)
+        for strat_cls in core_classes:
+            reg.register(strat_cls(legacy_mode=True))
+
         return reg
 
 

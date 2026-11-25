@@ -69,39 +69,26 @@ class EMABouncePivotStrategy(BaseStrategy):
         is_td: bool,
         now_time: dtime,
     ) -> None:
-        existing = {t.ticker for t in account.pending_triggers} | {p.ticker for p in account.positions}
-        pool = [r for r in (tier1_picks + tier2_radar) if "20EMA" in str(r.get("pattern", "")).upper() or "SWEET_SPOT" in str(r.get("pattern", "")).upper()]
-        if not pool:
-            pool = [r for r in tier2_radar if r.get("ticker") not in existing][:3]
+        all_candidates = tier1_picks + tier2_radar
+        pattern_pool = [r for r in all_candidates if "20EMA" in str(r.get("pattern", "")).upper() or "SWEET_SPOT" in str(r.get("pattern", "")).upper()]
+        chosen = self._prepare_shortlist_pool(
+            account,
+            pattern_pool if pattern_pool else (all_candidates if self.shortlist_mode == "eda" else tier2_radar),
+            fallback_pool=all_candidates if self.shortlist_mode == "eda" else tier2_radar,
+            legacy_limit=3,
+        )
 
-        for a in pool[:3]:
-            ticker = a.get("ticker")
-            if not ticker or ticker in existing:
-                continue
+        for a in chosen:
             cur_px = float(a.get("current_price") or 0.0)
             pivot_trigger = float(a.get("pivot_buy_stop") or (cur_px * 1.002))
             target_px = round(pivot_trigger * (1.0 + self.target_pct), 2)
             stop_px = round(pivot_trigger * (1.0 - self.stop_loss_pct), 2)
             be_lock_px = round(pivot_trigger * (1.0 + self.breakeven_trigger_pct), 2)
             shares = int(self.slot_capital // pivot_trigger) if pivot_trigger > 0 else 0
-
             account.pending_triggers.append(
-                GTTOrder(
-                    ticker=ticker,
-                    name=ticker.replace(".NS", ""),
-                    shortlist_date=today_str,
-                    log_date=today_str,
-                    scan_price=cur_px,
-                    pivot_trigger=pivot_trigger,
-                    target_price=target_px,
-                    stop_loss=stop_px,
-                    breakeven_lock=be_lock_px,
-                    shares=shares,
-                    planned_rupees=round(shares * pivot_trigger, 2),
-                    status="PENDING_BREAKOUT_TRIGGER",
-                    pattern=a.get("pattern", "20EMA_SWEET_SPOT"),
-                    readiness=a.get("readiness", "PULLBACK_BOUNCE"),
-                    sector=a.get("sector", "General"),
+                self._build_gtt_order(
+                    a, today_str, pivot_trigger, target_px, stop_px, be_lock_px, shares,
+                    default_pattern="20EMA_SWEET_SPOT", default_readiness="PULLBACK_BOUNCE",
                 )
             )
 
@@ -130,11 +117,9 @@ class MorningIgnitionStrategy(BaseStrategy):
         is_td: bool,
         now_time: dtime,
     ) -> None:
-        existing = {t.ticker for t in account.pending_triggers} | {p.ticker for p in account.positions}
-        for r in tier2_radar:
-            ticker = r.get("ticker")
-            if not ticker or ticker in existing:
-                continue
+        pool_src = (tier1_picks + tier2_radar) if self.shortlist_mode == "eda" else tier2_radar
+        chosen = self._prepare_shortlist_pool(account, pool_src, legacy_limit=max(len(tier2_radar), 20))
+        for r in chosen:
             cur_px = float(r.get("current_price") or 0.0)
             pivot_trigger = float(r.get("pivot_buy_stop") or (cur_px * 1.002))
             target_px = round(pivot_trigger * (1.0 + self.target_pct), 2)
@@ -147,24 +132,10 @@ class MorningIgnitionStrategy(BaseStrategy):
 
             be_lock_px = float(r.get("breakeven_lock") or round(pivot_trigger * (1.0 + self.breakeven_trigger_pct), 2))
             shares = int(self.slot_capital // pivot_trigger) if pivot_trigger > 0 else 0
-
             account.pending_triggers.append(
-                GTTOrder(
-                    ticker=ticker,
-                    name=ticker.replace(".NS", ""),
-                    shortlist_date=today_str,
-                    log_date=today_str,
-                    scan_price=cur_px,
-                    pivot_trigger=pivot_trigger,
-                    target_price=target_px,
-                    stop_loss=stop_px,
-                    breakeven_lock=be_lock_px,
-                    shares=shares,
-                    planned_rupees=round(shares * pivot_trigger, 2),
-                    status="PENDING_BREAKOUT_TRIGGER",
-                    pattern=r.get("pattern", "COIL"),
-                    readiness=r.get("readiness", "COILING"),
-                    sector=r.get("sector", "General"),
+                self._build_gtt_order(
+                    r, today_str, pivot_trigger, target_px, stop_px, be_lock_px, shares,
+                    default_pattern="COIL", default_readiness="COILING",
                 )
             )
 
@@ -193,39 +164,28 @@ class BreakawayBlastStrategy(BaseStrategy):
         is_td: bool,
         now_time: dtime,
     ) -> None:
-        existing = {t.ticker for t in account.pending_triggers} | {p.ticker for p in account.positions}
-        pool = [r for r in (tier1_picks + tier2_radar) if "BLAST" in str(r.get("pattern", "")).upper() or "ULTRA" in str(r.get("pattern", "")).upper()]
-        if not pool:
-            pool = [r for r in tier2_radar if float(r.get("rvol", 1.0)) >= 1.5 and r.get("ticker") not in existing][:3]
+        all_candidates = tier1_picks + tier2_radar
+        blast_pool = [r for r in all_candidates if "BLAST" in str(r.get("pattern", "")).upper() or "ULTRA" in str(r.get("pattern", "")).upper()]
+        if not blast_pool:
+            blast_pool = [r for r in all_candidates if float(r.get("rvol", 1.0)) >= 1.5]
+        chosen = self._prepare_shortlist_pool(
+            account,
+            blast_pool if blast_pool else (all_candidates if self.shortlist_mode == "eda" else tier2_radar),
+            fallback_pool=all_candidates if self.shortlist_mode == "eda" else tier2_radar,
+            legacy_limit=3,
+        )
 
-        for a in pool[:3]:
-            ticker = a.get("ticker")
-            if not ticker or ticker in existing:
-                continue
+        for a in chosen:
             cur_px = float(a.get("current_price") or 0.0)
             pivot_trigger = float(a.get("pivot_buy_stop") or (cur_px * 1.002))
             target_px = round(pivot_trigger * (1.0 + self.target_pct), 2)
             stop_px = round(pivot_trigger * (1.0 - self.stop_loss_pct), 2)
             be_lock_px = round(pivot_trigger * (1.0 + self.breakeven_trigger_pct), 2)
             shares = int(self.slot_capital // pivot_trigger) if pivot_trigger > 0 else 0
-
             account.pending_triggers.append(
-                GTTOrder(
-                    ticker=ticker,
-                    name=ticker.replace(".NS", ""),
-                    shortlist_date=today_str,
-                    log_date=today_str,
-                    scan_price=cur_px,
-                    pivot_trigger=pivot_trigger,
-                    target_price=target_px,
-                    stop_loss=stop_px,
-                    breakeven_lock=be_lock_px,
-                    shares=shares,
-                    planned_rupees=round(shares * pivot_trigger, 2),
-                    status="PENDING_BREAKOUT_TRIGGER",
-                    pattern=a.get("pattern", "INSTITUTIONAL_BLAST"),
-                    readiness=a.get("readiness", "BLASTING"),
-                    sector=a.get("sector", "General"),
+                self._build_gtt_order(
+                    a, today_str, pivot_trigger, target_px, stop_px, be_lock_px, shares,
+                    default_pattern="INSTITUTIONAL_BLAST", default_readiness="BLASTING",
                 )
             )
 
@@ -263,16 +223,12 @@ class MinerviniVCPStrategy(BaseStrategy):
         sched_str = scheduled_date.strftime("%Y-%m-%d")
         sched_disp = scheduled_date.strftime("%d %b")
 
-        existing = (
-            {t.ticker for t in account.pending_confirmations} |
-            {p.ticker for p in account.positions} |
-            {a["ticker"] for a in account.aborted_trades if "ticker" in a}
+        chosen = self._prepare_shortlist_pool(
+            account,
+            tier1_picks if self.shortlist_mode == "legacy" else (tier1_picks + tier2_radar),
+            legacy_limit=max(len(tier1_picks), 5),
         )
-
-        for p in tier1_picks:
-            ticker = p.get("ticker")
-            if not ticker or ticker in existing:
-                continue
+        for p in chosen:
             cur_px = float(p.get("current_price") or 0.0)
             target_px = float(p.get("target_price") or round(cur_px * (1.0 + self.target_pct), 2))
             stop_px = float(p.get("stop_loss") or round(cur_px * (1.0 - self.stop_loss_pct), 2))
@@ -280,22 +236,11 @@ class MinerviniVCPStrategy(BaseStrategy):
             shares = int(p.get("shares") or (self.slot_capital // cur_px if cur_px > 0 else 0))
 
             account.pending_confirmations.append(
-                GTTOrder(
-                    ticker=ticker,
-                    name=ticker.replace(".NS", ""),
-                    shortlist_date=today_str,
-                    scheduled_date=sched_str,
-                    fill_date=f"Awaiting {sched_disp} 09:20",
-                    scan_price=cur_px,
-                    pivot_trigger=cur_px,
-                    target_price=target_px,
-                    stop_loss=stop_px,
-                    breakeven_lock=be_lock_px,
-                    shares=shares,
-                    planned_rupees=round(shares * cur_px, 2),
+                self._build_gtt_order(
+                    p, today_str, cur_px, target_px, stop_px, be_lock_px, shares,
+                    default_pattern="BREAKOUT", default_readiness="VCP_OPEN_CONFIRM",
+                    scheduled_date=sched_str, fill_date=f"Awaiting {sched_disp} 09:20",
                     status="AWAITING_920_OPEN",
-                    pattern=p.get("pattern", "BREAKOUT"),
-                    sector=p.get("sector", "General"),
                 )
             )
 
@@ -313,7 +258,14 @@ class MinerviniVCPStrategy(BaseStrategy):
         can_evaluate = force_market_open or (mkt.get("is_open", False) and now.time() >= dtime(9, 20))
         still_pending = []
 
-        for pend in account.pending_confirmations:
+        ordered_conf = list(account.pending_confirmations)
+        if self.prioritize_by_composite_rs and ordered_conf:
+            ordered_conf.sort(key=lambda x: float(getattr(x, "composite_rs", 0.0)), reverse=True)
+
+        breadth_val = self._resolve_live_breadth(ordered_conf) if (self.min_breadth_gate > 0 and not force_market_open) else 50.0
+        breadth_blocked = bool(self.min_breadth_gate > 0 and not force_market_open and breadth_val < self.min_breadth_gate)
+
+        for pend in ordered_conf:
             sched_str = pend.scheduled_date or pend.shortlist_date or today_str
             try:
                 sched_d = datetime.strptime(sched_str, "%Y-%m-%d").date()
@@ -321,6 +273,10 @@ class MinerviniVCPStrategy(BaseStrategy):
                 sched_d = today
 
             if can_evaluate and (today >= sched_d or force_market_open):
+                if breadth_blocked:
+                    pend.status = "PENDING_BREADTH_SHIELD"
+                    still_pending.append(pend)
+                    continue
                 ticker = pend.ticker
                 scan_px = float(pend.scan_price)
                 quote = fetch_live_quote(ticker)
@@ -430,15 +386,14 @@ class VelocitySniperStrategy(BaseStrategy):
         is_td: bool,
         now_time: dtime,
     ) -> None:
-        existing = {t.ticker for t in account.pending_triggers} | {p.ticker for p in account.positions}
-        c_candidates = [r for r in tier2_radar if r.get("ticker") not in existing][:3]
-        if not c_candidates and tier1_picks:
-            c_candidates = [p for p in tier1_picks if p.get("ticker") not in existing][:3]
+        chosen = self._prepare_shortlist_pool(
+            account,
+            (tier1_picks + tier2_radar) if self.shortlist_mode == "eda" else tier2_radar,
+            fallback_pool=tier1_picks,
+            legacy_limit=3,
+        )
 
-        for c in c_candidates:
-            ticker = c.get("ticker")
-            if not ticker or ticker in existing:
-                continue
+        for c in chosen:
             cur_px = float(c.get("current_price") or 0.0)
             pivot_trigger = float(c.get("pivot_buy_stop") or cur_px)
             target_12 = round(pivot_trigger * (1.0 + self.target_pct), 2)
@@ -450,24 +405,10 @@ class VelocitySniperStrategy(BaseStrategy):
                 stop_4 = round(pivot_trigger * (1.0 - self.stop_loss_pct), 2)
             be_lock_px = float(c.get("breakeven_lock") or round(pivot_trigger * (1.0 + self.breakeven_trigger_pct), 2))
             shares = int(self.slot_capital // pivot_trigger) if pivot_trigger > 0 else 0
-
             account.pending_triggers.append(
-                GTTOrder(
-                    ticker=ticker,
-                    name=ticker.replace(".NS", ""),
-                    shortlist_date=today_str,
-                    log_date=today_str,
-                    scan_price=cur_px,
-                    pivot_trigger=pivot_trigger,
-                    target_price=target_12,
-                    stop_loss=stop_4,
-                    breakeven_lock=be_lock_px,
-                    shares=shares,
-                    planned_rupees=round(shares * pivot_trigger, 2),
-                    status="PENDING_BREAKOUT_TRIGGER",
-                    pattern="BENCHMARK_SNIPER",
-                    readiness=c.get("readiness", "COILING"),
-                    sector=c.get("sector", "General"),
+                self._build_gtt_order(
+                    c, today_str, pivot_trigger, target_12, stop_4, be_lock_px, shares,
+                    default_pattern="BENCHMARK_SNIPER", default_readiness="COILING",
                 )
             )
 
@@ -498,6 +439,11 @@ class BaseApexCompounderStrategy(BaseStrategy):
     min_breadth_gate: float = 45.0
     min_entry_clv: float = 0.65
 
+    def __init__(self, legacy_mode: bool = False):
+        super().__init__(legacy_mode=legacy_mode)
+        if not legacy_mode:
+            self.min_entry_clv = 0.65
+
     def get_slot_allocation(self, rank_idx: int, active_slots: int, total_capital: float) -> float:
         """Template method for strategy-specific conviction tier weighting."""
         return total_capital / max(1, self.max_slots)
@@ -511,67 +457,22 @@ class BaseApexCompounderStrategy(BaseStrategy):
         is_td: bool,
         now_time: dtime,
     ) -> None:
-        """
-        Shortlist top Composite RS leaders (0.50*1M + 0.30*3M + 0.20*6M) into a wide pending radar
-        (up to 12-16 candidates) so no downstream explosive winner is missed due to max_slots slicing.
-        """
         all_candidates = tier1_picks + tier2_radar
-        cand_map = {c.get("ticker"): c for c in all_candidates if c.get("ticker")}
+        if self.shortlist_mode == "legacy":
+            all_candidates = sorted(all_candidates, key=lambda x: float(x.get("rvol", 1.0)), reverse=True)
+        chosen = self._prepare_shortlist_pool(account, all_candidates, legacy_limit=self.max_slots)
 
-        # Refresh RS & breadth metadata on existing pending orders
-        for pend in account.pending_triggers:
-            src = cand_map.get(pend.ticker)
-            if src:
-                pend.composite_rs = float(src.get("composite_rs", pend.composite_rs))
-                pend.clv = float(src.get("clv", pend.clv))
-                pend.vol_asym = float(src.get("vol_asym_20", pend.vol_asym))
-                pend.market_breadth_pct = float(src.get("market_breadth_pct", pend.market_breadth_pct))
-
-        existing = {t.ticker for t in account.pending_triggers} | {p.ticker for p in account.positions}
-        pool = [r for r in all_candidates if r.get("ticker") and r.get("ticker") not in existing]
-        pool.sort(
-            key=lambda x: (
-                1 if x.get("is_compounder_rocket") else 0,
-                float(x.get("composite_rs", 0.0)),
-                float(x.get("rs_vs_nifty", 0.0)),
-                float(x.get("final_score", 0.0)),
-            ),
-            reverse=True,
-        )
-
-        watch_limit = max(12, self.max_slots * 4)
-        for rank_idx, a in enumerate(pool[:watch_limit]):
-            ticker = a.get("ticker")
-            if not ticker or ticker in existing:
-                continue
-            existing.add(ticker)
+        for rank_idx, a in enumerate(chosen):
             cur_px = float(a.get("current_price") or 0.0)
             pivot_trigger = float(a.get("pivot_buy_stop") or (cur_px * 1.002))
             stop_px = round(pivot_trigger * (1.0 - self.stop_loss_pct), 2)
             alloc_amt = self.get_slot_allocation(rank_idx, rank_idx, account.capital)
             shares = int(alloc_amt // pivot_trigger) if pivot_trigger > 0 else 0
-
             account.pending_triggers.append(
-                GTTOrder(
-                    ticker=ticker,
-                    name=ticker.replace(".NS", ""),
-                    shortlist_date=today_str,
-                    log_date=today_str,
-                    scan_price=cur_px,
-                    pivot_trigger=pivot_trigger,
-                    target_price=round(pivot_trigger * 10.0, 2),
-                    stop_loss=stop_px,
-                    breakeven_lock=round(pivot_trigger * 1.05, 2),
-                    shares=shares,
-                    planned_rupees=round(shares * pivot_trigger, 2),
-                    status="PENDING_BREAKOUT_TRIGGER",
-                    pattern=a.get("pattern", a.get("setup_pattern", "APEX_MONSTER_ROCKET")),
-                    readiness=a.get("readiness", "APEX_COMPOUNDER"),
-                    sector=a.get("sector", "General"),
-                    composite_rs=float(a.get("composite_rs", a.get("rs_vs_nifty", 0.0))),
-                    clv=float(a.get("clv", 0.5)),
-                    vol_asym=float(a.get("vol_asym_20", 1.0)),
-                    market_breadth_pct=float(a.get("market_breadth_pct", 50.0)),
+                self._build_gtt_order(
+                    a, today_str, pivot_trigger, round(pivot_trigger * 10.0, 2), stop_px,
+                    round(pivot_trigger * 1.05, 2), shares,
+                    default_pattern="APEX_MONSTER_ROCKET", default_readiness="APEX_COMPOUNDER",
                 )
             )
 
@@ -775,57 +676,18 @@ class SuperchargedMonthlySwingStrategy(BaseStrategy):
         is_td: bool,
         now_time: dtime,
     ) -> None:
-        all_candidates = tier1_picks + tier2_radar
-        cand_map = {c.get("ticker"): c for c in all_candidates if c.get("ticker")}
-        for pend in account.pending_triggers:
-            src = cand_map.get(pend.ticker)
-            if src:
-                pend.composite_rs = float(src.get("composite_rs", pend.composite_rs))
-                pend.market_breadth_pct = float(src.get("market_breadth_pct", pend.market_breadth_pct))
+        chosen = self._prepare_shortlist_pool(account, tier1_picks + tier2_radar, legacy_limit=self.max_slots)
 
-        existing = {t.ticker for t in account.pending_triggers} | {p.ticker for p in account.positions}
-        pool = [r for r in all_candidates if r.get("ticker") and r.get("ticker") not in existing]
-        pool.sort(
-            key=lambda x: (
-                float(x.get("composite_rs", 0.0)),
-                float(x.get("rs_vs_nifty", 0.0)),
-                float(x.get("final_score", 0.0)),
-            ),
-            reverse=True,
-        )
-
-        watch_limit = max(12, self.max_slots * 3)
-        for a in pool[:watch_limit]:
-            ticker = a.get("ticker")
-            if not ticker or ticker in existing:
-                continue
-            existing.add(ticker)
+        for a in chosen:
             cur_px = float(a.get("current_price") or 0.0)
             pivot_trigger = float(a.get("pivot_buy_stop") or (cur_px * 1.002))
             stop_px = round(pivot_trigger * (1.0 - self.stop_loss_pct), 2)
             shares = int(self.slot_capital // pivot_trigger) if pivot_trigger > 0 else 0
-
             account.pending_triggers.append(
-                GTTOrder(
-                    ticker=ticker,
-                    name=ticker.replace(".NS", ""),
-                    shortlist_date=today_str,
-                    log_date=today_str,
-                    scan_price=cur_px,
-                    pivot_trigger=pivot_trigger,
-                    target_price=round(pivot_trigger * 10.0, 2),
-                    stop_loss=stop_px,
-                    breakeven_lock=round(pivot_trigger * 1.03, 2),
-                    shares=shares,
-                    planned_rupees=round(shares * pivot_trigger, 2),
-                    status="PENDING_BREAKOUT_TRIGGER",
-                    pattern=a.get("pattern", a.get("setup_pattern", "MONTHLY_POSITION_SWING")),
-                    readiness=a.get("readiness", "SWING_ROTATION"),
-                    sector=a.get("sector", "General"),
-                    composite_rs=float(a.get("composite_rs", a.get("rs_vs_nifty", 0.0))),
-                    clv=float(a.get("clv", 0.5)),
-                    vol_asym=float(a.get("vol_asym_20", 1.0)),
-                    market_breadth_pct=float(a.get("market_breadth_pct", 50.0)),
+                self._build_gtt_order(
+                    a, today_str, pivot_trigger, round(pivot_trigger * 10.0, 2), stop_px,
+                    round(pivot_trigger * 1.03, 2), shares,
+                    default_pattern="MONTHLY_POSITION_SWING", default_readiness="SWING_ROTATION",
                 )
             )
 

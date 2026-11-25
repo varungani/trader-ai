@@ -186,3 +186,9 @@ def test_telegram_notifier_notify_daily_recap_includes_all_9_tracks(configured_n
         assert "9-WAY PERFORMANCE RECAP" in sent_text
         for label in ["Track 6", "Track 7", "Track 8", "Track 9", "Track 1", "Track 5"]:
             assert label in sent_text
+
+        # Verify A/B Legacy comparison renders when legacy summaries exist
+        sample_summary["track_6_legacy"] = {"total_pnl_inr": 250.0, "total_pnl_pct": 0.25}
+        configured_notifier.notify_daily_recap(sample_summary)
+        sent_ab = mock_send.call_args[0][0]
+        assert "Legacy A:" in sent_ab

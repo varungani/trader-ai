@@ -328,27 +328,41 @@ class TelegramNotifier:
         t8 = summary.get("track_apex_1slot", summary.get("track_8", {}))
         t9 = summary.get("track_monthly_swing", summary.get("track_9", {}))
 
-        def _line(badge: str, label: str, d: dict, detail: bool = True) -> str:
-            s = f"{badge} *{label}:* ₹{d.get('total_pnl_inr', 0.0):+,.0f} ({d.get('total_pnl_pct', 0.0):+.2f}%)\n"
+        def _line(badge: str, label: str, b_d: dict, a_d: dict, detail: bool = True) -> str:
+            b_pnl = b_d.get("total_pnl_inr", 0.0)
+            b_pct = b_d.get("total_pnl_pct", 0.0)
+            a_pnl = a_d.get("total_pnl_inr", 0.0) if a_d else None
+            vs_str = f" | Legacy A: ₹{a_pnl:+,.0f}" if a_pnl is not None else ""
+            s = f"{badge} *{label}:* ₹{b_pnl:+,.0f} ({b_pct:+.2f}%){vs_str}\n"
             if detail:
-                s += f"   • Open: {d.get('open_count', 0)} | Closed: {d.get('closed_count', 0)} | Pend: {d.get('pending_count', 0)} | WR: {d.get('win_rate', 0.0):.1f}%\n"
+                s += f"   • Open: {b_d.get('open_count', 0)} | Closed: {b_d.get('closed_count', 0)} | Pend: {b_d.get('pending_count', 0)} | WR: {b_d.get('win_rate', 0.0):.1f}%\n"
             return s
 
+        t1_a = summary.get("track_1_legacy", {})
+        t2_a = summary.get("track_2_legacy", {})
+        t3_a = summary.get("track_3_legacy", {})
+        t4_a = summary.get("track_4_legacy", {})
+        t5_a = summary.get("track_5_legacy", {})
+        t6_a = summary.get("track_6_legacy", {})
+        t7_a = summary.get("track_7_legacy", {})
+        t8_a = summary.get("track_8_legacy", {})
+        t9_a = summary.get("track_9_legacy", {})
+
         msg = (
-            f"📊 *[NSE MARKET CLOSE: 9-WAY PERFORMANCE RECAP]*\n"
+            f"📊 *[NSE MARKET CLOSE: 9-WAY PERFORMANCE RECAP (18-TRACK A/B)]*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"🏆 *Leader:* {summary.get('winner', 'Evaluating')}\n\n"
-            + _line("💎", "Track 6 (Apex 3-Slot)", t6)
-            + _line("🔥", "Track 7 (2-Slot Conviction)", t7)
-            + _line("👑", "Track 8 (1-Slot Rocket)", t8)
-            + _line("🌊", "Track 9 (Active Swing)", t9)
-            + _line("🥇", "Track 1 (Algo 4: 20-EMA)", t1)
-            + _line("🚀", "Track 2 (Algo 1: Ignition)", t2)
-            + _line("⚡", "Track 3 (Algo 5: 52W Blast)", t3)
-            + _line("🛡️", "Track 4 (Algo 2: VCP Bench)", t4, detail=False)
-            + _line("🎯", "Track 5 (Algo 3: Sniper Bench)", t5, detail=False)
+            + _line("💎", "Track 6 (Apex 3-Slot)", t6, t6_a)
+            + _line("🔥", "Track 7 (2-Slot Conviction)", t7, t7_a)
+            + _line("👑", "Track 8 (1-Slot Rocket)", t8, t8_a)
+            + _line("🌊", "Track 9 (Active Swing)", t9, t9_a)
+            + _line("🥇", "Track 1 (Algo 4: 20-EMA)", t1, t1_a)
+            + _line("🚀", "Track 2 (Algo 1: Ignition)", t2, t2_a)
+            + _line("⚡", "Track 3 (Algo 5: 52W Blast)", t3, t3_a)
+            + _line("🛡️", "Track 4 (Algo 2: VCP Bench)", t4, t4_a, detail=False)
+            + _line("🎯", "Track 5 (Algo 3: Sniper Bench)", t5, t5_a, detail=False)
             + f"━━━━━━━━━━━━━━━━━━━\n"
-            f"✨ _Session closed. State saved & synced across all 9 tracks._"
+            f"✨ _Session closed. All 18 A/B tracks (EDA B vs Legacy A) synced cleanly._"
         )
         return self.send_message(msg)
 

@@ -309,3 +309,23 @@ def test_breadth_shield_blocks_entry_below_45_pct(monkeypatch):
     strat.audit_pending(acc, "2026-11-25", date(2026, 11, 25), force_market_open=False)
     assert len(acc.positions) == 0
     assert acc.pending_triggers[0].status == "PENDING_BREADTH_SHIELD"
+
+
+def test_registry_has_18_ab_paired_tracks_and_muted_legacy():
+    """Verify full 18-track A/B matrix (9 Tech B EDA + 9 Tech A Legacy) with all Legacy tracks Telegram-muted."""
+    all_strats = default_registry.all()
+    assert len(all_strats) == 18
+
+    b_tracks = [s for s in all_strats if not s.legacy_mode]
+    a_tracks = [s for s in all_strats if s.legacy_mode]
+    assert len(b_tracks) == 9
+    assert len(a_tracks) == 9
+
+    for b_s in b_tracks:
+        a_s = default_registry.get(f"{b_s.key}_legacy")
+        assert a_s is not None, f"Missing legacy twin for {b_s.key}"
+        assert a_s.is_silent is True, f"Telegram noise control requires {a_s.key} to be silent!"
+        assert a_s.shortlist_mode == "legacy"
+        assert b_s.shortlist_mode == "eda"
+        assert a_s.prioritize_by_composite_rs is False
+        assert b_s.prioritize_by_composite_rs is True

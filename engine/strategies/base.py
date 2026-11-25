@@ -59,11 +59,119 @@ class BaseStrategy(ABC):
     velocity_kill_min_pnl: float = 1.5
     max_holding_days: int = 7
 
-    # Empirical Upgrades (enabled selectively on Compounder & Swing tracks; Legacy tracks keep False)
+    # Empirical Upgrades (Group B: Quant EDA Shortlist; Legacy Group A twins override via legacy_mode=True)
+    shortlist_mode: str = "eda"
     prioritize_by_composite_rs: bool = False
     stale_expiry_days: int = 0
     min_breadth_gate: float = 0.0
     min_entry_clv: float = 0.0
+
+    def __init__(self, legacy_mode: bool = False):
+        self.legacy_mode = legacy_mode
+        if legacy_mode:
+            orig_id = self.track_id
+            orig_title = self.name.split(":", 1)[-1].strip() if ":" in self.name else self.name
+            self.shortlist_mode = "legacy"
+            self.track_id = 10 + orig_id
+            self.key = f"{self.key}_legacy"
+            self.name = f"Track {orig_id}A (Legacy): {orig_title} [Silent]"
+            self.description = f"[Technique A - Legacy RVOL/FIFO Shortlist | Muted] {self.description}"
+            self.is_silent = True
+            self.prioritize_by_composite_rs = False
+            self.stale_expiry_days = 0
+            self.min_breadth_gate = 0.0
+            self.min_entry_clv = 0.0
+        else:
+            self.shortlist_mode = "eda"
+            self.prioritize_by_composite_rs = True
+            self.stale_expiry_days = 5
+            self.min_breadth_gate = 45.0
+
+    def _prepare_shortlist_pool(
+        self,
+        account: PortfolioAccount,
+        candidates: List[Dict[str, Any]],
+        fallback_pool: Optional[List[Dict[str, Any]]] = None,
+        legacy_limit: int = 3,
+    ) -> List[Dict[str, Any]]:
+        """
+        Shared shortlist funnel selector:
+          - Legacy mode (Group A): preserves original candidate ordering capped at legacy_limit.
+          - EDA mode (Group B): refreshes live Composite RS / breadth metadata on existing triggers,
+            sorts candidates by Composite RS descending, and widens radar staging up to 12-16 leaders.
+        """
+        pool_src = list(candidates) if candidates else list(fallback_pool or [])
+        cand_map = {c.get("ticker"): c for c in pool_src if c.get("ticker")}
+
+        if self.shortlist_mode == "eda":
+            for pend in account.pending_triggers:
+                src = cand_map.get(pend.ticker)
+                if src:
+                    pend.composite_rs = float(src.get("composite_rs", pend.composite_rs))
+                    pend.clv = float(src.get("clv", pend.clv))
+                    pend.vol_asym = float(src.get("vol_asym_20", pend.vol_asym))
+                    pend.market_breadth_pct = float(src.get("market_breadth_pct", pend.market_breadth_pct))
+
+        existing = (
+            {t.ticker for t in account.pending_triggers}
+            | {t.ticker for t in account.pending_confirmations}
+            | {p.ticker for p in account.positions}
+        )
+        filtered = [r for r in pool_src if r.get("ticker") and r.get("ticker") not in existing]
+        if self.shortlist_mode == "eda":
+            filtered.sort(
+                key=lambda x: (
+                    1 if x.get("is_compounder_rocket") else 0,
+                    float(x.get("composite_rs", 0.0)),
+                    float(x.get("rs_vs_nifty", 0.0)),
+                    float(x.get("final_score", 0.0)),
+                ),
+                reverse=True,
+            )
+            return filtered[: max(12, self.max_slots * 4)]
+
+        return filtered[:legacy_limit]
+
+    @staticmethod
+    def _build_gtt_order(
+        item: Dict[str, Any],
+        today_str: str,
+        pivot_trigger: float,
+        target_price: float,
+        stop_loss: float,
+        breakeven_lock: float,
+        shares: int,
+        default_pattern: str,
+        default_readiness: str,
+        scheduled_date: str = "",
+        fill_date: str = "",
+        status: str = "PENDING_BREAKOUT_TRIGGER",
+    ) -> GTTOrder:
+        ticker = str(item.get("ticker", ""))
+        cur_px = float(item.get("current_price") or 0.0)
+        return GTTOrder(
+            ticker=ticker,
+            name=ticker.replace(".NS", ""),
+            shortlist_date=today_str,
+            log_date=today_str,
+            scheduled_date=scheduled_date,
+            fill_date=fill_date,
+            scan_price=cur_px,
+            pivot_trigger=pivot_trigger,
+            target_price=target_price,
+            stop_loss=stop_loss,
+            breakeven_lock=breakeven_lock,
+            shares=shares,
+            planned_rupees=round(shares * pivot_trigger, 2),
+            status=status,
+            pattern=item.get("pattern", item.get("setup_pattern", default_pattern)),
+            readiness=item.get("readiness", default_readiness),
+            sector=item.get("sector", "General"),
+            composite_rs=float(item.get("composite_rs", item.get("rs_vs_nifty", 0.0))),
+            clv=float(item.get("clv", 0.5)),
+            vol_asym=float(item.get("vol_asym_20", 1.0)),
+            market_breadth_pct=float(item.get("market_breadth_pct", 50.0)),
+        )
 
     def get_slot_allocation(self, rank_idx: int, active_slots: int, total_capital: float) -> float:
         """Default equal slot allocation; subclasses may override for 40/30/30 conviction weighting."""

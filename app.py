@@ -388,8 +388,18 @@ with tab_paper:
     t8 = dual_summary.get("track_apex_1slot", dual_summary.get("track_8", {}))
     t9 = dual_summary.get("track_monthly_swing", dual_summary.get("track_9", {}))
 
+    t1_a = dual_summary.get("track_1_legacy", {})
+    t2_a = dual_summary.get("track_2_legacy", {})
+    t3_a = dual_summary.get("track_3_legacy", {})
+    t4_a = dual_summary.get("track_4_legacy", {})
+    t5_a = dual_summary.get("track_5_legacy", {})
+    t6_a = dual_summary.get("track_6_legacy", {})
+    t7_a = dual_summary.get("track_7_legacy", {})
+    t8_a = dual_summary.get("track_8_legacy", {})
+    t9_a = dual_summary.get("track_9_legacy", {})
+
     with r_col1:
-        st.info(f"### {dual_summary.get('winner', 'TIE (Evaluating)')}\n\nLast auto-audited: **{dual_summary.get('updated_at')}** | Simulated Corpus: ₹1,00,000 per strategy with custom slot risk management.")
+        st.info(f"### {dual_summary.get('winner', 'TIE (Evaluating)')}\n\nLast auto-audited: **{dual_summary.get('updated_at')}** | **18-Track A/B Tournament**: 9 Quant EDA Tracks (Tech B) vs 9 Legacy Twins (Tech A, Muted).")
 
     # 📖 Order & Table Guide for User Clarity
     with st.expander("📖 Order Guide: How to Read Tables & When to Place Orders", expanded=False):
@@ -403,6 +413,37 @@ with tab_paper:
         with g3:
             st.markdown("##### 3️⃣ Bought On (Market Hours Fill)")
             st.caption("Orders **ONLY execute during live NSE hours (09:15 AM – 03:30 PM IST)** when price crosses the trigger. If flat, zero risk & zero loss!")
+
+    # ⚔️ 18-Track Live A/B Shortlist Comparison Table
+    st.markdown("### ⚔️ Live A/B Shortlist Duel (New EDA Tech B vs Legacy Tech A)")
+    st.caption("Compares our **Upgraded Quant EDA Shortlist (Composite RS + CLV + 45% Breadth + RS Auction + Wide Radar)** directly against the **Legacy Shortlist (RVOL + FIFO)** across all 9 tracks. Legacy A tracks are muted on Telegram.")
+    ab_pairs = [
+        ("Track 6: Apex 3-Slot Compounder", t6, t6_a),
+        ("Track 7: 2-Slot Conviction", t7, t7_a),
+        ("Track 8: 1-Slot Apex Rocket", t8, t8_a),
+        ("Track 9: Active 1–2M Swing", t9, t9_a),
+        ("Track 1: Algo 4 (20-EMA Bounce)", t1, t1_a),
+        ("Track 2: Algo 1 (Morning Ignition)", t2, t2_a),
+        ("Track 3: Algo 5 (52W Breakaway Blast)", t3, t3_a),
+        ("Track 4: Algo 2 (Minervini VCP)", t4, t4_a),
+        ("Track 5: Algo 3 (Velocity Sniper)", t5, t5_a),
+    ]
+    ab_rows = []
+    for label, b_d, a_d in ab_pairs:
+        b_pnl = float(b_d.get("total_pnl_inr", 0.0))
+        a_pnl = float(a_d.get("total_pnl_inr", 0.0))
+        delta = b_pnl - a_pnl
+        edge_winner = "🚀 Tech B (EDA)" if delta > 0.01 else ("📦 Tech A (Legacy)" if delta < -0.01 else "⚖️ Tie")
+        ab_rows.append({
+            "Strategy Track": label,
+            "Tech B (EDA) P&L": f"₹{b_pnl:+,.2f} ({b_d.get('total_pnl_pct', 0.0):+.2f}%)",
+            "B Open/Cls/Pend": f"{b_d.get('open_count', 0)}/{b_d.get('closed_count', 0)}/{b_d.get('pending_count', 0)}",
+            "Tech A (Legacy) P&L": f"₹{a_pnl:+,.2f} ({a_d.get('total_pnl_pct', 0.0):+.2f}%)",
+            "A Open/Cls/Pend": f"{a_d.get('open_count', 0)}/{a_d.get('closed_count', 0)}/{a_d.get('pending_count', 0)}",
+            "EDA Alpha Edge (B - A)": f"₹{delta:+,.2f}",
+            "A/B Leader": edge_winner,
+        })
+    st.dataframe(pd.DataFrame(ab_rows), use_container_width=True, hide_index=True)
 
     st.markdown("### 💎 High-CAGR Apex Compounders & Swing Engines")
     sc6, sc7, sc8, sc9 = st.columns(4)
@@ -634,6 +675,13 @@ with tab_paper:
             ])
             st.dataframe(df_closed, use_container_width=True)
 
+    def render_ab_pair(b_data: dict, a_data: dict, is_gtt: bool = True, b_silent: bool = False):
+        st.markdown("#### 🚀 Technique B: Upgraded Quant EDA Shortlist (`Composite RS + CLV + 45% Breadth`)")
+        render_track_details(b_data, is_gtt=is_gtt, is_silent=b_silent)
+        st.divider()
+        with st.expander("📦 Technique A: Legacy Shortlist Twin (RVOL + FIFO | Telegram Muted)", expanded=False):
+            render_track_details(a_data, is_gtt=is_gtt, is_silent=True)
+
     tab_trk6, tab_trk7, tab_trk8, tab_trk9, tab_trk1, tab_trk2, tab_trk3, tab_trk4, tab_trk5 = st.tabs([
         "💎 Track 6: Apex 3-Slot (57.9%)",
         "🔥 Track 7: 2-Slot Conviction (53.5%)",
@@ -647,23 +695,23 @@ with tab_paper:
     ])
 
     with tab_trk6:
-        render_track_details(t6, is_gtt=True, is_silent=False)
+        render_ab_pair(t6, t6_a, is_gtt=True, b_silent=False)
     with tab_trk7:
-        render_track_details(t7, is_gtt=True, is_silent=False)
+        render_ab_pair(t7, t7_a, is_gtt=True, b_silent=False)
     with tab_trk8:
-        render_track_details(t8, is_gtt=True, is_silent=False)
+        render_ab_pair(t8, t8_a, is_gtt=True, b_silent=False)
     with tab_trk9:
-        render_track_details(t9, is_gtt=True, is_silent=False)
+        render_ab_pair(t9, t9_a, is_gtt=True, b_silent=False)
     with tab_trk1:
-        render_track_details(t1, is_gtt=True, is_silent=False)
+        render_ab_pair(t1, t1_a, is_gtt=True, b_silent=False)
     with tab_trk2:
-        render_track_details(t2, is_gtt=True, is_silent=False)
+        render_ab_pair(t2, t2_a, is_gtt=True, b_silent=False)
     with tab_trk3:
-        render_track_details(t3, is_gtt=True, is_silent=False)
+        render_ab_pair(t3, t3_a, is_gtt=True, b_silent=False)
     with tab_trk4:
-        render_track_details(t4, is_gtt=False, is_silent=True)
+        render_ab_pair(t4, t4_a, is_gtt=False, b_silent=True)
     with tab_trk5:
-        render_track_details(t5, is_gtt=True, is_silent=True)
+        render_ab_pair(t5, t5_a, is_gtt=True, b_silent=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
