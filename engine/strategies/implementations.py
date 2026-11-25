@@ -16,7 +16,7 @@ from typing import Dict, Any, List, Optional, Callable
 from engine.domain.models import PortfolioAccount, GTTOrder, Position
 from engine.strategies.base import BaseStrategy
 from data.market_data import fetch_live_quote, _get_cached_history
-from data.market_calendar import get_next_trading_day, get_ist_now
+from data.market_calendar import get_next_trading_day, get_ist_now, get_market_status
 
 logger = logging.getLogger(__name__)
 
@@ -283,9 +283,10 @@ class MinerviniVCPStrategy(BaseStrategy):
         force_market_open: bool = False,
         alert_callback: Optional[Callable[..., Any]] = None,
     ) -> None:
-        """Audits pending 9:20 AM confirmations."""
+        """Audits pending 9:20 AM confirmations strictly during live NSE hours."""
         now = get_ist_now()
-        can_evaluate = force_market_open or now.time() >= dtime(9, 20)
+        mkt = get_market_status(now)
+        can_evaluate = force_market_open or (mkt.get("is_open", False) and now.time() >= dtime(9, 20))
         still_pending = []
 
         for pend in account.pending_confirmations:

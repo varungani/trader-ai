@@ -20,25 +20,20 @@ logger = logging.getLogger(__name__)
 def can_trigger_breakout(shortlist_date_str: str, force_market_open: bool = False) -> Tuple[bool, str]:
     """
     Determines whether a pending GTT breakout trigger is allowed to execute based on NSE/BSE trading rules.
+    Breakouts may ONLY fire while the exchange is actively open (09:15 - 15:30 IST on a trading day).
     Returns: (can_execute, fill_timestamp_str)
     """
     if force_market_open:
         return True, get_ist_now().strftime("%Y-%m-%d %H:%M")
 
     now = get_ist_now()
-    today_str = now.strftime("%Y-%m-%d")
     mkt = get_market_status(now)
 
-    # 1. Market is live and trading right now (09:15-15:30 IST)
+    # Strict Ground Truth Guard:
+    # A GTT trigger can ONLY execute during continuous live NSE hours (09:15-15:30 IST).
+    # Never trigger fills post-close (e.g. 17:30 or 19:00 IST from a queued cron).
     if mkt.get("is_open", False):
         return True, now.strftime("%Y-%m-%d %H:%M")
-
-    # 2. Market is currently closed: verify if today was a trading day and the session has concluded
-    # A GTT trigger can NEVER execute before market opens at 09:15 AM IST!
-    is_td, _ = is_trading_day(now.date())
-    if is_td and shortlist_date_str and str(shortlist_date_str) < today_str:
-        if now.time() >= dtime(15, 30):
-            return True, f"{today_str} (Market Hours)"
 
     return False, ""
 

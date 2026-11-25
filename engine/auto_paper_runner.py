@@ -21,14 +21,29 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from engine.dual_tracker import audit_and_update_dual_tracker, compute_dual_summary, _load_tracker
-from data.market_calendar import get_market_status
+from data.market_calendar import get_market_status, get_ist_now, is_trading_day
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("AutoPaperRunner")
 
 
-def run_once() -> dict:
+def run_once(market_hours_only: bool = False) -> dict:
     """Run one pass of auditing and updating all active paper trades across all 9 parallel tournament tracks."""
+    if market_hours_only:
+        from datetime import time as dtime
+        now_ist = get_ist_now()
+        is_td, reason = is_trading_day(now_ist.date())
+        m_status = get_market_status(now_ist)
+        in_live_or_close_window = m_status.get("is_open", False) or (
+            is_td and dtime(15, 30) <= now_ist.time() <= dtime(15, 45)
+        )
+        if not in_live_or_close_window:
+            logger.info(
+                f"⏸️ [Outside Live Window] {now_ist.strftime('%Y-%m-%d %H:%M IST')} ({reason}). "
+                "Skipping live audit to prevent delayed/after-hours executions or alerts."
+            )
+            return compute_dual_summary()
+
     logger.info("Executing automated 9-way parallel paper trade audit...")
     summary = audit_and_update_dual_tracker()
     
@@ -127,8 +142,7 @@ def run_hawk_surveillance(
             # In Session Mode: Check if relay target is reached
             if session_mode:
                 if not is_td:
-                    logger.info("Today is not a trading day. Running single audit pass and exiting.")
-                    run_once()
+                    logger.info("Today is not a trading day. Exiting without running live audit.")
                     break
 
                 midday_boundary = dtime(12, 30)
@@ -150,25 +164,46 @@ def run_hawk_surveillance(
 
                 if now_ist.time() >= target_time:
                     if is_eod:
+                        if now_ist.time() > dtime(16, 15):
+                            logger.warning(
+                                f"⏸️ [Late Queue Cutoff] Hawk reached EOD past 16:15 IST ({now_ist.strftime('%H:%M IST')}). "
+                                "Archiving snapshot without triggering after-hours fills or late Telegram recap."
+                            )
+                            try:
+                                from engine.analytics.evening_collector import archive_evening_snapshot
+                                archive_evening_snapshot(perform_audit=False)
+                            except Exception as snap_err:
+                                logger.error(f"Failed to archive evening snapshot: {snap_err}", exc_info=True)
+                            break
+
                         logger.info("⏰ [MARKET CLOSED] 03:30 PM IST reached. Running final post-market audit & daily recap...")
-                        final_summary = run_once()
+                        final_summary = run_once(market_hours_only=True)
                         try:
                             from engine.analytics.evening_collector import archive_evening_snapshot
                             logger.info("📦 Archiving evening snapshot & updating local analytics ledger...")
-                            archive_evening_snapshot()
+                            archive_evening_snapshot(perform_audit=False)
                         except Exception as snap_err:
                             logger.error(f"Failed to archive evening snapshot: {snap_err}", exc_info=True)
-                        default_telegram_notifier.notify_daily_recap(final_summary)
+
+                        latest_tracker = _load_tracker()
+                        if latest_tracker.get("daily_recap_sent_date") != today_str:
+                            sent = default_telegram_notifier.notify_daily_recap(final_summary)
+                            if sent:
+                                latest_tracker["daily_recap_sent_date"] = today_str
+                                _save_tracker(latest_tracker)
                     else:
                         logger.info("⏰ [MIDDAY CHECKPOINT] 12:30 PM IST reached. Saving midday state cleanly for afternoon runner...")
-                        run_once()
+                        run_once(market_hours_only=True)
                     break
 
             m_status = get_market_status(now_ist)
             is_open = m_status.get("is_open", False)
 
-            # GEAR 1: Fast Position & Trigger Audit (Runs every cycle)
-            run_once()
+            # GEAR 1: Fast Position & Trigger Audit (Strictly only inside live NSE window)
+            if is_open:
+                run_once(market_hours_only=True)
+            else:
+                logger.info(f"⏳ Waiting for NSE open ({now_ist.strftime('%H:%M:%S IST')})...")
 
             # GEAR 2: Intraday Apex Breakout Scan (Runs every scan_interval_min during open market hours)
             if is_open and (time.time() - last_scan_time >= scan_interval_min * 60):
@@ -241,6 +276,7 @@ if __name__ == "__main__":
     parser.add_argument("--scan-interval", type=int, default=15, help="Scan interval in minutes for hawk mode (default: 15 mins)")
     parser.add_argument("--max-cycles", type=int, default=None, help="Optional max loop iterations")
     parser.add_argument("--archive", action="store_true", help="Run audit and immediately archive evening snapshot")
+    parser.add_argument("--market-hours-only", action="store_true", help="Skip live audit if outside NSE continuous session/close window")
     args = parser.parse_args()
 
     if args.hawk:
@@ -254,8 +290,8 @@ if __name__ == "__main__":
     elif args.daemon:
         run_daemon(args.interval)
     else:
-        run_once()
+        run_once(market_hours_only=args.market_hours_only)
         if args.archive:
             from engine.analytics.evening_collector import archive_evening_snapshot
-            archive_evening_snapshot()
+            archive_evening_snapshot(perform_audit=False)
 

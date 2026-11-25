@@ -25,6 +25,8 @@ class TournamentService:
         self.registry = registry or default_registry
         self.accounts: Dict[str, PortfolioAccount] = {}
         self.updated_at: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.created_at: str = self.updated_at
+        self.extra_meta: Dict[str, Any] = {}
 
     def initialize_default(self) -> None:
         """Initializes empty accounts for all registered strategies."""
@@ -39,8 +41,12 @@ class TournamentService:
             )
 
     def load_from_dict(self, data: Dict[str, Any]) -> None:
-        """Loads accounts from dictionary structure."""
+        """Loads accounts from dictionary structure while preserving top-level metadata."""
         self.updated_at = data.get("updated_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        self.created_at = data.get("created_at", self.updated_at)
+        for meta_key in ("alerted_buy_signals", "daily_recap_sent_date"):
+            if meta_key in data and data[meta_key] is not None:
+                self.extra_meta[meta_key] = data[meta_key]
         for strat in self.registry.all():
             strat_data = data.get(strat.key)
             if strat_data:
@@ -61,10 +67,11 @@ class TournamentService:
 
     def to_dict(self) -> Dict[str, Any]:
         """Serializes tournament state to dictionary."""
-        d = {
+        d: Dict[str, Any] = {
             "created_at": getattr(self, "created_at", self.updated_at),
             "updated_at": self.updated_at,
         }
+        d.update(self.extra_meta)
         for strat in self.registry.all():
             account = self.accounts.get(strat.key)
             if account:

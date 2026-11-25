@@ -164,3 +164,25 @@ def test_telegram_notifier_notify_live_buy_signal(configured_notifier):
         assert "131.30" in sent_text
         assert "146 shares" in sent_text
         assert "CNC (Delivery / Cash)" in sent_text
+
+
+def test_telegram_notifier_notify_daily_recap_includes_all_9_tracks(configured_notifier):
+    sample_summary = {
+        "winner": "Track 6 Leading",
+        "track_algo4": {"total_pnl_inr": -447.0, "total_pnl_pct": -0.45, "open_count": 4, "closed_count": 1, "pending_count": 22, "win_rate": 0.0},
+        "option_3": {"total_pnl_inr": -447.0, "total_pnl_pct": -0.45, "open_count": 4, "closed_count": 1, "pending_count": 30, "win_rate": 0.0},
+        "track_algo5": {"total_pnl_inr": -919.0, "total_pnl_pct": -0.92, "open_count": 2, "closed_count": 1, "pending_count": 1, "win_rate": 0.0},
+        "option_2": {"total_pnl_inr": 274.96, "total_pnl_pct": 0.27},
+        "track_c": {"total_pnl_inr": -447.0, "total_pnl_pct": -0.45},
+        "track_apex_compounder": {"total_pnl_inr": 1324.64, "total_pnl_pct": 1.32, "open_count": 3, "closed_count": 0, "pending_count": 22, "win_rate": 0.0},
+        "track_conviction_2slot": {"total_pnl_inr": 1140.02, "total_pnl_pct": 1.14, "open_count": 2, "closed_count": 0, "pending_count": 15, "win_rate": 0.0},
+        "track_apex_1slot": {"total_pnl_inr": 489.70, "total_pnl_pct": 0.49, "open_count": 1, "closed_count": 0, "pending_count": 7, "win_rate": 0.0},
+        "track_monthly_swing": {"total_pnl_inr": 486.75, "total_pnl_pct": 0.49, "open_count": 4, "closed_count": 0, "pending_count": 29, "win_rate": 0.0},
+    }
+    with patch.object(configured_notifier, "send_message", return_value=True) as mock_send:
+        success = configured_notifier.notify_daily_recap(sample_summary)
+        assert success is True
+        sent_text = mock_send.call_args[0][0]
+        assert "9-WAY PERFORMANCE RECAP" in sent_text
+        for label in ["Track 6", "Track 7", "Track 8", "Track 9", "Track 1", "Track 5"]:
+            assert label in sent_text

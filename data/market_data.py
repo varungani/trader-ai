@@ -4,6 +4,7 @@ Historical and live stock/commodity/index data via yfinance with robust local ca
 """
 import os
 import pickle
+import time
 import logging
 import pandas as pd
 from datetime import datetime, timedelta
@@ -14,6 +15,8 @@ logger = logging.getLogger(__name__)
 _CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
 _LOADED_CACHE: dict[str, pd.DataFrame] | None = None
 _LIVE_NETWORK_AVAILABLE: bool | None = None
+_QUOTE_CACHE: dict[str, tuple[float, dict]] = {}
+_QUOTE_CACHE_TTL_SEC = 15.0
 
 
 def _load_all_caches() -> dict[str, pd.DataFrame]:
@@ -198,14 +201,20 @@ def fetch_stock_info(ticker: str, force_live: bool = False) -> dict:
 
 def fetch_live_quote(ticker: str) -> dict:
     """
-    Fetch latest price quote for a stock.
+    Fetch latest price quote for a stock with a short 15s TTL in-memory cache
+    so multi-track audits do not fire duplicate Yahoo Finance requests for the same symbol.
     Falls back to cached history's latest row if live fetch fails.
     """
+    now_ts = time.time()
+    cached_entry = _QUOTE_CACHE.get(ticker)
+    if cached_entry and (now_ts - cached_entry[0]) < _QUOTE_CACHE_TTL_SEC:
+        return dict(cached_entry[1])
+
     try:
         stock = yf.Ticker(ticker)
         fast_info = stock.fast_info
         if fast_info and fast_info.get("lastPrice"):
-            return {
+            quote = {
                 "symbol": ticker,
                 "price": fast_info.get("lastPrice", 0),
                 "previous_close": fast_info.get("previousClose", 0),
@@ -217,6 +226,8 @@ def fetch_live_quote(ticker: str) -> dict:
                 "volume": fast_info.get("lastVolume", 0),
                 "market_cap": fast_info.get("marketCap", 0),
             }
+            _QUOTE_CACHE[ticker] = (now_ts, quote)
+            return dict(quote)
     except Exception as e:
         logger.debug(f"Live quote failed for {ticker}: {e}")
 

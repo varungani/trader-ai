@@ -1,44 +1,58 @@
-name: Apex Daily Scan & CI Pipeline
+name: Apex Daily Scan & Post-Market Archive
 
 on:
-  push:
-    branches: [ master, main ]
   schedule:
-    # Runs at 10:00 UTC (3:30 PM IST) Monday to Friday (Indian Market Close)
-    - cron: '0 10 * * 1-5'
+    # Runs once daily at 10:05 UTC (3:35 PM IST) Monday to Friday (Indian Market Close)
+    - cron: '5 10 * * 1-5'
   workflow_dispatch: # Allows manual 1-click trigger from GitHub Actions UI
+
+concurrency:
+  group: daily-apex-scan
+  cancel-in-progress: true
 
 permissions:
   contents: write
 
 jobs:
   build-and-test:
-    name: Build, Test & Run Daily Apex Scan
+    name: Daily Apex Scan & Evening Archive
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
+          cache-dependency-path: "requirements.txt"
+
+      - name: Check NSE Trading Day
+        id: day_check
+        run: |
+          IS_TD=$(python -c "from data.market_calendar import is_trading_day; ok, r = is_trading_day(); print('true' if ok else 'false')")
+          echo "is_trading_day=$IS_TD" >> $GITHUB_OUTPUT
+          if [ "$IS_TD" != "true" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "NSE holiday or weekend. Skipping post-market scan."
+          fi
 
       - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        if: steps.day_check.outputs.is_trading_day == 'true' || github.event_name == 'workflow_dispatch'
+        run: pip install --no-cache-dir -r requirements.txt
 
       - name: Verify Dashboard & Strategy Integrity
+        if: steps.day_check.outputs.is_trading_day == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           python -c "import app; print('Streamlit app syntax verified.')"
           python -c "import config; print('Config verified.')"
 
       - name: Run Apex High-Velocity Scanner
+        if: steps.day_check.outputs.is_trading_day == 'true' || github.event_name == 'workflow_dispatch'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           KOTAK_CONSUMER_KEY: ${{ secrets.KOTAK_CONSUMER_KEY }}
@@ -46,27 +60,29 @@ jobs:
           python engine/apex_engine.py > daily_scan_output.txt
           cat daily_scan_output.txt
 
-      - name: Run Evening Tournament Snapshot & Analytics Archival
+      - name: Archive Evening Tournament Snapshot (No Post-Close Re-Triggers)
+        if: steps.day_check.outputs.is_trading_day == 'true' || github.event_name == 'workflow_dispatch'
         run: |
-          python -c "from engine.analytics import archive_evening_snapshot; res = archive_evening_snapshot(); print('Evening snapshot archived:', res)"
+          python -c "from engine.analytics import archive_evening_snapshot; res = archive_evening_snapshot(perform_audit=False); print('Evening snapshot archived:', res.get('status'))"
 
       - name: Commit and Push Updated Tracker & Analytics Data
-        if: always()
+        if: always() && (steps.day_check.outputs.is_trading_day == 'true' || github.event_name == 'workflow_dispatch')
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action [TraderAI]"
           git add data/*.json data/analytics/
           if ! git diff --quiet || ! git diff --staged --quiet; then
-            git commit -m "chore(scan): 3:30 PM post-market scan & evening archive sync [skip ci]" || true
+            git commit -m "chore(scan): 3:35 PM post-market scan & evening archive sync [skip ci]" || true
+            git fetch origin master --depth=20 || true
             git pull --rebase origin master || true
             git push origin master || true
             git push origin master:production || true
           fi
 
       - name: Upload Daily Scan Artifact
+        if: steps.day_check.outputs.is_trading_day == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: daily-apex-picks
           path: daily_scan_output.txt
           retention-days: 7
-

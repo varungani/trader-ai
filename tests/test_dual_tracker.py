@@ -156,6 +156,19 @@ def test_can_trigger_breakout_market_rules():
         can_exec_morning, _ = _can_trigger_breakout("2026-11-22", force_market_open=False)
         assert can_exec_morning is False
 
+    # 4. Post-market evening hours (e.g. 19:00 IST): pending triggers MUST NOT fire bogus after-hours fills
+    fake_evening = real_datetime(2026, 11, 25, 19, 0, 0, tzinfo=tz)  # 07:00 PM Wednesday
+    with patch("engine.strategies.base.get_ist_now", return_value=fake_evening):
+        can_exec_evening, _ = _can_trigger_breakout("2026-11-23", force_market_open=False)
+        assert can_exec_evening is False
+
+    # 5. Live continuous market hours (e.g. 10:15 IST): pending triggers CAN execute
+    fake_live = real_datetime(2026, 11, 25, 10, 15, 0, tzinfo=tz)  # 10:15 AM Wednesday
+    with patch("engine.strategies.base.get_ist_now", return_value=fake_live):
+        can_exec_live, ts_live = _can_trigger_breakout("2026-11-23", force_market_open=False)
+        assert can_exec_live is True
+        assert ts_live == "2026-11-25 10:15"
+
 
 def test_log_today_picks_sets_shortlist_and_fill_dates(sample_picks):
     """Verify that logging picks establishes shortlist_date and pending confirmation."""

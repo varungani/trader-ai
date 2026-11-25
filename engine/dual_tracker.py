@@ -67,8 +67,16 @@ def _can_trigger_breakout(shortlist_date_str: str, force_market_open: bool = Fal
 
 
 def _send_telegram_alert(alert_type: str, **kwargs):
-    """Safely trigger Telegram alert if enabled, without interrupting trading execution."""
+    """Safely trigger Telegram alert if enabled and within NSE live window (09:15-15:40 IST)."""
     try:
+        from datetime import time as dtime
+        from data.market_calendar import get_ist_now, is_trading_day
+        now = get_ist_now()
+        is_td, _ = is_trading_day(now.date())
+        if not is_td or not (dtime(9, 15) <= now.time() <= dtime(15, 40)):
+            logger.info(f"🔇 Suppressed {alert_type} Telegram alert outside market hours ({now.strftime('%H:%M IST')}).")
+            return
+
         from bot.telegram_notifier import default_telegram_notifier
         if alert_type == "breakout_fill":
             default_telegram_notifier.notify_breakout_fill(**kwargs)

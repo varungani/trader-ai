@@ -314,26 +314,38 @@ class TelegramNotifier:
         self,
         summary: dict,
     ) -> bool:
-        """Dispatches an end-of-day trading recap to Telegram across all 5 tracks."""
+        """Dispatches an end-of-day trading recap to Telegram across all 9 tournament tracks."""
         t1 = summary.get("track_algo4", summary.get("track_1", {}))
         t2 = summary.get("option_3", summary.get("track_2", {}))
         t3 = summary.get("track_algo5", summary.get("track_3", {}))
         t4 = summary.get("option_2", summary.get("track_4", {}))
         t5 = summary.get("track_c", summary.get("track_5", {}))
+        t6 = summary.get("track_apex_compounder", summary.get("track_6", {}))
+        t7 = summary.get("track_conviction_2slot", summary.get("track_7", {}))
+        t8 = summary.get("track_apex_1slot", summary.get("track_8", {}))
+        t9 = summary.get("track_monthly_swing", summary.get("track_9", {}))
+
+        def _line(badge: str, label: str, d: dict, detail: bool = True) -> str:
+            s = f"{badge} *{label}:* ₹{d.get('total_pnl_inr', 0.0):+,.0f} ({d.get('total_pnl_pct', 0.0):+.2f}%)\n"
+            if detail:
+                s += f"   • Open: {d.get('open_count', 0)} | Closed: {d.get('closed_count', 0)} | Pend: {d.get('pending_count', 0)} | WR: {d.get('win_rate', 0.0):.1f}%\n"
+            return s
+
         msg = (
-            f"📊 *[NSE MARKET CLOSE: 5-WAY PERFORMANCE RECAP]*\n"
+            f"📊 *[NSE MARKET CLOSE: 9-WAY PERFORMANCE RECAP]*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"🏆 *Leader:* {summary.get('winner', 'Evaluating')}\n\n"
-            f"🥇 *Track 1 (Algo 4: 20-EMA Bounce):* ₹{t1.get('total_pnl_inr', 0.0):+,.0f} ({t1.get('total_pnl_pct', 0.0):+.2f}%)\n"
-            f"   • Active: {t1.get('open_count', 0)} open | Pending: {t1.get('pending_count', 0)} | WR: {t1.get('win_rate', 0.0):.1f}%\n"
-            f"🚀 *Track 2 (Algo 1: Morning Ignition):* ₹{t2.get('total_pnl_inr', 0.0):+,.0f} ({t2.get('total_pnl_pct', 0.0):+.2f}%)\n"
-            f"   • Active: {t2.get('open_count', 0)} open | Pending: {t2.get('pending_count', 0)} | WR: {t2.get('win_rate', 0.0):.1f}%\n"
-            f"⚡ *Track 3 (Algo 5: 52W Blast):* ₹{t3.get('total_pnl_inr', 0.0):+,.0f} ({t3.get('total_pnl_pct', 0.0):+.2f}%)\n"
-            f"   • Active: {t3.get('open_count', 0)} open | Pending: {t3.get('pending_count', 0)} | WR: {t3.get('win_rate', 0.0):.1f}%\n"
-            f"🛡️ *Track 4 (Algo 2: Minervini VCP Benchmark):* ₹{t4.get('total_pnl_inr', 0.0):+,.0f} ({t4.get('total_pnl_pct', 0.0):+.2f}%)\n"
-            f"🎯 *Track 5 (Algo 3: Velocity Sniper Benchmark):* ₹{t5.get('total_pnl_inr', 0.0):+,.0f} ({t5.get('total_pnl_pct', 0.0):+.2f}%)\n"
-            f"━━━━━━━━━━━━━━━━━━━\n"
-            f"✨ _Session closed. State saved & synced across all 5 tracks._"
+            + _line("💎", "Track 6 (Apex 3-Slot)", t6)
+            + _line("🔥", "Track 7 (2-Slot Conviction)", t7)
+            + _line("👑", "Track 8 (1-Slot Rocket)", t8)
+            + _line("🌊", "Track 9 (Active Swing)", t9)
+            + _line("🥇", "Track 1 (Algo 4: 20-EMA)", t1)
+            + _line("🚀", "Track 2 (Algo 1: Ignition)", t2)
+            + _line("⚡", "Track 3 (Algo 5: 52W Blast)", t3)
+            + _line("🛡️", "Track 4 (Algo 2: VCP Bench)", t4, detail=False)
+            + _line("🎯", "Track 5 (Algo 3: Sniper Bench)", t5, detail=False)
+            + f"━━━━━━━━━━━━━━━━━━━\n"
+            f"✨ _Session closed. State saved & synced across all 9 tracks._"
         )
         return self.send_message(msg)
 
