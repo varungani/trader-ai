@@ -220,8 +220,8 @@ with tab_picks:
     leading_secs = brief.get("leading_sectors") or []
 
 
-    # 1. Macro Regime & Institutional Leading Sector Banner
-    b_col1, b_col2 = st.columns([1, 2])
+    # 1. Macro Regime, Live Market Breadth & Institutional Leading Sector Banner
+    b_col1, b_col2, b_col3 = st.columns([1, 1, 2])
     with b_col1:
         regime = macro.get("regime", "BULLISH")
         reg_cleared = macro.get("is_regime_gate_cleared", True)
@@ -231,6 +231,15 @@ with tab_picks:
             st.metric("Market Climate", f"🛡️ {regime}", "NIFTY < 50 SMA (Selective Alpha)")
 
     with b_col2:
+        breadth_val = float(brief.get("market_breadth_pct") or 50.0)
+        if breadth_val >= 65.0:
+            st.metric("NSE500 Breadth", f"🚀 {breadth_val:.1f}%", "Supercharger Regime (≥65%)")
+        elif breadth_val >= 45.0:
+            st.metric("NSE500 Breadth", f"🟢 {breadth_val:.1f}%", "Healthy Breadth Gate (≥45%)")
+        else:
+            st.metric("NSE500 Breadth", f"🛡️ {breadth_val:.1f}%", "Cash Shield Active (<45%)", delta_color="inverse")
+
+    with b_col3:
         if leading_secs:
             st.write("**🏆 Current Leading Institutional Sectors (Tailwind Gate):**")
             scols = st.columns(min(3, len(leading_secs)))
@@ -296,12 +305,13 @@ with tab_picks:
                 "Target (+20%)": f"₹{r['target_price']:,.2f}",
                 "Stop (-7% Close)": f"₹{r['stop_loss']:,.2f}",
                 "Setup Stage": r.get("readiness", "COILING"),
+                "Comp RS": f"{r.get('composite_rs', 0):+.1f}%",
                 "RS vs Nifty": f"{r.get('rs_vs_nifty', 0):+.1f}%",
                 "RVOL": f"{r.get('rvol', 1.0):.2f}x",
                 "Order Type": "GTT Buy-Stop (Pending)",
                 "Action Plan": r.get("action_plan", "Track for breakout"),
             }
-            for r in radar[:10]
+            for r in sorted(radar, key=lambda x: float(x.get("composite_rs", 0.0)), reverse=True)[:15]
         ]
         st.dataframe(pd.DataFrame(radar_table), use_container_width=True)
         st.info("💡 **Execution Guide**: Place a **GTT Buy-Stop** order overnight in your broker app (Zerodha, Kotak Neo, Groww) at the **Pivot Trigger** under **CNC / Delivery**. The order will **ONLY execute during live market hours (09:15 AM – 03:30 PM IST)** if the price breaks above the trigger. If it doesn't break out, you risk zero capital!")
@@ -538,11 +548,12 @@ with tab_paper:
                         "Shortlisted": format_display_date(t.get("shortlist_date", t.get("log_date", ""))),
                         "Scan Px": f"₹{t.get('scan_price', 0.0):,.2f}",
                         "Trigger Px": f"₹{t['pivot_trigger']:,.2f}",
-                        "Target (+12%)": f"₹{t['target_price']:,.2f}",
-                        "Stop (-4%)": f"₹{t['stop_loss']:,.2f}",
+                        "Target": f"₹{t['target_price']:,.2f}",
+                        "Stop": f"₹{t['stop_loss']:,.2f}",
+                        "Comp RS": f"{t.get('composite_rs', 0.0):+.1f}%",
                         "Status": t.get("status", "PENDING_BREAKOUT_TRIGGER"),
                     }
-                    for t in pends
+                    for t in sorted(pends, key=lambda x: float(x.get("composite_rs", 0.0)), reverse=True)
                 ])
                 st.dataframe(df_pend, use_container_width=True)
         else:

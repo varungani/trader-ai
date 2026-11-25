@@ -58,31 +58,50 @@ def run_apex_scan(
     # 2. Sector Leadership Matrix
     top_sectors = get_top_leading_sectors(top_n=3)
 
-    # 3. High-Velocity Pre-Screen across selected universe
+    # 3. High-Velocity Pre-Screen across selected universe (+ Universe Breadth)
     from engine.screener import get_universe
     scan_universe = get_universe(universe_preset)
-    screen_hits = pre_screen(
+    all_screen_hits = pre_screen(
         tickers=scan_universe,
         top_n=150,
         period="6mo",
         min_price=15.0,
         min_avg_value_cr=2.0,
+        return_all=True,
     )
+    market_breadth_pct = float(getattr(pre_screen, "last_breadth_pct", 50.0))
+
+    # Build explicit Rocket Shortlist sorted by verified 59.4% CAGR Composite RS (0.5·1M + 0.3·3M + 0.2·6M)
+    rocket_hits = [
+        h for h in all_screen_hits
+        if h.get("is_compounder_rocket") or (
+            h.get("is_stage2") and float(h.get("dist_ema200_pct", 0.0)) >= 20.0
+            and float(h.get("vol_asym_20", 1.0)) >= 2.0 and float(h.get("clv", 0.5)) >= 0.65
+        )
+    ]
+    rocket_hits.sort(key=lambda x: float(x.get("composite_rs", 0.0)), reverse=True)
+
+    # Merge top composite RS rockets into deep-score slice so no explosive leader is dropped before scoring
+    merged_hits = list({h["ticker"]: h for h in (rocket_hits[:25] + all_screen_hits[:150])}.values())
+    merged_hits.sort(key=lambda r: float(r.get("screen_score", 0.0)), reverse=True)
+    screen_hits = merged_hits[:150]
 
     if not screen_hits:
         return {
             "status": "NO_CANDIDATES",
             "regime": regime,
             "regime_desc": regime_desc,
+            "market_breadth_pct": market_breadth_pct,
             "picks": [],
             "radar_watchlist": [],
+            "compounder_rockets": [],
             "leading_sectors": top_sectors,
             "capital": capital,
         }
 
     # 4. Deep Multi-Factor Scoring across top momentum hits
     scored = []
-    screen_map = {h["ticker"]: h for h in screen_hits}
+    screen_map = {h["ticker"]: h for h in all_screen_hits}
 
     for hit in screen_hits[:60]:
         ticker = hit["ticker"]
@@ -90,9 +109,15 @@ def run_apex_scan(
             score_data = score_stock(ticker, timeframe="short_term", macro_score=macro)
             rec = build_recommendation(score_data)
             
-            # Enrich with screener patterns, delivery and sector metadata
+            # Enrich with screener patterns, empirical IC/EDA features & sector metadata
             rec["setup_pattern"] = hit.get("setup_pattern") or "NONE"
             rec["rvol"] = hit.get("rvol", 1.0)
+            rec["composite_rs"] = hit.get("composite_rs", 0.0)
+            rec["vol_asym_20"] = hit.get("vol_asym_20", 1.0)
+            rec["clv"] = hit.get("clv", 0.5)
+            rec["dist_ema200_pct"] = hit.get("dist_ema200_pct", 0.0)
+            rec["is_compounder_rocket"] = hit.get("is_compounder_rocket", False)
+            rec["market_breadth_pct"] = market_breadth_pct
             rec["rs_vs_nifty"] = hit.get("rs_vs_nifty", 0.0)
             rec["screen_rank"] = hit.get("screen_score", 0.0)
             rec["est_delivery_pct"] = hit.get("est_delivery_pct", 50.0)
@@ -173,6 +198,11 @@ def run_apex_scan(
             "final_score": rec.get("final_score"),
             "pattern": rec.get("setup_pattern"),
             "rvol": rec.get("rvol"),
+            "composite_rs": rec.get("composite_rs", 0.0),
+            "vol_asym_20": rec.get("vol_asym_20", 1.0),
+            "clv": rec.get("clv", 0.5),
+            "dist_ema200_pct": rec.get("dist_ema200_pct", 0.0),
+            "market_breadth_pct": market_breadth_pct,
             "rs_vs_nifty": rec.get("rs_vs_nifty", 0.0),
             "est_delivery_pct": rec.get("est_delivery_pct", 55.0),
             "sector": rec.get("sector", "General"),
@@ -200,11 +230,11 @@ def run_apex_scan(
     tier1_tickers = {p["ticker"] for p in top_picks}
     radar_pool = [b for b in buys if b["ticker"] not in tier1_tickers]
     
-    # Also add top screened candidates that are coiling near 52W highs
-    for h in screen_hits:
+    # Also add top screened candidates & EDA compounder rockets so nothing huge is missed downstream
+    for h in (rocket_hits[:15] + screen_hits):
         t = h["ticker"]
         if t not in tier1_tickers and not any(r["ticker"] == t for r in radar_pool):
-            if h.get("setup_pattern") in ("PRE_IGNITION_COIL", "52W_HIGH_BREAKOUT", "INSTITUTIONAL_IGNITION", "20EMA_SWEET_SPOT") or h.get("screen_score", 0) >= 70:
+            if h.get("is_compounder_rocket") or h.get("setup_pattern") in ("PRE_IGNITION_COIL", "52W_HIGH_BREAKOUT", "INSTITUTIONAL_IGNITION", "20EMA_SWEET_SPOT") or h.get("screen_score", 0) >= 70:
                 px = float(h.get("price") or 0.0)
                 radar_pool.append({
                     "ticker": t,
@@ -213,6 +243,11 @@ def run_apex_scan(
                     "final_score": h.get("screen_score", 70.0),
                     "setup_pattern": h.get("setup_pattern", "MOMENTUM_RUNNER"),
                     "rvol": h.get("rvol", 1.0),
+                    "composite_rs": h.get("composite_rs", 0.0),
+                    "vol_asym_20": h.get("vol_asym_20", 1.0),
+                    "clv": h.get("clv", 0.5),
+                    "dist_ema200_pct": h.get("dist_ema200_pct", 0.0),
+                    "market_breadth_pct": market_breadth_pct,
                     "rs_vs_nifty": h.get("rs_vs_nifty", 0.0),
                     "est_delivery_pct": h.get("est_delivery_pct", 50.0),
                     "sector": h.get("sector") or TICKER_TO_SECTOR.get(t, "General"),
@@ -261,6 +296,11 @@ def run_apex_scan(
             "pattern": pattern,
             "readiness": readiness,
             "action_plan": action_plan,
+            "composite_rs": r.get("composite_rs", 0.0),
+            "vol_asym_20": r.get("vol_asym_20", 1.0),
+            "clv": r.get("clv", 0.5),
+            "dist_ema200_pct": r.get("dist_ema200_pct", 0.0),
+            "market_breadth_pct": market_breadth_pct,
             "rs_vs_nifty": r.get("rs_vs_nifty", 0.0),
             "rvol": rvol,
             "est_delivery_pct": r.get("est_delivery_pct", 50.0),
@@ -277,12 +317,14 @@ def run_apex_scan(
         "regime": regime,
         "nifty_cleared": nifty_cleared,
         "regime_desc": regime_desc,
+        "market_breadth_pct": market_breadth_pct,
         "capital": capital,
         "total_deployed": round(total_deployed, 2),
         "cash_remaining": cash_remaining,
         "slot_count": top_slots,
-        "picks": top_picks,                       # Tier 1: Top 3 Concentrated Active Slots
-        "radar_watchlist": radar_watchlist,       # Tier 2: Top 12 Pre-Ignition / Coiling Leaders
+        "picks": top_picks,                       # Tier 1: Concentrated Active Slots
+        "radar_watchlist": radar_watchlist,       # Tier 2: Pre-Ignition / Coiling Leaders
+        "compounder_rockets": rocket_hits[:15],   # Verified Composite RS + EDA-B1 Rocket Lane
         "leading_sectors": top_sectors,           # Top 3 Leading Sectors in India
     }
 

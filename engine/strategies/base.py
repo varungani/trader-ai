@@ -12,7 +12,7 @@ from typing import Dict, Any, List, Optional, Callable, Tuple
 
 from engine.domain.models import PortfolioAccount, GTTOrder, Position
 from data.market_data import fetch_live_quote, _get_cached_history
-from data.market_calendar import get_market_status, is_trading_day, get_ist_now
+from data.market_calendar import get_market_status, is_trading_day, get_ist_now, count_trading_days
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,16 @@ class BaseStrategy(ABC):
     velocity_kill_min_pnl: float = 1.5
     max_holding_days: int = 7
 
+    # Empirical Upgrades (enabled selectively on Compounder & Swing tracks; Legacy tracks keep False)
+    prioritize_by_composite_rs: bool = False
+    stale_expiry_days: int = 0
+    min_breadth_gate: float = 0.0
+    min_entry_clv: float = 0.0
+
+    def get_slot_allocation(self, rank_idx: int, active_slots: int, total_capital: float) -> float:
+        """Default equal slot allocation; subclasses may override for 40/30/30 conviction weighting."""
+        return self.slot_capital
+
     @abstractmethod
     def log_picks(
         self,
@@ -84,6 +94,26 @@ class BaseStrategy(ABC):
         self.audit_pending(account, today_str, today, force_market_open, alert_callback)
         self.audit_open_positions(account, today_str, today, alert_callback)
 
+    def _resolve_live_breadth(self, pending_orders: List[GTTOrder]) -> float:
+        """Resolve latest universe breadth % from latest_scan.json or pending metadata; defaults to 50.0 if unknown."""
+        try:
+            import json
+            import os
+            root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            scan_path = os.path.join(root, "data", "latest_scan.json")
+            if os.path.exists(scan_path):
+                with open(scan_path, "r", encoding="utf-8") as f:
+                    val = json.load(f).get("market_breadth_pct")
+                    if val is not None:
+                        return float(val)
+        except Exception:
+            pass
+        for t in pending_orders:
+            val = getattr(t, "market_breadth_pct", 50.0)
+            if val and val != 50.0:
+                return float(val)
+        return 50.0
+
     def audit_pending(
         self,
         account: PortfolioAccount,
@@ -92,22 +122,54 @@ class BaseStrategy(ABC):
         force_market_open: bool = False,
         alert_callback: Optional[Callable[..., Any]] = None,
     ) -> None:
-        """Default GTT Buy-Stop trigger evaluation for breakout strategies."""
-        still_pending = []
-        for pending in account.pending_triggers:
+        """
+        GTT Buy-Stop trigger evaluation.
+        When prioritize_by_composite_rs=True, evaluates candidates in descending Composite RS order
+        so top leaders win free slots ahead of older FIFO watchlist items, and enforces stale expiry,
+        breadth shield, and CLV breakout quality.
+        """
+        still_pending: List[GTTOrder] = []
+
+        ordered_pending = list(account.pending_triggers)
+        if self.prioritize_by_composite_rs and ordered_pending:
+            ordered_pending.sort(
+                key=lambda x: (
+                    float(getattr(x, "composite_rs", 0.0)),
+                    float(getattr(x, "vol_asym", 1.0)),
+                    str(x.shortlist_date or ""),
+                ),
+                reverse=True,
+            )
+
+        breadth_val = self._resolve_live_breadth(ordered_pending) if (self.min_breadth_gate > 0 and not force_market_open) else 50.0
+        breadth_blocked = bool(self.min_breadth_gate > 0 and not force_market_open and breadth_val < self.min_breadth_gate)
+
+        for pending in ordered_pending:
             ticker = pending.ticker
             trigger_px = float(pending.pivot_trigger)
             shortlist_d = pending.shortlist_date or pending.log_date or today_str
 
+            # 0. Auto-expire stale setups older than stale_expiry_days trading sessions
+            if self.stale_expiry_days > 0 and not force_market_open and shortlist_d:
+                try:
+                    age_days = count_trading_days(shortlist_d, today)
+                    if age_days > self.stale_expiry_days:
+                        logger.info(f"🧹 [Expired Stale GTT] {ticker} untriggered for {age_days} trading days (> {self.stale_expiry_days}). Pruning.")
+                        continue
+                except Exception:
+                    pass
+
             quote = fetch_live_quote(ticker)
             cur_px = float(quote.get("price") or 0.0)
             high_px = float(quote.get("day_high") or quote.get("high") or cur_px)
+            low_px = float(quote.get("day_low") or quote.get("low") or 0.0)
             if cur_px <= 0:
                 df = _get_cached_history(ticker, "5d")
                 if not df.empty:
                     df.columns = [str(c).title() for c in df.columns]
                     cur_px = float(df["Close"].iloc[-1])
                     high_px = float(df["High"].iloc[-1])
+                    low_px = float(df["Low"].iloc[-1]) if "Low" in df.columns else 0.0
                 else:
                     cur_px = float(pending.scan_price)
                     high_px = cur_px
@@ -130,6 +192,22 @@ class BaseStrategy(ABC):
                     account.aborted_trades.append(d_abort)
                     continue
 
+                # 2. Universe Market Breadth Gate (EDA: <45% stays in cash shield)
+                if breadth_blocked:
+                    logger.info(f"🛡️ [Breadth Shield] Market breadth {breadth_val:.1f}% < {self.min_breadth_gate:.1f}%. Holding {ticker} in cash.")
+                    pending.status = "PENDING_BREADTH_SHIELD"
+                    still_pending.append(pending)
+                    continue
+
+                # 3. CLV Breakout Quality Check (EDA-B1: skip intraday collapsed wick breakouts when intraday range available)
+                if self.min_entry_clv > 0 and not force_market_open and low_px > 0 and high_px > low_px:
+                    live_clv = (cur_px - low_px) / (high_px - low_px)
+                    if live_clv < self.min_entry_clv:
+                        logger.info(f"⏳ [CLV Guard] {ticker} intraday CLV {live_clv:.2f} < {self.min_entry_clv:.2f} (wick trap). Holding pending.")
+                        pending.status = "PENDING_CLV_CONFIRMATION"
+                        still_pending.append(pending)
+                        continue
+
                 can_fill, fill_reason = account.can_fill_trade()
                 if not can_fill:
                     logger.info(f"⏳ [{self.name} Slot Queued] {ticker} awaiting slot: {fill_reason}")
@@ -139,7 +217,9 @@ class BaseStrategy(ABC):
 
                 fill_price = round(trigger_px * (1.0 + self.slippage_pct), 2)
                 cash_free = account.get_free_cash()
-                slot_budget = min(self.slot_capital, cash_free)
+                active_cnt = len(account.positions)
+                target_alloc = self.get_slot_allocation(active_cnt, active_cnt, account.capital)
+                slot_budget = min(target_alloc, cash_free)
                 shares = int(slot_budget // fill_price)
                 if shares <= 0:
                     pending.status = "PENDING_SLOT_CAPACITY"

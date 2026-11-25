@@ -38,6 +38,10 @@ class GTTOrder:
     pattern: str = ""
     readiness: str = ""
     sector: str = "General"
+    composite_rs: float = 0.0
+    clv: float = 0.5
+    vol_asym: float = 1.0
+    market_breadth_pct: float = 50.0
 
     def __post_init__(self):
         if not self.name:

@@ -223,3 +223,89 @@ def test_pyramid_alert_payload_and_persistence(monkeypatch):
     # Verify round-trip persistence preserves pyramid_stage
     reloaded = PortfolioAccount.from_dict(acc.to_dict())
     assert reloaded.positions[0].pyramid_stage == 1
+
+
+def test_rs_priority_slot_auction_beats_fifo(monkeypatch):
+    """Verify stronger Composite RS leader wins free slot ahead of weaker older pending ticker at index 0."""
+    from zoneinfo import ZoneInfo
+    import engine.strategies.base as base_mod
+
+    strat = default_registry.get("track_apex_1slot")  # 1-slot rocket
+    assert strat is not None
+
+    monkeypatch.setattr(base_mod, "fetch_live_quote", lambda t: {"price": 105.0, "day_high": 106.0, "day_low": 99.0, "open": 101.0})
+    monkeypatch.setattr(base_mod, "get_ist_now", lambda: datetime(2026, 11, 25, 10, 30, tzinfo=ZoneInfo("Asia/Kolkata")))
+
+    acc = PortfolioAccount(name="Test Auction", capital=100000.0, max_slots=1, slot_capital=100000.0)
+    # Old weaker stock placed FIRST (index 0)
+    acc.pending_triggers.append(GTTOrder(ticker="WEAK_OLD.NS", shortlist_date="2026-11-24", pivot_trigger=100.0, composite_rs=8.0))
+    # Newer monster RS leader placed SECOND (index 1)
+    acc.pending_triggers.append(GTTOrder(ticker="MONSTER_RS.NS", shortlist_date="2026-11-25", pivot_trigger=100.0, composite_rs=42.5))
+
+    strat.audit_pending(acc, "2026-11-25", date(2026, 11, 25), force_market_open=False)
+    assert len(acc.positions) == 1
+    assert acc.positions[0].ticker == "MONSTER_RS.NS", "Highest Composite RS rocket must win slot auction over FIFO index 0!"
+
+
+def test_stale_pending_trigger_expires_after_5_trading_days(monkeypatch):
+    """Verify untriggered pending orders older than 5 NSE trading days expire automatically."""
+    from zoneinfo import ZoneInfo
+    import engine.strategies.base as base_mod
+
+    strat = default_registry.get("track_apex_compounder")
+    assert strat is not None
+
+    monkeypatch.setattr(base_mod, "fetch_live_quote", lambda t: {"price": 90.0, "day_high": 91.0, "day_low": 89.0})
+    monkeypatch.setattr(base_mod, "get_ist_now", lambda: datetime(2026, 11, 25, 10, 30, tzinfo=ZoneInfo("Asia/Kolkata")))
+
+    acc = PortfolioAccount(name="Test Expiry", capital=100000.0, max_slots=3, slot_capital=33333.33)
+    # Shortlisted Nov 12 -> 8+ trading days old by Nov 25 (> 5 days)
+    acc.pending_triggers.append(GTTOrder(ticker="STALE.NS", shortlist_date="2026-11-12", pivot_trigger=100.0))
+    # Fresh Nov 23 -> < 5 trading days old (remember Nov 24 was holiday, so 1 trading day!)
+    acc.pending_triggers.append(GTTOrder(ticker="FRESH.NS", shortlist_date="2026-11-23", pivot_trigger=100.0))
+
+    strat.audit_pending(acc, "2026-11-25", date(2026, 11, 25), force_market_open=False)
+    remaining = [t.ticker for t in acc.pending_triggers]
+    assert "STALE.NS" not in remaining
+    assert "FRESH.NS" in remaining
+
+
+def test_clv_filter_blocks_upper_wick_trap(monkeypatch):
+    """Verify EDA-B1 CLV >= 0.65 filter blocks fake intraday wick spikes that collapse back down."""
+    from zoneinfo import ZoneInfo
+    import engine.strategies.base as base_mod
+
+    strat = default_registry.get("track_apex_compounder")
+    assert strat is not None
+
+    # Stock spiked to high=110 (trigger=100), dropped back to price=96 (low=95 -> CLV = 1/15 = 0.067 < 0.65)
+    monkeypatch.setattr(base_mod, "fetch_live_quote", lambda t: {"price": 96.0, "day_high": 110.0, "day_low": 95.0, "open": 100.5})
+    monkeypatch.setattr(base_mod, "get_ist_now", lambda: datetime(2026, 11, 25, 11, 0, tzinfo=ZoneInfo("Asia/Kolkata")))
+    monkeypatch.setattr(strat, "_resolve_live_breadth", lambda orders: 60.0)
+
+    acc = PortfolioAccount(name="Test CLV", capital=100000.0, max_slots=3, slot_capital=33333.33)
+    acc.pending_triggers.append(GTTOrder(ticker="WICK.NS", shortlist_date="2026-11-23", pivot_trigger=100.0, composite_rs=25.0))
+
+    strat.audit_pending(acc, "2026-11-25", date(2026, 11, 25), force_market_open=False)
+    assert len(acc.positions) == 0
+    assert acc.pending_triggers[0].status == "PENDING_CLV_CONFIRMATION"
+
+
+def test_breadth_shield_blocks_entry_below_45_pct(monkeypatch):
+    """Verify Universe Breadth Gate (<45%) shields compounder tracks in weak markets."""
+    from zoneinfo import ZoneInfo
+    import engine.strategies.base as base_mod
+
+    strat = default_registry.get("track_apex_compounder")
+    assert strat is not None
+
+    monkeypatch.setattr(base_mod, "fetch_live_quote", lambda t: {"price": 105.0, "day_high": 106.0, "day_low": 99.0, "open": 101.0})
+    monkeypatch.setattr(base_mod, "get_ist_now", lambda: datetime(2026, 11, 25, 11, 0, tzinfo=ZoneInfo("Asia/Kolkata")))
+    monkeypatch.setattr(strat, "_resolve_live_breadth", lambda orders: 38.0)  # Weak breadth < 45%
+
+    acc = PortfolioAccount(name="Test Breadth", capital=100000.0, max_slots=3, slot_capital=33333.33)
+    acc.pending_triggers.append(GTTOrder(ticker="BEAR.NS", shortlist_date="2026-11-23", pivot_trigger=100.0, composite_rs=20.0))
+
+    strat.audit_pending(acc, "2026-11-25", date(2026, 11, 25), force_market_open=False)
+    assert len(acc.positions) == 0
+    assert acc.pending_triggers[0].status == "PENDING_BREADTH_SHIELD"

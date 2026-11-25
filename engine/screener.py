@@ -66,22 +66,25 @@ def pre_screen(
     """
     Fast batch screen using yfinance download with high-resolution cache fallback.
 
-    Ranking blend:
-      - 3m / 1m momentum
-      - RVOL volume expansion & institutional ignition
-      - proximity to 52w high (not chasing extremes blindly)
-      - liquidity proxy (avg rupee volume >= ₹2 Cr)
-      - lower volatility preferred slightly for small capital
+    Computes empirical 5Y EDA predictors across every liquid stock:
+      - 1M / 3M / 6M returns & Composite RS (0.50*1M + 0.30*3M + 0.20*6M)
+      - 20-Day Volume Asymmetry (Up-Vol / Down-Vol >= 2.0x)
+      - Close Location Value (CLV >= 0.65) & RVOL
+      - Distance above 200-EMA, Stage-2 status, & 50-Day High breakout status
+      - Stores universe breadth (% > 50-EMA) on pre_screen.last_breadth_pct
     """
     if not tickers:
+        pre_screen.last_breadth_pct = 50.0
         return []
 
     logger.info(f"Pre-screening {len(tickers)} tickers (top_n={top_n})")
+    # Ensure >= 1y history when 6mo requested if needed for 200-EMA, using cache fallback if shorter
+    fetch_period = "1y" if period == "6mo" else period
     data = pd.DataFrame()
     try:
         data = yf.download(
             tickers,
-            period=period,
+            period=fetch_period,
             group_by="ticker",
             progress=False,
             threads=True,
@@ -91,13 +94,15 @@ def pre_screen(
 
     from data.market_data import _get_cached_history
 
-    nifty_df = _get_cached_history("^NSEI", period="3mo")
+    nifty_df = _get_cached_history("^NSEI", period="1y")
     nifty_ret_1m = 0.0
     if not nifty_df.empty and "Close" in nifty_df.columns and len(nifty_df) >= 22:
         n_c = nifty_df["Close"].dropna()
         nifty_ret_1m = float(n_c.iloc[-1] / n_c.iloc[-22] - 1)
 
     rows = []
+    breadth_above_50 = 0
+    breadth_total = 0
     multi = isinstance(data.columns, pd.MultiIndex) if not data.empty else False
 
     for ticker in tickers:
@@ -112,7 +117,7 @@ def pre_screen(
 
             # Fallback to local cache if batch fetch is missing data for this ticker
             if df.empty or len(df) < 30 or "Close" not in df.columns:
-                df = _get_cached_history(ticker, period=period)
+                df = _get_cached_history(ticker, period=fetch_period)
 
             if df.empty or len(df) < 30 or "Close" not in df.columns:
                 continue
@@ -127,7 +132,10 @@ def pre_screen(
                 continue
 
             ret_1m = float(close.iloc[-1] / close.iloc[-22] - 1) if len(close) >= 22 else 0.0
-            ret_3m = float(close.iloc[-1] / close.iloc[-66] - 1) if len(close) >= 66 else ret_1m
+            ret_3m = float(close.iloc[-1] / close.iloc[-64] - 1) if len(close) >= 64 else ret_1m
+            ret_6m = float(close.iloc[-1] / close.iloc[-127] - 1) if len(close) >= 127 else ret_3m
+            composite_rs = round(((0.50 * ret_1m) + (0.30 * ret_3m) + (0.20 * ret_6m)) * 100.0, 2)
+
             high_6m = float(close.tail(126).max()) if len(close) >= 20 else float(close.max())
             low_6m = float(close.tail(126).min()) if len(close) >= 20 else float(close.min())
             span = high_6m - low_6m
@@ -141,9 +149,18 @@ def pre_screen(
             if avg_value_cr < min_avg_value_cr:
                 continue
 
-            # Calculate RVOL (Relative Volume Surge: Latest Session Volume / 20-Day Average)
+            # Calculate RVOL and 20-Day Volume Asymmetry (Up-Vol / Down-Vol)
             latest_vol = float(vol.iloc[-1]) if len(vol) else 0.0
             rvol = round(latest_vol / avg_vol, 2) if avg_vol > 0 else 1.0
+            if len(close) >= 21 and len(vol) >= 21:
+                c_tail = close.tail(21)
+                v_tail = vol.reindex(c_tail.index).fillna(0.0)
+                up_mask = (c_tail > c_tail.shift(1)).astype(float)
+                up_vol = float((v_tail * up_mask).tail(20).sum())
+                dn_vol = float((v_tail * (1.0 - up_mask)).tail(20).sum())
+                vol_asym_20 = round(up_vol / (dn_vol + 1e-9), 2)
+            else:
+                vol_asym_20 = 1.0
 
             # RVOL Score: Institutional accumulation check
             if rvol >= 2.0:
@@ -157,13 +174,14 @@ def pre_screen(
             else:
                 rvol_score = 30.0   # Dry volume / lack of conviction
 
-            # Pattern Detection: Minervini VCP & 20 EMA Sweet Spot
+            # Pattern Detection: Minervini VCP & 50D High Breakout & 20 EMA Sweet Spot
             high = df["High"].dropna() if "High" in df.columns else close
             low = df["Low"].dropna() if "Low" in df.columns else close
             high_5d = float(high.tail(5).max()) if len(high) >= 5 else float(high.max())
             low_5d = float(low.tail(5).min()) if len(low) >= 5 else float(low.min())
             high_20d = float(high.tail(20).max()) if len(high) >= 20 else float(high.max())
             low_20d = float(low.tail(20).min()) if len(low) >= 20 else float(low.min())
+            high_50d = float(high.iloc[-51:-1].max()) if len(high) >= 51 else float(high.max())
             range_20d = high_20d - low_20d
             vcp_ratio = (high_5d - low_5d) / range_20d if range_20d > 0 else 1.0
 
@@ -174,17 +192,35 @@ def pre_screen(
             is_bullish_bar = bool(price >= cur_open)
             day_range = float(high.iloc[-1] - low.iloc[-1]) if len(high) else 1.0
             close_loc = (price - float(low.iloc[-1])) / day_range if day_range > 0 else 0.5
-            
+            clv = round(close_loc, 3)
+
             # Delivery Volume & Institutional Accumulation Fingerprint
             est_delivery_pct = min(95.0, max(25.0, round(35.0 + 35.0 * close_loc + 15.0 * min(1.0, rvol / 2.5), 1)))
-            is_delivery_confirmed = bool(est_delivery_pct >= 45.0 and close_loc >= 0.68)
+            is_delivery_confirmed = bool(est_delivery_pct >= 45.0 and close_loc >= 0.65)
             is_wick_shakeout = bool(rvol >= 1.6 and close_loc < 0.38)  # Intraday wick dump
 
-            # Stan Weinstein Stage-2 Institutional Trend Template
+            # Stan Weinstein Stage-2 & Market Breadth Tracking
             ema50 = float(close.ewm(span=50, adjust=False).mean().iloc[-1]) if len(close) >= 50 else price
             ema150 = float(close.ewm(span=150, adjust=False).mean().iloc[-1]) if len(close) >= 120 else ema50
+            ema200 = float(close.ewm(span=200, adjust=False).mean().iloc[-1]) if len(close) >= 150 else ema150
+            dist_ema200_pct = round(((price / (ema200 + 1e-9)) - 1.0) * 100.0, 2)
+
+            breadth_total += 1
+            if price > ema50:
+                breadth_above_50 += 1
+
             is_stage2 = bool(price >= ema50 and (ema50 >= ema150 * 0.98 if len(close) >= 120 else True) and ret_3m >= -0.02)
             is_downtrend_knife = bool(price < ema50 and ema50 < ema150 and ret_3m < -0.08)
+
+            # Verified 59.4% CAGR + EDA-B1 Rocket Qualification
+            is_50d_breakout = bool(price > high_50d and price > ema50 and price > ema20 and rvol >= 1.5)
+            is_compounder_rocket = bool(
+                is_50d_breakout
+                and dist_ema200_pct >= 20.0
+                and vol_asym_20 >= 2.0
+                and clv >= 0.65
+                and not (ret_6m > 0 and ret_1m < 0)
+            )
 
             # Precise Institutional Breakout Pivot Trigger & Dynamic Asymmetric Base Stop Loss
             base_high = high_5d
@@ -302,8 +338,13 @@ def pre_screen(
                     "price": round(price, 2),
                     "ret_1m_pct": round(ret_1m * 100, 2),
                     "ret_3m_pct": round(ret_3m * 100, 2),
+                    "ret_6m_pct": round(ret_6m * 100, 2),
+                    "composite_rs": composite_rs,
                     "rs_vs_nifty": round(rs_21, 2),
                     "rvol": rvol,
+                    "vol_asym_20": vol_asym_20,
+                    "clv": clv,
+                    "dist_ema200_pct": dist_ema200_pct,
                     "vcp_ratio": round(vcp_ratio, 2),
                     "setup_pattern": pattern_tag,
                     "est_delivery_pct": est_delivery_pct,
@@ -315,9 +356,11 @@ def pre_screen(
                     "stop_loss_pct": calculated_stop_pct,
                     "reward_risk_ratio": rr_ratio,
                     "is_stage2": is_stage2,
+                    "is_50d_breakout": is_50d_breakout,
+                    "is_compounder_rocket": is_compounder_rocket,
                     "sector": sec_name,
                     "sector_status": sec_status,
-                    "is_runner_candidate": bool(pattern_tag in ("MONSTER_BREAKOUT", "52W_HIGH_BREAKOUT", "PRE_IGNITION_COIL") or (pattern_tag == "VCP_BREAKOUT" and rvol >= 1.5)),
+                    "is_runner_candidate": bool(is_compounder_rocket or pattern_tag in ("MONSTER_BREAKOUT", "52W_HIGH_BREAKOUT", "PRE_IGNITION_COIL") or (pattern_tag == "VCP_BREAKOUT" and rvol >= 1.5)),
                     "range_position": round(pos, 2),
                     "volatility_ann": round(vol_ann * 100, 1),
                     "avg_value_cr": round(avg_value_cr, 2),
@@ -326,6 +369,7 @@ def pre_screen(
         except Exception as e:
             logger.debug(f"Screen skip {ticker}: {e}")
 
+    pre_screen.last_breadth_pct = round((breadth_above_50 / breadth_total) * 100.0, 1) if breadth_total > 0 else 50.0
     rows.sort(key=lambda r: r["screen_score"], reverse=True)
     return rows if return_all else rows[:top_n]
 
