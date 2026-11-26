@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-26 21:02:20",
+  "updated_at": "2026-11-26 19:33:51",
   "track": {
     "name": "Track 11 (Tech C): EDA 2-Slot + Day-10 Cut [62.9% CAGR | Silent]",
     "description": "[Tech C - EDA 2-Slot + Day-10 Rotation | Muted] Preserves Tech B's 63% CAGR Stage-2 shortlist while slashing Max Drawdown (-51.9% -> -37.0%) via Day-10 <+2% exit and Dip/Runaway GTT cleanup.",
@@ -86,6 +86,33 @@
         "avg_value_cr": 63.28,
         "gap_pct": 0.35,
         "rs_pct_rank": 96.5,
+        "max_gap_pct": 0.025
+      },
+      {
+        "ticker": "UNIONBANK.NS",
+        "name": "UNIONBANK",
+        "shortlist_date": "2026-11-27",
+        "log_date": "2026-11-27",
+        "fill_date": "",
+        "scan_price": 213.5,
+        "pivot_trigger": 220.05,
+        "target_price": 2200.5,
+        "stop_loss": 204.65,
+        "breakeven_lock": 231.05,
+        "shares": 227,
+        "planned_rupees": 49951.35,
+        "status": "PENDING_BREAKOUT_TRIGGER",
+        "pattern": "PRE_IGNITION_COIL",
+        "readiness": "\u23f3 COILING AT 52W HIGH (Awaiting Blast)",
+        "sector": "Banking",
+        "composite_rs": 21.94,
+        "clv": 0.703,
+        "vol_asym": 2.04,
+        "market_breadth_pct": 49.9,
+        "natr14": 2.78,
+        "avg_value_cr": 325.86,
+        "gap_pct": NaN,
+        "rs_pct_rank": 93.1,
         "max_gap_pct": 0.025
       }
     ],
