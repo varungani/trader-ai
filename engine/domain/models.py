@@ -42,6 +42,11 @@ class GTTOrder:
     clv: float = 0.5
     vol_asym: float = 1.0
     market_breadth_pct: float = 50.0
+    natr14: float = 3.0
+    avg_value_cr: float = 20.0
+    gap_pct: float = 0.0
+    rs_pct_rank: float = 50.0
+    max_gap_pct: float = 0.025
 
     def __post_init__(self):
         if not self.name:

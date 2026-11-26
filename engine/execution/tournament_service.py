@@ -237,5 +237,9 @@ class TournamentService:
             "track_6_legacy": track_stats.get("track_apex_compounder_legacy", {}),
             "track_7_legacy": track_stats.get("track_conviction_2slot_legacy", {}),
             "track_8_legacy": track_stats.get("track_apex_1slot_legacy", {}),
-            "track_9_legacy": track_stats.get("track_monthly_swing_legacy", {}),
+            # Group C Challenger Track Aliases (Tracks 10 - 13)
+            "track_10": track_stats.get("track_c_dna_1slot", {}),
+            "track_11": track_stats.get("track_c_eda_2slot_10d", {}),
+            "track_12": track_stats.get("track_c_dna_monthly", {}),
+            "track_13": track_stats.get("track_c_dna_2slot_t1", {}),
         }

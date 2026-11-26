@@ -398,8 +398,13 @@ with tab_paper:
     t8_a = dual_summary.get("track_8_legacy", {})
     t9_a = dual_summary.get("track_9_legacy", {})
 
+    t10 = dual_summary.get("track_c_dna_1slot", dual_summary.get("track_10", {}))
+    t11 = dual_summary.get("track_c_eda_2slot_10d", dual_summary.get("track_11", {}))
+    t12 = dual_summary.get("track_c_dna_monthly", dual_summary.get("track_12", {}))
+    t13 = dual_summary.get("track_c_dna_2slot_t1", dual_summary.get("track_13", {}))
+
     with r_col1:
-        st.info(f"### {dual_summary.get('winner', 'TIE (Evaluating)')}\n\nLast auto-audited: **{dual_summary.get('updated_at')}** | **18-Track A/B Tournament**: 9 Quant EDA Tracks (Tech B) vs 9 Legacy Twins (Tech A, Muted).")
+        st.info(f"### {dual_summary.get('winner', 'TIE (Evaluating)')}\n\nLast auto-audited: **{dual_summary.get('updated_at')}** | **22-Track A/B/C Tournament**: 9 Quant EDA (Tech B) + 9 Legacy Twins (Tech A, Muted) + 4 DNA/EP Challengers (Tech C, Muted).")
 
     # 📖 Order & Table Guide for User Clarity
     with st.expander("📖 Order Guide: How to Read Tables & When to Place Orders", expanded=False):
@@ -444,6 +449,27 @@ with tab_paper:
             "A/B Leader": edge_winner,
         })
     st.dataframe(pd.DataFrame(ab_rows), use_container_width=True, hide_index=True)
+
+    # ⚡ Group C Challengers Comparison Table (Tracks 10 - 13)
+    st.markdown("### ⚡ Group C Challengers (Part-A DNA, Episodic Pivots & Day-10 Rotation)")
+    st.caption("Research-backed challengers running live alongside A/B (`₹2–75 Cr/day` super-mover DNA, Dip/Runaway GTT cleanup, Day-10 dead-money rotation & T1 high-win check). Telegram intraday alerts muted.")
+    c_rows = []
+    for c_label, c_d, ref_str in [
+        ("Track 10: DNA 1-Slot EP + Day-10 Cut", t10, "56.3% CAGR | 45.8% WR | DD -38.4%"),
+        ("Track 11: EDA 2-Slot + Day-10 Cut", t11, "62.9% CAGR | -37.0% DD (vs -51.9%)"),
+        ("Track 12: DNA Monthly Swing", t12, "21.1% CAGR | 38.8% WR | DD -37.6%"),
+        ("Track 13: DNA 2-Slot High-Win (T1+BE)", t13, "59.3% WR | 26.5% CAGR"),
+    ]:
+        c_pnl = float(c_d.get("total_pnl_inr", 0.0))
+        c_rows.append({
+            "Challenger Track": c_label,
+            "5Y Audited Profile": ref_str,
+            "Live P&L (INR)": f"₹{c_pnl:+,.2f} ({c_d.get('total_pnl_pct', 0.0):+.2f}%)",
+            "Open / Cls / Pend": f"{c_d.get('open_count', 0)}/{c_d.get('closed_count', 0)}/{c_d.get('pending_count', 0)}",
+            "Win Rate": f"{c_d.get('win_rate', 0.0):.1f}%" if c_d.get("closed_count", 0) > 0 else "—",
+            "Free Cash": f"₹{c_d.get('cash_free', 100000.0):,.0f}",
+        })
+    st.dataframe(pd.DataFrame(c_rows), use_container_width=True, hide_index=True)
 
     st.markdown("### 💎 High-CAGR Apex Compounders & Swing Engines")
     sc6, sc7, sc8, sc9 = st.columns(4)
@@ -682,11 +708,12 @@ with tab_paper:
         with st.expander("📦 Technique A: Legacy Shortlist Twin (RVOL + FIFO | Telegram Muted)", expanded=False):
             render_track_details(a_data, is_gtt=is_gtt, is_silent=True)
 
-    tab_trk6, tab_trk7, tab_trk8, tab_trk9, tab_trk1, tab_trk2, tab_trk3, tab_trk4, tab_trk5 = st.tabs([
+    tab_trk6, tab_trk7, tab_trk8, tab_trk9, tab_trkc, tab_trk1, tab_trk2, tab_trk3, tab_trk4, tab_trk5 = st.tabs([
         "💎 Track 6: Apex 3-Slot (57.9%)",
         "🔥 Track 7: 2-Slot Conviction (53.5%)",
         "👑 Track 8: 1-Slot Apex Rocket (66.9%)",
         "🌊 Track 9: Active 1-2M Swing (25.6%)",
+        "🧬 Group C: DNA & Day-10 (10–13)",
         "🥇 Track 1: Algo 4 (20-EMA Bounce)",
         "🚀 Track 2: Algo 1 (Morning Ignition)",
         "⚡ Track 3: Algo 5 (52W Breakaway Blast)",
@@ -702,6 +729,16 @@ with tab_paper:
         render_ab_pair(t8, t8_a, is_gtt=True, b_silent=False)
     with tab_trk9:
         render_ab_pair(t9, t9_a, is_gtt=True, b_silent=False)
+    with tab_trkc:
+        st.markdown("#### 🧬 Group C: Part-A Super-Mover DNA, Dip/Runaway GTT Hygiene & Day-10 Challengers")
+        for c_title, c_d in [
+            ("👑 Track 10: DNA 1-Slot EP + Day-10 Cut [56.3% CAGR | 45.8% WR]", t10),
+            ("🔥 Track 11: EDA 2-Slot + Day-10 Cut [62.9% CAGR | -37% DD]", t11),
+            ("🌊 Track 12: DNA Monthly Swing [21.1% CAGR | 38.8% WR]", t12),
+            ("🎯 Track 13: DNA 2-Slot High-Win (T1+BE) [59.3% WR | 26.5% CAGR]", t13),
+        ]:
+            with st.expander(c_title, expanded=(c_title.startswith("👑") or c_title.startswith("🔥"))):
+                render_track_details(c_d, is_gtt=True, is_silent=True)
     with tab_trk1:
         render_ab_pair(t1, t1_a, is_gtt=True, b_silent=False)
     with tab_trk2:

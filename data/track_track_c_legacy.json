@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-26 20:12:43",
+  "updated_at": "2026-11-26 20:49:18",
   "track": {
     "name": "Track 5A (Legacy): Algo 3 - Benchmark Velocity Sniper [Silent Benchmark] [Silent]",
     "description": "[Technique A - Legacy RVOL/FIFO Shortlist | Muted] GTT Pivot Breakout entry on Top High-RS leaders. Sells 50% at +5% T1, locks rest at breakeven, trails runner with +12% target, 72h Velocity Kill (< +1.5% after 3 days). Muted alerts.",
@@ -27,7 +27,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "NAVINFLUOR.NS",
@@ -49,7 +54,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "MINDACORP.NS",
@@ -71,7 +81,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "URBANCO.NS",
@@ -93,7 +108,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "SIGACHI.NS",
@@ -115,7 +135,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "PNB.NS",
@@ -137,7 +162,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "ICICIBANK.NS",
@@ -159,7 +189,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "LT.NS",
@@ -181,7 +216,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "CANBK.NS",
@@ -203,7 +243,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "PRESTIGE.NS",
@@ -225,7 +270,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "KOTAKBANK.NS",
@@ -247,7 +297,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "POONAWALLA.NS",
@@ -269,7 +324,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "VIJAYA.NS",
@@ -291,7 +351,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "EIHOTEL.NS",
@@ -313,7 +378,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "CENTRALBK.NS",
@@ -335,7 +405,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "HDFCBANK.NS",
@@ -357,7 +432,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "BANKBARODA.NS",
@@ -379,7 +459,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "ULTRACEMCO.NS",
@@ -401,7 +486,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "AXISBANK.NS",
@@ -423,7 +513,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "LICHSGFIN.NS",
@@ -445,7 +540,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "SANSERA.NS",
@@ -467,7 +567,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "SBIN.NS",
@@ -489,7 +594,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "IREDA.NS",
@@ -511,7 +621,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "PVRINOX.NS",
@@ -533,7 +648,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "PHOENIXLTD.NS",
@@ -555,7 +675,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "DLF.NS",
@@ -577,7 +702,12 @@
         "composite_rs": 23.12,
         "clv": 0.818,
         "vol_asym": 2.98,
-        "market_breadth_pct": 49.8
+        "market_breadth_pct": 49.8,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "OBEROIRLTY.NS",
@@ -599,7 +729,12 @@
         "composite_rs": 10.26,
         "clv": 0.53,
         "vol_asym": 3.57,
-        "market_breadth_pct": 49.8
+        "market_breadth_pct": 49.8,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "ATHERENERG.NS",
@@ -621,7 +756,12 @@
         "composite_rs": 48.59,
         "clv": 0.082,
         "vol_asym": 2.31,
-        "market_breadth_pct": 49.8
+        "market_breadth_pct": 49.8,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "KFINTECH.NS",
@@ -643,7 +783,12 @@
         "composite_rs": 15.11,
         "clv": 0.898,
         "vol_asym": 2.7,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "TORNTPHARM.NS",
@@ -665,7 +810,12 @@
         "composite_rs": 7.97,
         "clv": 0.908,
         "vol_asym": 2.24,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "BAJAJHLDNG.NS",
@@ -687,7 +837,12 @@
         "composite_rs": 9.21,
         "clv": 0.877,
         "vol_asym": 1.93,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       }
     ],
     "pending_confirmations": [],

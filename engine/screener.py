@@ -92,9 +92,11 @@ def pre_screen(
     except Exception as e:
         logger.debug(f"Batch download failed: {e}, falling back to cache")
 
-    from data.market_data import _get_cached_history
+    from data.market_data import _get_cached_history, fetch_stock_history
 
-    nifty_df = _get_cached_history("^NSEI", period="1y")
+    nifty_df = fetch_stock_history("^NSEI", period="1y", force_live=True)
+    if nifty_df.empty:
+        nifty_df = _get_cached_history("^NSEI", period="1y")
     nifty_ret_1m = 0.0
     if not nifty_df.empty and "Close" in nifty_df.columns and len(nifty_df) >= 22:
         n_c = nifty_df["Close"].dropna()
@@ -189,10 +191,22 @@ def pre_screen(
             dist_ema20 = ((price - ema20) / ema20 * 100.0) if ema20 > 0 else 0.0
 
             cur_open = float(df["Open"].iloc[-1]) if "Open" in df.columns else price
+            prev_close = float(close.iloc[-2]) if len(close) >= 2 else price
+            gap_pct = round(((cur_open / prev_close) - 1.0) * 100.0, 2) if prev_close > 0 else 0.0
             is_bullish_bar = bool(price >= cur_open)
             day_range = float(high.iloc[-1] - low.iloc[-1]) if len(high) else 1.0
             close_loc = (price - float(low.iloc[-1])) / day_range if day_range > 0 else 0.5
             clv = round(close_loc, 3)
+
+            # 14-day Normalized ATR % (Volatility fuel for high-beta moves)
+            if len(close) >= 15 and len(high) >= 15 and len(low) >= 15:
+                h_n = high.tail(15)
+                l_n = low.reindex(h_n.index).fillna(h_n)
+                c_prev = close.reindex(h_n.index).shift(1).fillna(price)
+                tr_vals = pd.concat([h_n - l_n, (h_n - c_prev).abs(), (l_n - c_prev).abs()], axis=1).max(axis=1)
+                natr14 = round(float(tr_vals.tail(14).mean() / (price + 1e-9)) * 100.0, 2)
+            else:
+                natr14 = round(vol_ann * 100.0 / (252 ** 0.5), 2)
 
             # Delivery Volume & Institutional Accumulation Fingerprint
             est_delivery_pct = min(95.0, max(25.0, round(35.0 + 35.0 * close_loc + 15.0 * min(1.0, rvol / 2.5), 1)))
@@ -344,6 +358,9 @@ def pre_screen(
                     "rvol": rvol,
                     "vol_asym_20": vol_asym_20,
                     "clv": clv,
+                    "natr14": natr14,
+                    "gap_pct": gap_pct,
+                    "is_episodic_pivot": bool(4.0 <= gap_pct <= 12.0 and rvol >= 3.0 and clv >= 0.70 and is_stage2 and 2.0 <= avg_value_cr <= 75.0),
                     "dist_ema200_pct": dist_ema200_pct,
                     "vcp_ratio": round(vcp_ratio, 2),
                     "setup_pattern": pattern_tag,
@@ -370,6 +387,13 @@ def pre_screen(
             logger.debug(f"Screen skip {ticker}: {e}")
 
     pre_screen.last_breadth_pct = round((breadth_above_50 / breadth_total) * 100.0, 1) if breadth_total > 0 else 50.0
+    if rows:
+        rs_sorted = sorted(float(r.get("composite_rs", 0.0)) for r in rows)
+        n_rows = len(rs_sorted)
+        from bisect import bisect_right
+        for r in rows:
+            rank_pos = bisect_right(rs_sorted, float(r.get("composite_rs", 0.0)))
+            r["rs_pct_rank"] = round((rank_pos / n_rows) * 100.0, 1)
     rows.sort(key=lambda r: r["screen_score"], reverse=True)
     return rows if return_all else rows[:top_n]
 

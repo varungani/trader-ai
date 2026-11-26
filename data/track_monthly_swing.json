@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-26 20:12:43",
+  "updated_at": "2026-11-26 20:49:18",
   "track": {
     "name": "Track 9: Active 1-to-2 Month Swing Engine [25.6% CAGR]",
     "description": "4 Slots (\u20b925,000 each). 15-45 day holding period, Day 21 Stagnation Cutoff (< +3% gain), and Daily 20-EMA trailing stop. Audited +25.59% 5Y CAGR, 32 trades/year.",
@@ -27,7 +27,12 @@
         "composite_rs": 13.12,
         "clv": 0.756,
         "vol_asym": 3.77,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "KOTAKBANK.NS",
@@ -49,7 +54,12 @@
         "composite_rs": 21.96,
         "clv": 0.838,
         "vol_asym": 1.97,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "POONAWALLA.NS",
@@ -71,7 +81,12 @@
         "composite_rs": 19.85,
         "clv": 0.54,
         "vol_asym": 4.63,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "ANGELONE.NS",
@@ -93,7 +108,12 @@
         "composite_rs": 21.9,
         "clv": 0.747,
         "vol_asym": 3.22,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "RKFORGE.NS",
@@ -115,7 +135,12 @@
         "composite_rs": 25.47,
         "clv": 0.956,
         "vol_asym": 2.36,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "URBANCO.NS",
@@ -137,7 +162,12 @@
         "composite_rs": 20.66,
         "clv": 0.636,
         "vol_asym": 2.24,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "CDSL.NS",
@@ -159,7 +189,12 @@
         "composite_rs": 15.34,
         "clv": 0.656,
         "vol_asym": 2.1,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "BAJAJHLDNG.NS",
@@ -181,7 +216,12 @@
         "composite_rs": 9.21,
         "clv": 0.877,
         "vol_asym": 1.93,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       }
     ],
     "pending_confirmations": [],

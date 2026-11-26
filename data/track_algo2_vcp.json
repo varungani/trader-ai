@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-26 20:12:43",
+  "updated_at": "2026-11-26 20:49:18",
   "track": {
     "name": "Track 4: Algo 2 - Minervini VCP Squeeze (Option 2) [Silent Benchmark]",
     "description": "Checks open at 9:20 AM after VCP volatility contraction. Fills on normal open (-0.5% to +1.5%), aborts bad gap downs (<-1.5%). Banks 50% at +5% T1, locks rest at breakeven + friction (+0.6%), Target +12%. Muted alerts.",
@@ -29,7 +29,12 @@
         "composite_rs": 24.46,
         "clv": 0.926,
         "vol_asym": 3.33,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "RKFORGE.NS",
@@ -52,7 +57,12 @@
         "composite_rs": 25.47,
         "clv": 0.956,
         "vol_asym": 2.36,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "DLF.NS",
@@ -75,7 +85,12 @@
         "composite_rs": 23.78,
         "clv": 0.77,
         "vol_asym": 3.17,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "ANGELONE.NS",
@@ -98,7 +113,12 @@
         "composite_rs": 21.9,
         "clv": 0.747,
         "vol_asym": 3.22,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "KOTAKBANK.NS",
@@ -121,7 +141,12 @@
         "composite_rs": 21.96,
         "clv": 0.838,
         "vol_asym": 1.97,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "URBANCO.NS",
@@ -144,7 +169,12 @@
         "composite_rs": 20.66,
         "clv": 0.636,
         "vol_asym": 2.24,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "OBEROIRLTY.NS",
@@ -167,7 +197,12 @@
         "composite_rs": 13.12,
         "clv": 0.756,
         "vol_asym": 3.77,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "CDSL.NS",
@@ -190,7 +225,12 @@
         "composite_rs": 15.34,
         "clv": 0.656,
         "vol_asym": 2.1,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       }
     ],
     "open_trades": [

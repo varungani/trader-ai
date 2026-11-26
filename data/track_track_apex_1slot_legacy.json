@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-26 20:12:43",
+  "updated_at": "2026-11-26 20:49:18",
   "track": {
     "name": "Track 8A (Legacy): 1-Slot Apex Leader Rocket [66.9% CAGR] [Silent]",
     "description": "[Technique A - Legacy RVOL/FIFO Shortlist | Muted] Single-stock 100% conviction allocation (\u20b9100,000 all-in) into the #1 ranked Apex Rocket in India. Multi-stage base pyramiding on floating gains with Weekly 10W EMA trailing. Audited +66.91% 5Y CAGR, 8.25 Profit Factor.",
@@ -27,7 +27,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "CUB.NS",
@@ -49,7 +54,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "NH.NS",
@@ -71,7 +81,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "CENTRALBK.NS",
@@ -93,7 +108,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "PRESTIGE.NS",
@@ -115,7 +135,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "FEDERALBNK.NS",
@@ -137,7 +162,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "JSWINFRA.NS",
@@ -159,7 +189,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "VIJAYA.NS",
@@ -181,7 +216,12 @@
         "composite_rs": 17.65,
         "clv": 0.741,
         "vol_asym": 3.09,
-        "market_breadth_pct": 49.8
+        "market_breadth_pct": 49.8,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "ACE.NS",
@@ -203,7 +243,12 @@
         "composite_rs": 26.68,
         "clv": 0.966,
         "vol_asym": 4.85,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       }
     ],
     "pending_confirmations": [],

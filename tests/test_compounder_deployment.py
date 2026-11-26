@@ -312,14 +312,16 @@ def test_breadth_shield_blocks_entry_below_45_pct(monkeypatch):
 
 
 def test_registry_has_18_ab_paired_tracks_and_muted_legacy():
-    """Verify full 18-track A/B matrix (9 Tech B EDA + 9 Tech A Legacy) with all Legacy tracks Telegram-muted."""
+    """Verify full 22-track A/B/C matrix (9 Tech B EDA + 9 Tech A Legacy + 4 Tech C Challengers), all benchmarks Telegram-muted."""
     all_strats = default_registry.all()
-    assert len(all_strats) == 18
+    assert len(all_strats) == 22
 
-    b_tracks = [s for s in all_strats if not s.legacy_mode]
+    b_tracks = [s for s in all_strats if not s.legacy_mode and s.track_id <= 9]
     a_tracks = [s for s in all_strats if s.legacy_mode]
+    c_tracks = [s for s in all_strats if not s.legacy_mode and s.track_id >= 20]
     assert len(b_tracks) == 9
     assert len(a_tracks) == 9
+    assert len(c_tracks) == 4
 
     for b_s in b_tracks:
         a_s = default_registry.get(f"{b_s.key}_legacy")
@@ -329,6 +331,45 @@ def test_registry_has_18_ab_paired_tracks_and_muted_legacy():
         assert b_s.shortlist_mode == "eda"
         assert a_s.prioritize_by_composite_rs is False
         assert b_s.prioritize_by_composite_rs is True
+
+    for c_s in c_tracks:
+        assert c_s.is_silent is True, f"Challenger {c_s.key} must stay Telegram-muted!"
+        assert c_s.enable_dip_kill is True
+        assert c_s.enable_runaway_kill is True
+
+
+def test_group_c_challengers_dip_kill_runaway_kill_and_day10_rotation(monkeypatch):
+    """Verify Track 10-13 Group C rules: Dip-Kill discards broken GTTs, EP allows >2.5% gaps, and Day-10 rotates dead money."""
+    from zoneinfo import ZoneInfo
+    import engine.strategies.base as base_mod
+    import engine.strategies.implementations as impl_mod
+
+    s10 = default_registry.get("track_c_dna_1slot")
+    assert s10 is not None and s10.enable_episodic_pivots is True
+
+    # 1. Dip-Kill discards broken setup below trigger * 0.94 before firing
+    acc = PortfolioAccount(name="Test C10", capital=100000.0, max_slots=1, slot_capital=100000.0)
+    acc.pending_triggers.append(GTTOrder(ticker="BROKEN.NS", shortlist_date="2026-11-25", pivot_trigger=100.0, stop_loss=93.0))
+    monkeypatch.setattr(base_mod, "fetch_live_quote", lambda t: {"price": 91.0, "day_high": 94.0, "day_low": 90.0, "open": 93.5})
+    monkeypatch.setattr(base_mod, "get_ist_now", lambda: datetime(2026, 11, 26, 10, 30, tzinfo=ZoneInfo("Asia/Kolkata")))
+    s10.audit_pending(acc, "2026-11-26", date(2026, 11, 26), force_market_open=False)
+    assert len(acc.pending_triggers) == 0
+
+    # 2. Episodic Pivot up +6% gap executes cleanly on Track 10 (up to 12% allowed), whereas Track 6 rejects >2.5%
+    acc_ep = PortfolioAccount(name="Test EP", capital=100000.0, max_slots=1, slot_capital=100000.0)
+    acc_ep.pending_triggers.append(
+        GTTOrder(ticker="EPGEM.NS", shortlist_date="2026-11-25", pivot_trigger=100.0, stop_loss=93.0, pattern="EPISODIC_PIVOT", max_gap_pct=0.12)
+    )
+    monkeypatch.setattr(base_mod, "fetch_live_quote", lambda t: {"price": 107.0, "day_high": 108.0, "day_low": 105.0, "open": 106.0})
+    s10.audit_pending(acc_ep, "2026-11-26", date(2026, 11, 26), force_market_open=False)
+    assert len(acc_ep.positions) == 1
+
+    # 3. Day-10 Dead-Money Rotation exits stagnant trade (< +2% gain after 10 sessions)
+    acc_ep.positions[0].days_held = 11
+    monkeypatch.setattr(impl_mod, "fetch_live_quote", lambda t: {"price": 101.0, "day_high": 101.5, "day_low": 100.5})
+    s10.audit_open_positions(acc_ep, "2026-12-10", date(2026, 12, 10))
+    assert len(acc_ep.positions) == 0
+    assert "DEAD_MONEY_DAY10_ROTATION" in acc_ep.closed_trades[0]["exit_reason"]
 
 
 def test_declumped_group_b_strategies_route_distinct_dna_pools():

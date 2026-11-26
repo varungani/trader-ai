@@ -16,6 +16,10 @@ from engine.strategies.implementations import (
     Conviction2SlotStrategy,
     ApexMonster1SlotStrategy,
     SuperchargedMonthlySwingStrategy,
+    HyperDNA1SlotStrategy,
+    EDA2SlotDeadCutStrategy,
+    DNAMonthlySwingStrategy,
+    DNA2SlotHighWinStrategy,
 )
 
 
@@ -55,6 +59,15 @@ class StrategyRegistry:
         # Technique A: Legacy Shortlist Twins (Tracks 1A - 9A, 100% Telegram-muted A/B benchmarks)
         for strat_cls in core_classes:
             reg.register(strat_cls(legacy_mode=True))
+
+        # Technique C: Part-A DNA, Dip/Runaway GTT Hygiene, EP & Day-10 Challengers (Tracks 10 - 13, Muted)
+        for challenger_cls in (
+            HyperDNA1SlotStrategy,
+            EDA2SlotDeadCutStrategy,
+            DNAMonthlySwingStrategy,
+            DNA2SlotHighWinStrategy,
+        ):
+            reg.register(challenger_cls(legacy_mode=False))
 
         return reg
 

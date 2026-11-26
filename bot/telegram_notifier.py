@@ -348,8 +348,13 @@ class TelegramNotifier:
         t8_a = summary.get("track_8_legacy", {})
         t9_a = summary.get("track_9_legacy", {})
 
+        t10 = summary.get("track_c_dna_1slot", summary.get("track_10", {}))
+        t11 = summary.get("track_c_eda_2slot_10d", summary.get("track_11", {}))
+        t12 = summary.get("track_c_dna_monthly", summary.get("track_12", {}))
+        t13 = summary.get("track_c_dna_2slot_t1", summary.get("track_13", {}))
+
         msg = (
-            f"📊 *[NSE MARKET CLOSE: 9-WAY PERFORMANCE RECAP (18-TRACK A/B)]*\n"
+            f"📊 *[NSE MARKET CLOSE: 9-WAY PERFORMANCE RECAP (22-TRACK A/B/C)]*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"🏆 *Leader:* {summary.get('winner', 'Evaluating')}\n\n"
             + _line("💎", "Track 6 (Apex 3-Slot)", t6, t6_a)
@@ -361,8 +366,13 @@ class TelegramNotifier:
             + _line("⚡", "Track 3 (Algo 5: 52W Blast)", t3, t3_a)
             + _line("🛡️", "Track 4 (Algo 2: VCP Bench)", t4, t4_a, detail=False)
             + _line("🎯", "Track 5 (Algo 3: Sniper Bench)", t5, t5_a, detail=False)
+            + "\n🧬 *Group C Challengers (Muted):*\n"
+            + _line("10.", "DNA 1-Slot EP+10d", t10, None, detail=False)
+            + _line("11.", "EDA 2-Slot +10d Cut", t11, None, detail=False)
+            + _line("12.", "DNA Monthly Swing", t12, None, detail=False)
+            + _line("13.", "DNA 2-Slot High-Win", t13, None, detail=False)
             + f"━━━━━━━━━━━━━━━━━━━\n"
-            f"✨ _Session closed. All 18 A/B tracks (EDA B vs Legacy A) synced cleanly._"
+            f"✨ _Session closed. All 22 A/B/C tracks synced cleanly._"
         )
         return self.send_message(msg)
 

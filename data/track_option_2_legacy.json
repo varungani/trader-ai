@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-26 20:12:43",
+  "updated_at": "2026-11-26 20:49:18",
   "track": {
     "name": "Track 4A (Legacy): Algo 2 - Minervini VCP Squeeze (Option 2) [Silent Benchmark] [Silent]",
     "description": "[Technique A - Legacy RVOL/FIFO Shortlist | Muted] Checks open at 9:20 AM after VCP volatility contraction. Fills on normal open (-0.5% to +1.5%), aborts bad gap downs (<-1.5%). Banks 50% at +5% T1, locks rest at breakeven + friction (+0.6%), Target +12%. Muted alerts.",
@@ -29,7 +29,12 @@
         "composite_rs": 14.45,
         "clv": 0.745,
         "vol_asym": 2.94,
-        "market_breadth_pct": 49.8
+        "market_breadth_pct": 49.8,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "IDFCFIRSTB.NS",
@@ -52,7 +57,12 @@
         "composite_rs": 16.21,
         "clv": 0.636,
         "vol_asym": 1.76,
-        "market_breadth_pct": 49.8
+        "market_breadth_pct": 49.8,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "PRESTIGE.NS",
@@ -75,7 +85,12 @@
         "composite_rs": 25.37,
         "clv": 0.948,
         "vol_asym": 3.19,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "LODHA.NS",
@@ -98,7 +113,12 @@
         "composite_rs": 22.33,
         "clv": 0.89,
         "vol_asym": 1.65,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "ACE.NS",
@@ -121,7 +141,12 @@
         "composite_rs": 26.68,
         "clv": 0.966,
         "vol_asym": 4.85,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "RUBICON.NS",
@@ -144,7 +169,12 @@
         "composite_rs": 32.65,
         "clv": 0.955,
         "vol_asym": 1.21,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "SUNTECK.NS",
@@ -167,7 +197,12 @@
         "composite_rs": 14.07,
         "clv": 0.806,
         "vol_asym": 3.95,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       }
     ],
     "open_trades": [

@@ -117,6 +117,11 @@ def run_apex_scan(
             rec["composite_rs"] = hit.get("composite_rs", 0.0)
             rec["vol_asym_20"] = hit.get("vol_asym_20", 1.0)
             rec["clv"] = hit.get("clv", 0.5)
+            rec["natr14"] = hit.get("natr14", 3.0)
+            rec["avg_value_cr"] = hit.get("avg_value_cr", 20.0)
+            rec["gap_pct"] = hit.get("gap_pct", 0.0)
+            rec["rs_pct_rank"] = hit.get("rs_pct_rank", 50.0)
+            rec["is_episodic_pivot"] = hit.get("is_episodic_pivot", False)
             rec["dist_ema200_pct"] = hit.get("dist_ema200_pct", 0.0)
             rec["is_compounder_rocket"] = hit.get("is_compounder_rocket", False)
             rec["market_breadth_pct"] = market_breadth_pct
@@ -203,6 +208,11 @@ def run_apex_scan(
             "composite_rs": rec.get("composite_rs", 0.0),
             "vol_asym_20": rec.get("vol_asym_20", 1.0),
             "clv": rec.get("clv", 0.5),
+            "natr14": rec.get("natr14", 3.0),
+            "avg_value_cr": rec.get("avg_value_cr", 20.0),
+            "gap_pct": rec.get("gap_pct", 0.0),
+            "rs_pct_rank": rec.get("rs_pct_rank", 50.0),
+            "is_episodic_pivot": rec.get("is_episodic_pivot", False),
             "dist_ema200_pct": rec.get("dist_ema200_pct", 0.0),
             "market_breadth_pct": market_breadth_pct,
             "rs_vs_nifty": rec.get("rs_vs_nifty", 0.0),
@@ -232,22 +242,28 @@ def run_apex_scan(
     tier1_tickers = {p["ticker"] for p in top_picks}
     radar_pool = [b for b in buys if b["ticker"] not in tier1_tickers]
     
-    # Also add top screened candidates & EDA compounder rockets so nothing huge is missed downstream
-    for h in (rocket_hits[:15] + screen_hits):
+    # Also add top screened candidates, Episodic Pivots & EDA compounder rockets so nothing huge is missed downstream
+    ep_hits = [h for h in all_screen_hits if h.get("is_episodic_pivot")]
+    for h in (ep_hits[:10] + rocket_hits[:15] + screen_hits):
         t = h["ticker"]
         if t not in tier1_tickers and not any(r["ticker"] == t for r in radar_pool):
-            if h.get("is_compounder_rocket") or h.get("setup_pattern") in ("PRE_IGNITION_COIL", "52W_HIGH_BREAKOUT", "INSTITUTIONAL_IGNITION", "20EMA_SWEET_SPOT") or h.get("screen_score", 0) >= 70:
+            if h.get("is_episodic_pivot") or h.get("is_compounder_rocket") or h.get("setup_pattern") in ("PRE_IGNITION_COIL", "52W_HIGH_BREAKOUT", "INSTITUTIONAL_IGNITION", "20EMA_SWEET_SPOT") or h.get("screen_score", 0) >= 70:
                 px = float(h.get("price") or 0.0)
                 radar_pool.append({
                     "ticker": t,
                     "name": t.replace(".NS", ""),
                     "action": "WATCHLIST",
                     "final_score": h.get("screen_score", 70.0),
-                    "setup_pattern": h.get("setup_pattern", "MOMENTUM_RUNNER"),
+                    "setup_pattern": "EPISODIC_PIVOT" if h.get("is_episodic_pivot") else h.get("setup_pattern", "MOMENTUM_RUNNER"),
                     "rvol": h.get("rvol", 1.0),
                     "composite_rs": h.get("composite_rs", 0.0),
                     "vol_asym_20": h.get("vol_asym_20", 1.0),
                     "clv": h.get("clv", 0.5),
+                    "natr14": h.get("natr14", 3.0),
+                    "avg_value_cr": h.get("avg_value_cr", 20.0),
+                    "gap_pct": h.get("gap_pct", 0.0),
+                    "rs_pct_rank": h.get("rs_pct_rank", 50.0),
+                    "is_episodic_pivot": h.get("is_episodic_pivot", False),
                     "dist_ema200_pct": h.get("dist_ema200_pct", 0.0),
                     "market_breadth_pct": market_breadth_pct,
                     "rs_vs_nifty": h.get("rs_vs_nifty", 0.0),
@@ -301,6 +317,11 @@ def run_apex_scan(
             "composite_rs": r.get("composite_rs", 0.0),
             "vol_asym_20": r.get("vol_asym_20", 1.0),
             "clv": r.get("clv", 0.5),
+            "natr14": r.get("natr14", 3.0),
+            "avg_value_cr": r.get("avg_value_cr", 20.0),
+            "gap_pct": r.get("gap_pct", 0.0),
+            "rs_pct_rank": r.get("rs_pct_rank", 50.0),
+            "is_episodic_pivot": r.get("is_episodic_pivot", False),
             "dist_ema200_pct": r.get("dist_ema200_pct", 0.0),
             "market_breadth_pct": market_breadth_pct,
             "rs_vs_nifty": r.get("rs_vs_nifty", 0.0),

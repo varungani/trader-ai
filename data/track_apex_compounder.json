@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-26 20:12:43",
+  "updated_at": "2026-11-26 20:49:18",
   "track": {
     "name": "Track 6: Apex 3-Slot Compounder [57.9% CAGR]",
     "description": "3 Conviction Slots (40% in #1 RS leader, 30% in #2 & #3). Weekly 10W EMA trailing stop, Base-on-Base Pyramiding (+35% size add-on when gain >= +25%), -7% initial hard stop. Uncapped winners. Audited +57.90% 5Y CAGR, zero losing years.",
@@ -27,7 +27,12 @@
         "composite_rs": 24.46,
         "clv": 0.926,
         "vol_asym": 3.33,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "ACE.NS",
@@ -49,7 +54,12 @@
         "composite_rs": 26.68,
         "clv": 0.966,
         "vol_asym": 4.85,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "RKFORGE.NS",
@@ -71,7 +81,12 @@
         "composite_rs": 25.47,
         "clv": 0.956,
         "vol_asym": 2.36,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "DLF.NS",
@@ -93,7 +108,12 @@
         "composite_rs": 23.78,
         "clv": 0.77,
         "vol_asym": 3.17,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "KOTAKBANK.NS",
@@ -115,7 +135,12 @@
         "composite_rs": 21.96,
         "clv": 0.838,
         "vol_asym": 1.97,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       }
     ],
     "pending_confirmations": [],

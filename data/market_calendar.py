@@ -43,6 +43,7 @@ NSE_HOLIDAYS: dict[str, str] = {
     "2025-10-22": "Diwali Balipratipada",
     "2025-11-05": "Guru Nanak Jayanti",
     "2025-12-25": "Christmas",
+    
 
     # 2026
     "2026-01-26": "Republic Day",

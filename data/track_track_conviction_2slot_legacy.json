@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-26 20:12:43",
+  "updated_at": "2026-11-26 20:49:18",
   "track": {
     "name": "Track 7A (Legacy): 2-Slot Conviction Compounder [53.5% CAGR] [Silent]",
     "description": "[Technique A - Legacy RVOL/FIFO Shortlist | Muted] 2 Conviction Slots (50/50 allocation = \u20b950,000 each). Weekly 10W EMA trailing stop, Base-on-Base Pyramiding (+35% size add-on when gain >= +25%), -7% hard stop. Audited +53.49% 5Y CAGR, 4.74 Profit Factor.",
@@ -27,7 +27,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "CUB.NS",
@@ -49,7 +54,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "CENTRALBK.NS",
@@ -71,7 +81,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "VIJAYA.NS",
@@ -93,7 +108,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "CANBK.NS",
@@ -115,7 +135,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "POONAWALLA.NS",
@@ -137,7 +162,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "WELSPUNLIV.NS",
@@ -159,7 +189,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "PHOENIXLTD.NS",
@@ -181,7 +216,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "PNB.NS",
@@ -203,7 +243,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "PRESTIGE.NS",
@@ -225,7 +270,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "JSWINFRA.NS",
@@ -247,7 +297,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "FEDERALBNK.NS",
@@ -269,7 +324,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "IDFCFIRSTB.NS",
@@ -291,7 +351,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "SUBEXLTD.NS",
@@ -313,7 +378,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "AXISBANK.NS",
@@ -335,7 +405,12 @@
         "composite_rs": 0.0,
         "clv": 0.5,
         "vol_asym": 1.0,
-        "market_breadth_pct": 50.0
+        "market_breadth_pct": 50.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "LGEINDIA.NS",
@@ -357,7 +432,12 @@
         "composite_rs": 14.45,
         "clv": 0.745,
         "vol_asym": 2.94,
-        "market_breadth_pct": 49.8
+        "market_breadth_pct": 49.8,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "DCBBANK.NS",
@@ -379,7 +459,12 @@
         "composite_rs": 22.98,
         "clv": 0.874,
         "vol_asym": 2.12,
-        "market_breadth_pct": 49.8
+        "market_breadth_pct": 49.8,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "ACE.NS",
@@ -401,7 +486,12 @@
         "composite_rs": 26.68,
         "clv": 0.966,
         "vol_asym": 4.85,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       },
       {
         "ticker": "TORNTPHARM.NS",
@@ -423,7 +513,12 @@
         "composite_rs": 7.97,
         "clv": 0.908,
         "vol_asym": 2.24,
-        "market_breadth_pct": 51.0
+        "market_breadth_pct": 51.0,
+        "natr14": 3.0,
+        "avg_value_cr": 20.0,
+        "gap_pct": 0.0,
+        "rs_pct_rank": 50.0,
+        "max_gap_pct": 0.025
       }
     ],
     "pending_confirmations": [],

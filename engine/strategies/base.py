@@ -65,6 +65,12 @@ class BaseStrategy(ABC):
     stale_expiry_days: int = 0
     min_breadth_gate: float = 0.0
     min_entry_clv: float = 0.0
+    enable_dip_kill: bool = False
+    enable_runaway_kill: bool = False
+    enable_episodic_pivots: bool = False
+    dead_money_days: int = 0
+    dead_money_min_pnl: float = 2.0
+    enable_t1_harvest: bool = False
 
     def __init__(self, legacy_mode: bool = False):
         self.legacy_mode = legacy_mode
@@ -82,7 +88,8 @@ class BaseStrategy(ABC):
             self.min_breadth_gate = 0.0
             self.min_entry_clv = 0.0
         else:
-            self.shortlist_mode = "eda"
+            if self.shortlist_mode not in ("dna", "eda_10d"):
+                self.shortlist_mode = "eda"
             self.prioritize_by_composite_rs = True
             self.stale_expiry_days = 5
             self.min_breadth_gate = 45.0
@@ -174,6 +181,11 @@ class BaseStrategy(ABC):
             clv=float(item.get("clv", 0.5)),
             vol_asym=float(item.get("vol_asym_20", 1.0)),
             market_breadth_pct=float(item.get("market_breadth_pct", 50.0)),
+            natr14=float(item.get("natr14", 3.0)),
+            avg_value_cr=float(item.get("avg_value_cr", 20.0)),
+            gap_pct=float(item.get("gap_pct", 0.0)),
+            rs_pct_rank=float(item.get("rs_pct_rank", 50.0)),
+            max_gap_pct=0.12 if item.get("is_episodic_pivot") else 0.025,
         )
 
     def get_slot_allocation(self, rank_idx: int, active_slots: int, total_capital: float) -> float:
@@ -287,18 +299,29 @@ class BaseStrategy(ABC):
 
             can_exec, fill_ts = can_trigger_breakout(shortlist_d, force_market_open)
 
+            # Optional Pending Dip-Kill: discard broken GTT setup before it triggers
+            if self.enable_dip_kill and not force_market_open and (
+                (low_px > 0 and pending.stop_loss > 0 and low_px <= float(pending.stop_loss))
+                or (cur_px > 0 and cur_px < trigger_px * 0.94)
+            ):
+                logger.info(f"🧹 [Dip-Kill Discard] {ticker} broke support ({cur_px:.2f} vs trigger {trigger_px:.2f}). Pruning.")
+                continue
+
             # Trigger only during market hours when price hit or crossed pivot resistance
             if can_exec and high_px >= trigger_px:
-                # 1. Anti-FOMO Gap Ceiling: Never chase if opened > +2.5% above trigger
+                # 1. Anti-FOMO Gap Ceiling (Episodic Pivots allow wider gap up to 12% when opted in)
+                gap_ceil = self.anti_fomo_max_gap_pct
+                if self.enable_episodic_pivots and ("EPISODIC" in str(pending.pattern).upper() or float(getattr(pending, "max_gap_pct", 0.0)) > gap_ceil):
+                    gap_ceil = max(gap_ceil, float(getattr(pending, "max_gap_pct", 0.12)))
                 open_px = float(quote.get("open") or quote.get("price") or 0.0)
-                if open_px > 0 and open_px > trigger_px * (1.0 + self.anti_fomo_max_gap_pct):
-                    logger.info(f"🚫 [Anti-FOMO Abort] {ticker} opened @ ₹{open_px:.2f} (> +{self.anti_fomo_max_gap_pct*100}% above trigger). Aborting chase.")
+                if open_px > 0 and open_px > trigger_px * (1.0 + gap_ceil):
+                    logger.info(f"🚫 [Anti-FOMO Abort] {ticker} opened @ ₹{open_px:.2f} (> +{gap_ceil*100}% above trigger). Aborting chase.")
                     pending.status = "FOMO_GAP_ABORTED"
                     d_abort = pending.to_dict()
                     d_abort.update({
                         "abort_date": today_str,
                         "abort_price": open_px,
-                        "abort_reason": f"Runaway Gap-Up FOMO ceiling breached (> +{self.anti_fomo_max_gap_pct*100}%)",
+                        "abort_reason": f"Runaway Gap-Up FOMO ceiling breached (> +{gap_ceil*100}%)",
                     })
                     account.aborted_trades.append(d_abort)
                     continue
@@ -321,6 +344,9 @@ class BaseStrategy(ABC):
 
                 can_fill, fill_reason = account.can_fill_trade()
                 if not can_fill:
+                    if self.enable_runaway_kill and cur_px > trigger_px * 1.025:
+                        logger.info(f"🧹 [Runaway Slot-Full Discard] {ticker} closed +{((cur_px/trigger_px)-1)*100:.1f}% past trigger with full slots. Pruning stale GTT.")
+                        continue
                     logger.info(f"⏳ [{self.name} Slot Queued] {ticker} awaiting slot: {fill_reason}")
                     pending.status = "PENDING_SLOT_CAPACITY"
                     still_pending.append(pending)
