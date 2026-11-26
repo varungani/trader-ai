@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import os
 import sys
-import time
 from datetime import datetime
 
 import streamlit as st
@@ -20,18 +19,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from config import (
-    ALLOCATION_PROFILES,
-    DEFAULT_ALLOCATION_PROFILE,
-    HIGH_BETA_APEX_STOCKS,
-    MONTHLY_STOCK_BUDGET,
-)
-from portfolio.manager import (
-    portfolio_summary,
-    sync_from_kotak,
-    upsert_holding,
-)
-from engine.pipeline import run_pipeline
+from config import ALLOCATION_PROFILES, MONTHLY_STOCK_BUDGET
+from portfolio.manager import portfolio_summary, upsert_holding
 from engine.apex_engine import run_apex_scan
 from engine.dual_tracker import (
     audit_and_update_dual_tracker,
@@ -178,7 +167,7 @@ with tab_picks:
             t1_picks = res.get("picks") or res.get("top_picks") or []
             t2_radar = res.get("radar_watchlist") or []
             if t1_picks or t2_radar:
-                log_today_picks(t1_picks, t2_radar)
+                log_today_picks(t1_picks, t2_radar, dna_candidates=res.get("dna_candidates"))
             try:
                 import json
                 latest_scan_path = os.path.join(ROOT, "data", "latest_scan.json")
@@ -209,7 +198,7 @@ with tab_picks:
             t1_picks = res.get("picks") or res.get("top_picks") or []
             t2_radar = res.get("radar_watchlist") or []
             if t1_picks or t2_radar:
-                log_today_picks(t1_picks, t2_radar)
+                log_today_picks(t1_picks, t2_radar, dna_candidates=res.get("dna_candidates"))
 
     picks = brief.get("picks") or brief.get("top_picks") or []
     radar = brief.get("radar_watchlist") or []
@@ -471,118 +460,32 @@ with tab_paper:
         })
     st.dataframe(pd.DataFrame(c_rows), use_container_width=True, hide_index=True)
 
+    def _render_scorecard(col, title: str, caption: str, stats: dict, muted: bool = False):
+        with col:
+            with st.container(border=True):
+                st.markdown(f"#### {title}")
+                st.caption(caption)
+                st.metric("Total P&L", f"₹{stats.get('total_pnl_inr', 0.0):+,.0f}", f"{stats.get('total_pnl_pct', 0.0):+.2f}%")
+                closed_cnt = stats.get("closed_count", 0)
+                st.metric("Win Rate", f"{stats.get('win_rate', 0.0):.1f}%" if closed_cnt > 0 else "— (0 Closed)")
+                st.metric("Profit Factor", f"{stats.get('profit_factor', 1.0):.2f}" if closed_cnt > 0 else "—")
+                st.metric("Active Trades", f"{stats.get('open_count', 0)} open", f"{stats.get('pending_count', 0)} pending")
+                st.caption("🔇 Telegram: **Muted**" if muted else "🔔 Telegram: **Armed**")
+
     st.markdown("### 💎 High-CAGR Apex Compounders & Swing Engines")
     sc6, sc7, sc8, sc9 = st.columns(4)
-    with sc6:
-        with st.container(border=True):
-            st.markdown("#### 💎 Track 6: Apex 3-Slot")
-            st.caption("Apex 3-Slot Compounder [57.9% CAGR]. 10W EMA trail + base-on-base pyramid. Slots: 40/30/30.")
-            st.metric("Total P&L", f"₹{t6.get('total_pnl_inr', 0.0):+,.0f}", f"{t6.get('total_pnl_pct', 0.0):+.2f}%")
-            wr_label_t6 = f"{t6.get('win_rate', 0.0):.1f}%" if t6.get("closed_count", 0) > 0 else "— (0 Closed)"
-            st.metric("Win Rate", wr_label_t6)
-            pf_label_t6 = f"{t6.get('profit_factor', 1.0):.2f}" if t6.get("closed_count", 0) > 0 else "—"
-            st.metric("Profit Factor", pf_label_t6)
-            st.metric("Active Trades", f"{t6.get('open_count', 0)} open", f"{t6.get('pending_count', 0)} pending")
-            st.caption("🔔 Telegram: **Armed**")
-
-    with sc7:
-        with st.container(border=True):
-            st.markdown("#### 🔥 Track 7: Conviction 2-Slot")
-            st.caption("2-Slot Conviction Compounder [53.5% CAGR]. Maximum focus, 50% capital per slot.")
-            st.metric("Total P&L", f"₹{t7.get('total_pnl_inr', 0.0):+,.0f}", f"{t7.get('total_pnl_pct', 0.0):+.2f}%")
-            wr_label_t7 = f"{t7.get('win_rate', 0.0):.1f}%" if t7.get("closed_count", 0) > 0 else "— (0 Closed)"
-            st.metric("Win Rate", wr_label_t7)
-            pf_label_t7 = f"{t7.get('profit_factor', 1.0):.2f}" if t7.get("closed_count", 0) > 0 else "—"
-            st.metric("Profit Factor", pf_label_t7)
-            st.metric("Active Trades", f"{t7.get('open_count', 0)} open", f"{t7.get('pending_count', 0)} pending")
-            st.caption("🔔 Telegram: **Armed**")
-
-    with sc8:
-        with st.container(border=True):
-            st.markdown("#### 👑 Track 8: 1-Slot Rocket")
-            st.caption("1-Slot Apex Leader Rocket [66.9% CAGR]. 100% all-in single monster trend rider.")
-            st.metric("Total P&L", f"₹{t8.get('total_pnl_inr', 0.0):+,.0f}", f"{t8.get('total_pnl_pct', 0.0):+.2f}%")
-            wr_label_t8 = f"{t8.get('win_rate', 0.0):.1f}%" if t8.get("closed_count", 0) > 0 else "— (0 Closed)"
-            st.metric("Win Rate", wr_label_t8)
-            pf_label_t8 = f"{t8.get('profit_factor', 1.0):.2f}" if t8.get("closed_count", 0) > 0 else "—"
-            st.metric("Profit Factor", pf_label_t8)
-            st.metric("Active Trades", f"{t8.get('open_count', 0)} open", f"{t8.get('pending_count', 0)} pending")
-            st.caption("🔔 Telegram: **Armed**")
-
-    with sc9:
-        with st.container(border=True):
-            st.markdown("#### 🌊 Track 9: Monthly Swing")
-            st.caption("Active 1-to-2 Month Swing Engine [25.6% CAGR]. 4 slots, Day 21 stagnation filter.")
-            st.metric("Total P&L", f"₹{t9.get('total_pnl_inr', 0.0):+,.0f}", f"{t9.get('total_pnl_pct', 0.0):+.2f}%")
-            wr_label_t9 = f"{t9.get('win_rate', 0.0):.1f}%" if t9.get("closed_count", 0) > 0 else "— (0 Closed)"
-            st.metric("Win Rate", wr_label_t9)
-            pf_label_t9 = f"{t9.get('profit_factor', 1.0):.2f}" if t9.get("closed_count", 0) > 0 else "—"
-            st.metric("Profit Factor", pf_label_t9)
-            st.metric("Active Trades", f"{t9.get('open_count', 0)} open", f"{t9.get('pending_count', 0)} pending")
-            st.caption("🔔 Telegram: **Armed**")
+    _render_scorecard(sc6, "💎 Track 6: Apex 3-Slot", "Apex 3-Slot Compounder [57.9% CAGR]. 10W EMA trail + base-on-base pyramid. Slots: 40/30/30.", t6)
+    _render_scorecard(sc7, "🔥 Track 7: Conviction 2-Slot", "2-Slot Conviction Compounder [53.5% CAGR]. Maximum focus, 50% capital per slot.", t7)
+    _render_scorecard(sc8, "👑 Track 8: 1-Slot Rocket", "1-Slot Apex Leader Rocket [66.9% CAGR]. 100% all-in single monster trend rider.", t8)
+    _render_scorecard(sc9, "🌊 Track 9: Monthly Swing", "Active 1-to-2 Month Swing Engine [25.6% CAGR]. 4 slots, Day 21 stagnation filter.", t9)
 
     st.markdown("### ⚡ Rapid Momentum & Benchmark Tracks")
-    # 5-Way Parallel Tournament Scorecards
     sc1, sc2, sc3, sc4, sc5 = st.columns(5)
-    with sc1:
-        with st.container(border=True):
-            st.markdown("#### 🥇 Track 1: Algo 4")
-            st.caption("Confirmed 20-EMA Bounce Pivot [Alpha Leader]. Sells 50% at +5%, trails stop, +12% target.")
-            st.metric("Total P&L", f"₹{t1.get('total_pnl_inr', 0.0):+,.0f}", f"{t1.get('total_pnl_pct', 0.0):+.2f}%")
-            wr_label_t1 = f"{t1.get('win_rate', 0.0):.1f}%" if t1.get("closed_count", 0) > 0 else "— (0 Closed)"
-            st.metric("Win Rate", wr_label_t1)
-            pf_label_t1 = f"{t1.get('profit_factor', 1.0):.2f}" if t1.get("closed_count", 0) > 0 else "—"
-            st.metric("Profit Factor", pf_label_t1)
-            st.metric("Active Trades", f"{t1.get('open_count', 0)} open", f"{t1.get('pending_count', 0)} pending")
-            st.caption("🔔 Telegram: **Armed**")
-
-    with sc2:
-        with st.container(border=True):
-            st.markdown("#### 🚀 Track 2: Algo 1")
-            st.caption("Morning Ignition Thrust [Alpha Rocket]. GTT Buy-Stop on 09:30 RVOL. +12% target.")
-            st.metric("Total P&L", f"₹{t2.get('total_pnl_inr', 0.0):+,.0f}", f"{t2.get('total_pnl_pct', 0.0):+.2f}%")
-            wr_label_t2 = f"{t2.get('win_rate', 0.0):.1f}%" if t2.get("closed_count", 0) > 0 else "— (0 Closed)"
-            st.metric("Win Rate", wr_label_t2)
-            pf_label_t2 = f"{t2.get('profit_factor', 1.0):.2f}" if t2.get("closed_count", 0) > 0 else "—"
-            st.metric("Profit Factor", pf_label_t2)
-            st.metric("Active Trades", f"{t2.get('open_count', 0)} open", f"{t2.get('pending_count', 0)} pending")
-            st.caption("🔔 Telegram: **Armed**")
-
-    with sc3:
-        with st.container(border=True):
-            st.markdown("#### ⚡ Track 3: Algo 5")
-            st.caption("High-RS 52W Breakaway Blast [Momentum Runner]. Morning gap RVOL >= 2.0x, +12% target.")
-            st.metric("Total P&L", f"₹{t3.get('total_pnl_inr', 0.0):+,.0f}", f"{t3.get('total_pnl_pct', 0.0):+.2f}%")
-            wr_label_t3 = f"{t3.get('win_rate', 0.0):.1f}%" if t3.get("closed_count", 0) > 0 else "— (0 Closed)"
-            st.metric("Win Rate", wr_label_t3)
-            pf_label_t3 = f"{t3.get('profit_factor', 1.0):.2f}" if t3.get("closed_count", 0) > 0 else "—"
-            st.metric("Profit Factor", pf_label_t3)
-            st.metric("Active Trades", f"{t3.get('open_count', 0)} open", f"{t3.get('pending_count', 0)} pending")
-            st.caption("🔔 Telegram: **Armed**")
-
-    with sc4:
-        with st.container(border=True):
-            st.markdown("#### 🛡️ Track 4: Algo 2")
-            st.caption("Minervini VCP Squeeze [Silent Benchmark]. 9:20 AM Confirmation rule.")
-            st.metric("Total P&L", f"₹{t4.get('total_pnl_inr', 0.0):+,.0f}", f"{t4.get('total_pnl_pct', 0.0):+.2f}%")
-            wr_label_t4 = f"{t4.get('win_rate', 0.0):.1f}%" if t4.get("closed_count", 0) > 0 else "— (0 Closed)"
-            st.metric("Win Rate", wr_label_t4)
-            pf_label_t4 = f"{t4.get('profit_factor', 1.0):.2f}" if t4.get("closed_count", 0) > 0 else "—"
-            st.metric("Profit Factor", pf_label_t4)
-            st.metric("Active Trades", f"{t4.get('open_count', 0)} open", f"{t4.get('pending_count', 0)} pending")
-            st.caption("🔇 Telegram: **Muted**")
-
-    with sc5:
-        with st.container(border=True):
-            st.markdown("#### 🎯 Track 5: Algo 3")
-            st.caption("Benchmark Velocity Sniper [Silent Benchmark]. GTT Pivot entry, 72h velocity kill.")
-            st.metric("Total P&L", f"₹{t5.get('total_pnl_inr', 0.0):+,.0f}", f"{t5.get('total_pnl_pct', 0.0):+.2f}%")
-            wr_label_t5 = f"{t5.get('win_rate', 0.0):.1f}%" if t5.get("closed_count", 0) > 0 else "— (0 Closed)"
-            st.metric("Win Rate", wr_label_t5)
-            pf_label_t5 = f"{t5.get('profit_factor', 1.0):.2f}" if t5.get("closed_count", 0) > 0 else "—"
-            st.metric("Profit Factor", pf_label_t5)
-            st.metric("Active Trades", f"{t5.get('open_count', 0)} open", f"{t5.get('pending_count', 0)} pending")
-            st.caption("🔇 Telegram: **Muted**")
+    _render_scorecard(sc1, "🥇 Track 1: Algo 4", "Confirmed 20-EMA Bounce Pivot [Alpha Leader]. Sells 50% at +5%, trails stop, +12% target.", t1)
+    _render_scorecard(sc2, "🚀 Track 2: Algo 1", "Morning Ignition Thrust [Alpha Rocket]. GTT Buy-Stop on 09:30 RVOL. +12% target.", t2)
+    _render_scorecard(sc3, "⚡ Track 3: Algo 5", "High-RS 52W Breakaway Blast [Momentum Runner]. Morning gap RVOL >= 2.0x, +12% target.", t3)
+    _render_scorecard(sc4, "🛡️ Track 4: Algo 2", "Minervini VCP Squeeze [Silent Benchmark]. 9:20 AM Confirmation rule.", t4, muted=True)
+    _render_scorecard(sc5, "🎯 Track 5: Algo 3", "Benchmark Velocity Sniper [Silent Benchmark]. GTT Pivot entry, 72h velocity kill.", t5, muted=True)
 
     st.divider()
 
@@ -652,7 +555,7 @@ with tab_paper:
                     "Bought On": format_display_date(t.get("fill_date", t.get("entry_date", ""))),
                     "Entry Px": f"₹{t['entry_price']:,.2f}",
                     "Cur Px": f"₹{t['current_price']:,.2f}",
-                    "Target (+12%)": f"₹{t['target_price']:,.2f}",
+                    "Target": f"₹{t['target_price']:,.2f}",
                     "Trailed Stop": f"₹{t['stop_loss']:,.2f}",
                     "Days": t.get("days_held", 0),
                     "MTM %": f"{t['pnl_pct']:+.2f}%",

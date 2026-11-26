@@ -372,6 +372,27 @@ def test_group_c_challengers_dip_kill_runaway_kill_and_day10_rotation(monkeypatc
     assert "DEAD_MONEY_DAY10_ROTATION" in acc_ep.closed_trades[0]["exit_reason"]
 
 
+def test_realized_equity_compounding_scales_allocation(monkeypatch):
+    """Verify winning closed trades scale subsequent compounder slot allocation proportionally without leverage."""
+    from zoneinfo import ZoneInfo
+    import engine.strategies.base as base_mod
+
+    s6 = default_registry.get("track_apex_compounder")
+    acc = PortfolioAccount(name="Test Compound", capital=100000.0, max_slots=3, slot_capital=33333.33)
+    acc.closed_trades.append({"ticker": "PASTWIN.NS", "net_pnl_inr": 60000.0})
+    assert acc.get_effective_capital() == 160000.0
+
+    acc.pending_triggers.append(GTTOrder(ticker="NEWWIN.NS", shortlist_date="2026-11-25", pivot_trigger=100.0, stop_loss=93.0, clv=0.9))
+    monkeypatch.setattr(base_mod, "fetch_live_quote", lambda t: {"price": 102.0, "day_high": 103.0, "day_low": 100.0, "open": 101.0})
+    monkeypatch.setattr(base_mod, "get_ist_now", lambda: datetime(2026, 11, 26, 10, 30, tzinfo=ZoneInfo("Asia/Kolkata")))
+    monkeypatch.setattr(s6, "_resolve_live_breadth", lambda orders: 55.0)
+    s6.audit_pending(acc, "2026-11-26", date(2026, 11, 26), force_market_open=False)
+    assert len(acc.positions) == 1
+    # 40% of effective compounded capital (₹160,000) = ₹64,000 (~638 shares @ ₹100.25)
+    assert acc.positions[0].allocated_rupees > 60000.0
+    assert acc.get_free_cash() >= 0.0
+
+
 def test_declumped_group_b_strategies_route_distinct_dna_pools():
     """Verify Group B tracks route to genuinely distinct strategy pools rather than cloning identical stocks."""
     sample_picks = [

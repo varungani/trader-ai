@@ -112,17 +112,27 @@ class TournamentService:
             except Exception as e:
                 logger.debug(f"Error saving {fname}: {e}")
 
-    def log_today_picks(self, tier1_picks: list[dict], tier2_radar: list[dict]) -> None:
+    def log_today_picks(
+        self,
+        tier1_picks: list[dict],
+        tier2_radar: list[dict],
+        dna_candidates: Optional[list[dict]] = None,
+    ) -> None:
         """Route shortlisted radar & picks to all registered strategies."""
         now = get_ist_now()
         today_str = now.strftime("%Y-%m-%d")
         is_td, _ = is_trading_day(now.date())
         now_time = now.time()
 
+        dna_radar = list(dna_candidates or []) + [
+            r for r in tier2_radar
+            if r.get("ticker") not in {d.get("ticker") for d in (dna_candidates or [])}
+        ]
         for strat in self.registry.all():
             account = self.accounts.get(strat.key)
             if account:
-                strat.log_picks(account, tier1_picks, tier2_radar, today_str, is_td, now_time)
+                t2_input = dna_radar if (dna_candidates and getattr(strat, "shortlist_mode", "") == "dna") else tier2_radar
+                strat.log_picks(account, tier1_picks, t2_input, today_str, is_td, now_time)
 
     def audit_all(self, force_market_open: bool = False, alert_callback: Optional[Callable[..., Any]] = None) -> None:
         """Run audit across all registered strategies."""

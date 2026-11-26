@@ -315,6 +315,12 @@ class PortfolioAccount:
     pending_confirmations: List[GTTOrder] = field(default_factory=list)
     aborted_trades: List[Dict[str, Any]] = field(default_factory=list)
 
+    def get_effective_capital(self) -> float:
+        """Returns compounded equity base = max(starting capital, starting capital + realized PnL)."""
+        realized_closed = sum(float(t.get("net_pnl_inr", 0.0)) for t in self.closed_trades)
+        realized_partial = sum(p.realized_pnl_inr for p in self.positions)
+        return round(max(self.capital, self.capital + realized_closed + realized_partial), 2)
+
     def get_free_cash(self) -> float:
         """Computes available unallocated cash without leverage."""
         realized_closed = sum(float(t.get("net_pnl_inr", 0.0)) for t in self.closed_trades)

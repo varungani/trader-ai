@@ -33,6 +33,65 @@ from analysis.sector_rs import get_top_leading_sectors, compute_sector_rs
 logger = logging.getLogger(__name__)
 
 
+def _hit_to_radar_candidate(h: dict, market_breadth_pct: float) -> dict:
+    """Convert a screener hit dict into a standardized radar/watchlist candidate entry."""
+    t = h.get("ticker", "")
+    px = float(h.get("price") or h.get("current_price") or 0.0)
+    pivot_px = float(h.get("pivot_buy_stop") or round(px * 1.002, 2))
+    stop_px = float(h.get("stop_loss") or round(pivot_px * 0.95, 2))
+    target_px = float(h.get("target_price") or round(pivot_px * 1.20, 2))
+    pattern = "EPISODIC_PIVOT" if h.get("is_episodic_pivot") else h.get("setup_pattern", h.get("pattern", "MOMENTUM_RUNNER"))
+    rvol = float(h.get("rvol", 1.0))
+
+    if "ULTRA" in pattern or "BLAST" in pattern or rvol >= 1.6:
+        readiness = "⚡ FIRING TODAY (Volume Surge Active)"
+        action_plan = f"Active momentum. If Slot 1-3 is filled, place GTT buy trigger at ₹{pivot_px:,.2f} on breakout."
+    elif "COIL" in pattern:
+        readiness = "⏳ COILING AT 52W HIGH (Awaiting Blast)"
+        action_plan = f"Tight base consolidation. Place alert/GTT Buy Stop at ₹{pivot_px:,.2f} with volume confirmation."
+    elif "20EMA" in pattern:
+        readiness = "🎯 20 EMA SPRINGBOARD (Dip Support)"
+        action_plan = f"Low-risk pull-back bounce near ₹{px:,.2f}. 7% daily close stop at ₹{stop_px:,.2f}."
+    else:
+        readiness = "👀 STAGE-2 EXPANSION (High Relative Strength)"
+        action_plan = f"Sector leader in Stage 2. Track for volume breakout above ₹{pivot_px:,.2f}."
+
+    return {
+        "ticker": t,
+        "name": t.replace(".NS", ""),
+        "action": "WATCHLIST",
+        "final_score": h.get("screen_score", h.get("final_score", 70.0)),
+        "setup_pattern": pattern,
+        "pattern": pattern,
+        "readiness": readiness,
+        "action_plan": action_plan,
+        "rvol": rvol,
+        "composite_rs": h.get("composite_rs", 0.0),
+        "vol_asym_20": h.get("vol_asym_20", 1.0),
+        "clv": h.get("clv", 0.5),
+        "natr14": h.get("natr14", 3.0),
+        "avg_value_cr": h.get("avg_value_cr", 20.0),
+        "gap_pct": h.get("gap_pct", 0.0),
+        "rs_pct_rank": h.get("rs_pct_rank", 50.0),
+        "is_episodic_pivot": h.get("is_episodic_pivot", False),
+        "dist_ema200_pct": h.get("dist_ema200_pct", 0.0),
+        "market_breadth_pct": market_breadth_pct,
+        "rs_vs_nifty": h.get("rs_vs_nifty", 0.0),
+        "est_delivery_pct": h.get("est_delivery_pct", 50.0),
+        "sector": h.get("sector") or TICKER_TO_SECTOR.get(t, "General"),
+        "sector_status": h.get("sector_status", "NEUTRAL"),
+        "current_price": px,
+        "stop_loss": stop_px,
+        "stop_loss_pct": 7.0,
+        "target_price": target_px,
+        "target_pct": 20.0,
+        "pivot_buy_stop": pivot_px,
+        "max_buy_zone": float(h.get("max_buy_zone") or round(pivot_px * 1.025, 2)),
+        "range_position": h.get("range_position", 0.85),
+        "tier": "TIER_2_RADAR",
+    }
+
+
 def run_apex_scan(
     capital: float = 100000.0,
     top_slots: int = 5,
@@ -237,101 +296,47 @@ def run_apex_scan(
             "rationale": rec.get("action_rationale"),
         })
 
-    # 7. Tier 2: High-Velocity Radar & Pre-Ignition Watchlist (Top 10-15)
-    # Solves the shortlisting problem by maintaining live tracking on runner setups
+    # 7. Tier 2: High-Velocity Radar & Dedicated Part-A DNA + EP Pool
     tier1_tickers = {p["ticker"] for p in top_picks}
-    radar_pool = [b for b in buys if b["ticker"] not in tier1_tickers]
-    
-    # Also add top screened candidates, Episodic Pivots & EDA compounder rockets so nothing huge is missed downstream
+    radar_pool = [_hit_to_radar_candidate(b, market_breadth_pct) for b in buys if b["ticker"] not in tier1_tickers]
+
     ep_hits = [h for h in all_screen_hits if h.get("is_episodic_pivot")]
     for h in (ep_hits[:10] + rocket_hits[:15] + screen_hits):
         t = h["ticker"]
         if t not in tier1_tickers and not any(r["ticker"] == t for r in radar_pool):
-            if h.get("is_episodic_pivot") or h.get("is_compounder_rocket") or h.get("setup_pattern") in ("PRE_IGNITION_COIL", "52W_HIGH_BREAKOUT", "INSTITUTIONAL_IGNITION", "20EMA_SWEET_SPOT") or h.get("screen_score", 0) >= 70:
-                px = float(h.get("price") or 0.0)
-                radar_pool.append({
-                    "ticker": t,
-                    "name": t.replace(".NS", ""),
-                    "action": "WATCHLIST",
-                    "final_score": h.get("screen_score", 70.0),
-                    "setup_pattern": "EPISODIC_PIVOT" if h.get("is_episodic_pivot") else h.get("setup_pattern", "MOMENTUM_RUNNER"),
-                    "rvol": h.get("rvol", 1.0),
-                    "composite_rs": h.get("composite_rs", 0.0),
-                    "vol_asym_20": h.get("vol_asym_20", 1.0),
-                    "clv": h.get("clv", 0.5),
-                    "natr14": h.get("natr14", 3.0),
-                    "avg_value_cr": h.get("avg_value_cr", 20.0),
-                    "gap_pct": h.get("gap_pct", 0.0),
-                    "rs_pct_rank": h.get("rs_pct_rank", 50.0),
-                    "is_episodic_pivot": h.get("is_episodic_pivot", False),
-                    "dist_ema200_pct": h.get("dist_ema200_pct", 0.0),
-                    "market_breadth_pct": market_breadth_pct,
-                    "rs_vs_nifty": h.get("rs_vs_nifty", 0.0),
-                    "est_delivery_pct": h.get("est_delivery_pct", 50.0),
-                    "sector": h.get("sector") or TICKER_TO_SECTOR.get(t, "General"),
-                    "sector_status": h.get("sector_status", "NEUTRAL"),
-                    "current_price": px,
-                    "stop_loss": h.get("stop_loss") or round(px * 0.95, 2),
-                    "target_price": round(float(h.get("pivot_buy_stop") or px) * 1.20, 2),
-                    "pivot_buy_stop": h.get("pivot_buy_stop") or round(px * 1.002, 2),
-                    "max_buy_zone": h.get("max_buy_zone") or round(px * 1.025, 2),
-                    "range_position": h.get("range_position", 0.85),
-                })
+            if (
+                h.get("is_episodic_pivot")
+                or h.get("is_compounder_rocket")
+                or h.get("setup_pattern") in ("PRE_IGNITION_COIL", "52W_HIGH_BREAKOUT", "INSTITUTIONAL_IGNITION", "20EMA_SWEET_SPOT")
+                or h.get("screen_score", 0) >= 70
+            ):
+                radar_pool.append(_hit_to_radar_candidate(h, market_breadth_pct))
 
-    radar_watchlist = []
-    for r in radar_pool[:radar_slots]:
-        cur_px = float(r.get("current_price") or 0.0)
-        pivot_px = float(r.get("pivot_buy_stop") or cur_px)
-        target_px = float(r.get("target_price") or round(pivot_px * 1.20, 2))
-        stop_px = float(r.get("stop_loss") or round(pivot_px * 0.95, 2))
-        max_buy_px = float(r.get("max_buy_zone") or round(pivot_px * 1.025, 2))
-        pattern = r.get("setup_pattern", "COIL")
-        rvol = float(r.get("rvol", 1.0))
-        
-        # Determine Readiness State
-        if "ULTRA" in pattern or "BLAST" in pattern or rvol >= 1.6:
-            readiness = "⚡ FIRING TODAY (Volume Surge Active)"
-            action_plan = f"Active momentum. If Slot 1-3 is filled, place GTT buy trigger at ₹{pivot_px:,.2f} on breakout."
-        elif "COIL" in pattern:
-            readiness = "⏳ COILING AT 52W HIGH (Awaiting Blast)"
-            action_plan = f"Tight base consolidation. Place alert/GTT Buy Stop at ₹{pivot_px:,.2f} with volume confirmation."
-        elif "20EMA" in pattern:
-            readiness = "🎯 20 EMA SPRINGBOARD (Dip Support)"
-            action_plan = f"Low-risk pull-back bounce near ₹{cur_px:,.2f}. 7% daily close stop at ₹{stop_px:,.2f}."
-        else:
-            readiness = "👀 STAGE-2 EXPANSION (High Relative Strength)"
-            action_plan = f"Sector leader in Stage 2. Track for volume breakout above ₹{pivot_px:,.2f}."
+    radar_watchlist = radar_pool[:radar_slots]
 
-        radar_watchlist.append({
-            "ticker": r.get("ticker"),
-            "name": r.get("ticker").replace(".NS", ""),
-            "current_price": cur_px,
-            "target_price": target_px,
-            "target_pct": 20.0,
-            "stop_loss": stop_px,
-            "stop_loss_pct": 7.0,
-            "pivot_buy_stop": pivot_px,
-            "pattern": pattern,
-            "readiness": readiness,
-            "action_plan": action_plan,
-            "composite_rs": r.get("composite_rs", 0.0),
-            "vol_asym_20": r.get("vol_asym_20", 1.0),
-            "clv": r.get("clv", 0.5),
-            "natr14": r.get("natr14", 3.0),
-            "avg_value_cr": r.get("avg_value_cr", 20.0),
-            "gap_pct": r.get("gap_pct", 0.0),
-            "rs_pct_rank": r.get("rs_pct_rank", 50.0),
-            "is_episodic_pivot": r.get("is_episodic_pivot", False),
-            "dist_ema200_pct": r.get("dist_ema200_pct", 0.0),
-            "market_breadth_pct": market_breadth_pct,
-            "rs_vs_nifty": r.get("rs_vs_nifty", 0.0),
-            "rvol": rvol,
-            "est_delivery_pct": r.get("est_delivery_pct", 50.0),
-            "sector": r.get("sector", "General"),
-            "sector_status": r.get("sector_status", "NEUTRAL"),
-            "final_score": r.get("final_score", 70.0),
-            "tier": "TIER_2_RADAR",
-        })
+    # Dedicated mid/smallcap Part-A DNA + EP shortlist directly from full 600+ stock screen (never crowded out by mega-caps)
+    dna_raw = [
+        h for h in all_screen_hits
+        if (
+            2.0 <= float(h.get("avg_value_cr", 20.0)) <= 75.0
+            and float(h.get("dist_ema200_pct", 0.0)) >= 15.0
+            and float(h.get("natr14", 3.0)) >= 2.5
+            and float(h.get("vol_asym_20", 1.0)) >= 2.0
+            and float(h.get("clv", 0.5)) >= 0.65
+            and float(h.get("rs_pct_rank", 50.0)) >= 88.0
+        )
+        or h.get("is_episodic_pivot")
+    ]
+    dna_raw.sort(
+        key=lambda x: (
+            (50.0 if x.get("is_episodic_pivot") else 0.0)
+            + float(x.get("composite_rs", 0.0))
+            + (6.0 if float(x.get("avg_value_cr", 50.0)) <= 25.0 else 0.0)
+            + float(x.get("vol_asym_20", 1.0)) * 2.0
+        ),
+        reverse=True,
+    )
+    dna_candidates = [_hit_to_radar_candidate(h, market_breadth_pct) for h in dna_raw[:20]]
 
     cash_remaining = round(capital - total_deployed, 2)
 
@@ -347,6 +352,7 @@ def run_apex_scan(
         "slot_count": top_slots,
         "picks": top_picks,                       # Tier 1: Concentrated Active Slots
         "radar_watchlist": radar_watchlist,       # Tier 2: Pre-Ignition / Coiling Leaders
+        "dna_candidates": dna_candidates,         # Dedicated Part-A DNA + EP Pool for Challengers
         "compounder_rockets": rocket_hits[:15],   # Verified Composite RS + EDA-B1 Rocket Lane
         "leading_sectors": top_sectors,           # Top 3 Leading Sectors in India
     }
@@ -357,7 +363,7 @@ if __name__ == "__main__":
     import json
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="TraderAI Apex High-Velocity Scanner")
-    parser.add_argument("--queue-picks", action="store_true", help="Route scanned picks & radar into all 18 tournament tracks")
+    parser.add_argument("--queue-picks", action="store_true", help="Route scanned picks & radar into all 22 tournament tracks")
     args = parser.parse_args()
 
     res = run_apex_scan(capital=100000.0, top_slots=5, radar_slots=20)
@@ -374,8 +380,8 @@ if __name__ == "__main__":
     if args.queue_picks:
         try:
             from engine.dual_tracker import log_today_picks
-            log_today_picks(res.get("picks", []), res.get("radar_watchlist", []))
-            print("✅ Queued picks & radar across all 18 A/B tournament tracks.")
+            log_today_picks(res.get("picks", []), res.get("radar_watchlist", []), dna_candidates=res.get("dna_candidates"))
+            print("✅ Queued picks, radar & DNA challengers across all 22 tournament tracks.")
         except Exception as q_err:
             print(f"Warning: could not queue picks into dual tracker: {q_err}")
 

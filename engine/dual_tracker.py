@@ -123,12 +123,16 @@ def _save_tracker(data: dict) -> None:
     service.save_to_files(TRACKER_FILE)
 
 
-def log_today_picks(tier1_picks: list[dict], tier2_radar: list[dict]) -> dict:
-    """Route today's picks into all 5 parallel tournament tracks and perform audit."""
+def log_today_picks(
+    tier1_picks: list[dict],
+    tier2_radar: list[dict],
+    dna_candidates: Optional[list[dict]] = None,
+) -> dict:
+    """Route today's picks into all parallel tournament tracks and perform audit."""
     service = TournamentService(default_registry)
     current_data = _load_tracker()
     service.load_from_dict(current_data)
-    service.log_today_picks(tier1_picks, tier2_radar)
+    service.log_today_picks(tier1_picks, tier2_radar, dna_candidates=dna_candidates)
     service.save_to_files(TRACKER_FILE)
     return audit_and_update_dual_tracker()
 

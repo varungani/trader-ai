@@ -299,8 +299,8 @@ class BaseStrategy(ABC):
 
             can_exec, fill_ts = can_trigger_breakout(shortlist_d, force_market_open)
 
-            # Optional Pending Dip-Kill: discard broken GTT setup before it triggers
-            if self.enable_dip_kill and not force_market_open and (
+            # Optional Pending Dip-Kill: discard broken GTT setup during subsequent live market hours
+            if self.enable_dip_kill and can_exec and today_str > shortlist_d and not force_market_open and (
                 (low_px > 0 and pending.stop_loss > 0 and low_px <= float(pending.stop_loss))
                 or (cur_px > 0 and cur_px < trigger_px * 0.94)
             ):
@@ -355,7 +355,8 @@ class BaseStrategy(ABC):
                 fill_price = round(trigger_px * (1.0 + self.slippage_pct), 2)
                 cash_free = account.get_free_cash()
                 active_cnt = len(account.positions)
-                target_alloc = self.get_slot_allocation(active_cnt, active_cnt, account.capital)
+                eff_capital = account.get_effective_capital() if self.track_id >= 6 else account.capital
+                target_alloc = self.get_slot_allocation(active_cnt, active_cnt, eff_capital)
                 slot_budget = min(target_alloc, cash_free)
                 shares = int(slot_budget // fill_price)
                 if shares <= 0:
