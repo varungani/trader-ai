@@ -93,12 +93,14 @@ class BaseStrategy(ABC):
         candidates: List[Dict[str, Any]],
         fallback_pool: Optional[List[Dict[str, Any]]] = None,
         legacy_limit: int = 3,
+        preserve_order: bool = False,
     ) -> List[Dict[str, Any]]:
         """
         Shared shortlist funnel selector:
           - Legacy mode (Group A): preserves original candidate ordering capped at legacy_limit.
           - EDA mode (Group B): refreshes live Composite RS / breadth metadata on existing triggers,
-            sorts candidates by Composite RS descending, and widens radar staging up to 12-16 leaders.
+            optionally preserves strategy-specific ranking (to prevent cross-track cloning) or sorts
+            by Composite RS descending, and caps radar staging to focused top setups.
         """
         pool_src = list(candidates) if candidates else list(fallback_pool or [])
         cand_map = {c.get("ticker"): c for c in pool_src if c.get("ticker")}
@@ -119,16 +121,17 @@ class BaseStrategy(ABC):
         )
         filtered = [r for r in pool_src if r.get("ticker") and r.get("ticker") not in existing]
         if self.shortlist_mode == "eda":
-            filtered.sort(
-                key=lambda x: (
-                    1 if x.get("is_compounder_rocket") else 0,
-                    float(x.get("composite_rs", 0.0)),
-                    float(x.get("rs_vs_nifty", 0.0)),
-                    float(x.get("final_score", 0.0)),
-                ),
-                reverse=True,
-            )
-            return filtered[: max(12, self.max_slots * 4)]
+            if not preserve_order:
+                filtered.sort(
+                    key=lambda x: (
+                        1 if x.get("is_compounder_rocket") else 0,
+                        float(x.get("composite_rs", 0.0)),
+                        float(x.get("rs_vs_nifty", 0.0)),
+                        float(x.get("final_score", 0.0)),
+                    ),
+                    reverse=True,
+                )
+            return filtered[: max(10, self.max_slots * 3)]
 
         return filtered[:legacy_limit]
 

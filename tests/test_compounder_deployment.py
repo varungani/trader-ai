@@ -329,3 +329,35 @@ def test_registry_has_18_ab_paired_tracks_and_muted_legacy():
         assert b_s.shortlist_mode == "eda"
         assert a_s.prioritize_by_composite_rs is False
         assert b_s.prioritize_by_composite_rs is True
+
+
+def test_declumped_group_b_strategies_route_distinct_dna_pools():
+    """Verify Group B tracks route to genuinely distinct strategy pools rather than cloning identical stocks."""
+    sample_picks = [
+        {"ticker": "BLAST1.NS", "current_price": 500.0, "pivot_buy_stop": 505.0, "pattern": "ULTRA_ALPHA_LEADER", "rvol": 5.5, "composite_rs": 25.0, "clv": 0.92, "vol_asym_20": 2.2, "dist_ema200_pct": 18.0, "final_score": 88.0, "sector_status": "LEADING"},
+        {"ticker": "ROCKET1.NS", "current_price": 800.0, "pivot_buy_stop": 810.0, "pattern": "PRE_IGNITION_COIL", "rvol": 1.1, "composite_rs": 38.0, "clv": 0.85, "vol_asym_20": 4.2, "dist_ema200_pct": 34.0, "final_score": 82.0, "sector_status": "NEUTRAL"},
+    ]
+    sample_radar = [
+        {"ticker": "COIL1.NS", "current_price": 300.0, "pivot_buy_stop": 304.0, "pattern": "PRE_IGNITION_COIL", "rvol": 1.2, "composite_rs": 22.0, "clv": 0.78, "vol_asym_20": 3.5, "dist_ema200_pct": 14.0, "final_score": 76.0, "sector_status": "LEADING"},
+        {"ticker": "IGN1.NS", "current_price": 400.0, "pivot_buy_stop": 405.0, "pattern": "INSTITUTIONAL_BLAST", "rvol": 3.8, "composite_rs": 18.0, "clv": 0.88, "vol_asym_20": 2.1, "dist_ema200_pct": 10.0, "final_score": 80.0, "sector_status": "NEUTRAL"},
+    ]
+
+    def _picked_tickers(key: str) -> set[str]:
+        s = default_registry.get(key)
+        acc = PortfolioAccount(name=s.name, capital=100000.0, max_slots=s.max_slots, slot_capital=s.slot_capital)
+        s.log_picks(acc, sample_picks, sample_radar, "2026-11-26", True, datetime(2026, 11, 26, 16, 0).time())
+        return {t.ticker for t in (acc.pending_triggers + acc.pending_confirmations)}
+
+    t1 = _picked_tickers("track_algo4")            # Quiet coils (ROCKET1 excluded by dist>30, blasters excluded by rvol>1.8)
+    t2 = _picked_tickers("option_3")               # High-RVOL ignitions (BLAST1, IGN1)
+    t3 = _picked_tickers("track_algo5")            # Pure blasts (BLAST1, IGN1)
+    t4 = _picked_tickers("option_2")               # VCP tight coils (ROCKET1, COIL1)
+    t6 = _picked_tickers("track_apex_compounder")  # High-extension rockets (ROCKET1 >= 20% 200EMA)
+    t9 = _picked_tickers("track_monthly_swing")    # Moderate-extension 5-25% accumulation swings (BLAST1 ineligible rvol>=2.5, COIL1 eligible)
+
+    assert t1 == {"COIL1.NS"}
+    assert t2 == {"BLAST1.NS", "IGN1.NS"}
+    assert t3 == {"BLAST1.NS", "IGN1.NS"}
+    assert t4 == {"ROCKET1.NS", "COIL1.NS"}
+    assert t6 == {"ROCKET1.NS"}
+    assert t9 == {"COIL1.NS"}

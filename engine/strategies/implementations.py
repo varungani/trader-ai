@@ -70,13 +70,36 @@ class EMABouncePivotStrategy(BaseStrategy):
         now_time: dtime,
     ) -> None:
         all_candidates = tier1_picks + tier2_radar
-        pattern_pool = [r for r in all_candidates if "20EMA" in str(r.get("pattern", "")).upper() or "SWEET_SPOT" in str(r.get("pattern", "")).upper()]
-        chosen = self._prepare_shortlist_pool(
-            account,
-            pattern_pool if pattern_pool else (all_candidates if self.shortlist_mode == "eda" else tier2_radar),
-            fallback_pool=all_candidates if self.shortlist_mode == "eda" else tier2_radar,
-            legacy_limit=3,
-        )
+        if self.shortlist_mode == "eda":
+            # Track 1 DNA: quiet 20-EMA / tight-coil pullback bounces (not extended gap-blasters)
+            ema_pool = [
+                r for r in all_candidates
+                if ("20EMA" in str(r.get("pattern", "")).upper() or "SWEET_SPOT" in str(r.get("pattern", "")).upper())
+                or (
+                    "COIL" in str(r.get("pattern", "")).upper()
+                    and float(r.get("rvol", 1.0)) <= 1.8
+                    and float(r.get("clv", 0.5)) >= 0.50
+                    and float(r.get("dist_ema200_pct", 0.0)) <= 30.0
+                )
+            ]
+            ema_pool.sort(
+                key=lambda x: (float(x.get("vol_asym_20", 1.0)) * 2.0 + float(x.get("composite_rs", 0.0))),
+                reverse=True,
+            )
+            chosen = self._prepare_shortlist_pool(
+                account,
+                ema_pool if ema_pool else all_candidates,
+                fallback_pool=all_candidates,
+                preserve_order=bool(ema_pool),
+            )
+        else:
+            pattern_pool = [r for r in all_candidates if "20EMA" in str(r.get("pattern", "")).upper() or "SWEET_SPOT" in str(r.get("pattern", "")).upper()]
+            chosen = self._prepare_shortlist_pool(
+                account,
+                pattern_pool if pattern_pool else tier2_radar,
+                fallback_pool=tier2_radar,
+                legacy_limit=3,
+            )
 
         for a in chosen:
             cur_px = float(a.get("current_price") or 0.0)
@@ -117,8 +140,25 @@ class MorningIgnitionStrategy(BaseStrategy):
         is_td: bool,
         now_time: dtime,
     ) -> None:
-        pool_src = (tier1_picks + tier2_radar) if self.shortlist_mode == "eda" else tier2_radar
-        chosen = self._prepare_shortlist_pool(account, pool_src, legacy_limit=max(len(tier2_radar), 20))
+        all_candidates = tier1_picks + tier2_radar
+        if self.shortlist_mode == "eda":
+            # Track 2 DNA: High-RVOL Morning Ignition Thrust (RVOL >= 1.5x, strong close CLV >= 0.65)
+            ign_pool = [
+                r for r in all_candidates
+                if float(r.get("rvol", 1.0)) >= 1.5 and float(r.get("clv", 0.5)) >= 0.65
+            ]
+            ign_pool.sort(
+                key=lambda x: (float(x.get("rvol", 1.0)) * 4.0 + float(x.get("composite_rs", 0.0))),
+                reverse=True,
+            )
+            chosen = self._prepare_shortlist_pool(
+                account,
+                ign_pool if ign_pool else all_candidates,
+                fallback_pool=all_candidates,
+                preserve_order=bool(ign_pool),
+            )
+        else:
+            chosen = self._prepare_shortlist_pool(account, tier2_radar, legacy_limit=max(len(tier2_radar), 20))
         for r in chosen:
             cur_px = float(r.get("current_price") or 0.0)
             pivot_trigger = float(r.get("pivot_buy_stop") or (cur_px * 1.002))
@@ -165,15 +205,32 @@ class BreakawayBlastStrategy(BaseStrategy):
         now_time: dtime,
     ) -> None:
         all_candidates = tier1_picks + tier2_radar
-        blast_pool = [r for r in all_candidates if "BLAST" in str(r.get("pattern", "")).upper() or "ULTRA" in str(r.get("pattern", "")).upper()]
-        if not blast_pool:
-            blast_pool = [r for r in all_candidates if float(r.get("rvol", 1.0)) >= 1.5]
-        chosen = self._prepare_shortlist_pool(
-            account,
-            blast_pool if blast_pool else (all_candidates if self.shortlist_mode == "eda" else tier2_radar),
-            fallback_pool=all_candidates if self.shortlist_mode == "eda" else tier2_radar,
-            legacy_limit=3,
-        )
+        blast_pool = [
+            r for r in all_candidates
+            if "BLAST" in str(r.get("pattern", "")).upper()
+            or "ULTRA" in str(r.get("pattern", "")).upper()
+            or float(r.get("rvol", 1.0)) >= 2.0
+        ]
+        if self.shortlist_mode == "eda":
+            blast_pool.sort(
+                key=lambda x: (float(x.get("composite_rs", 0.0)), float(x.get("rvol", 1.0))),
+                reverse=True,
+            )
+            chosen = self._prepare_shortlist_pool(
+                account,
+                blast_pool if blast_pool else all_candidates,
+                fallback_pool=all_candidates,
+                preserve_order=bool(blast_pool),
+            )
+        else:
+            if not blast_pool:
+                blast_pool = [r for r in all_candidates if float(r.get("rvol", 1.0)) >= 1.5]
+            chosen = self._prepare_shortlist_pool(
+                account,
+                blast_pool if blast_pool else tier2_radar,
+                fallback_pool=tier2_radar,
+                legacy_limit=3,
+            )
 
         for a in chosen:
             cur_px = float(a.get("current_price") or 0.0)
@@ -223,11 +280,32 @@ class MinerviniVCPStrategy(BaseStrategy):
         sched_str = scheduled_date.strftime("%Y-%m-%d")
         sched_disp = scheduled_date.strftime("%d %b")
 
-        chosen = self._prepare_shortlist_pool(
-            account,
-            tier1_picks if self.shortlist_mode == "legacy" else (tier1_picks + tier2_radar),
-            legacy_limit=max(len(tier1_picks), 5),
-        )
+        all_candidates = tier1_picks + tier2_radar
+        if self.shortlist_mode == "eda":
+            # Track 4 DNA: tight Minervini VCP contractions (COIL/VCP, calm RVOL, strong asymmetry & CLV)
+            vcp_pool = [
+                r for r in all_candidates
+                if ("COIL" in str(r.get("pattern", "")).upper() or "VCP" in str(r.get("pattern", "")).upper())
+                and float(r.get("rvol", 1.0)) < 2.2
+                and float(r.get("vol_asym_20", 1.0)) >= 1.5
+                and float(r.get("clv", 0.5)) >= 0.60
+            ]
+            vcp_pool.sort(
+                key=lambda x: (
+                    float(x.get("clv", 0.5)) * 10.0
+                    + float(x.get("vol_asym_20", 1.0)) * 2.0
+                    + float(x.get("composite_rs", 0.0))
+                ),
+                reverse=True,
+            )
+            chosen = self._prepare_shortlist_pool(
+                account,
+                vcp_pool if vcp_pool else all_candidates,
+                fallback_pool=all_candidates,
+                preserve_order=bool(vcp_pool),
+            )
+        else:
+            chosen = self._prepare_shortlist_pool(account, tier1_picks, legacy_limit=max(len(tier1_picks), 5))
         for p in chosen:
             cur_px = float(p.get("current_price") or 0.0)
             target_px = float(p.get("target_price") or round(cur_px * (1.0 + self.target_pct), 2))
@@ -386,12 +464,30 @@ class VelocitySniperStrategy(BaseStrategy):
         is_td: bool,
         now_time: dtime,
     ) -> None:
-        chosen = self._prepare_shortlist_pool(
-            account,
-            (tier1_picks + tier2_radar) if self.shortlist_mode == "eda" else tier2_radar,
-            fallback_pool=tier1_picks,
-            legacy_limit=3,
-        )
+        all_candidates = tier1_picks + tier2_radar
+        if self.shortlist_mode == "eda":
+            # Track 5 DNA: Multi-Factor Institutional & Sector Leader Sniper (score + RS + Leading sector boost)
+            sniper_pool = [
+                r for r in all_candidates
+                if float(r.get("clv", 0.5)) >= 0.55
+                and (float(r.get("final_score", 0.0)) >= 70.0 or r.get("sector_status") == "LEADING")
+            ]
+            sniper_pool.sort(
+                key=lambda x: (
+                    float(x.get("final_score", 0.0)) * 0.5
+                    + float(x.get("composite_rs", 0.0)) * 0.5
+                    + (10.0 if x.get("sector_status") == "LEADING" else 0.0)
+                ),
+                reverse=True,
+            )
+            chosen = self._prepare_shortlist_pool(
+                account,
+                sniper_pool if sniper_pool else all_candidates,
+                fallback_pool=all_candidates,
+                preserve_order=bool(sniper_pool),
+            )
+        else:
+            chosen = self._prepare_shortlist_pool(account, tier2_radar, fallback_pool=tier1_picks, legacy_limit=3)
 
         for c in chosen:
             cur_px = float(c.get("current_price") or 0.0)
@@ -460,7 +556,33 @@ class BaseApexCompounderStrategy(BaseStrategy):
         all_candidates = tier1_picks + tier2_radar
         if self.shortlist_mode == "legacy":
             all_candidates = sorted(all_candidates, key=lambda x: float(x.get("rvol", 1.0)), reverse=True)
-        chosen = self._prepare_shortlist_pool(account, all_candidates, legacy_limit=self.max_slots)
+            chosen = self._prepare_shortlist_pool(account, all_candidates, legacy_limit=self.max_slots)
+        else:
+            # Tracks 6, 7, 8 DNA: Stage-2 Compounder Rockets (high 200-EMA extension, vol_asym >= 1.8, CLV >= 0.65)
+            rocket_pool = [
+                r for r in all_candidates
+                if r.get("is_compounder_rocket")
+                or (
+                    float(r.get("dist_ema200_pct", 0.0)) >= 20.0
+                    and float(r.get("vol_asym_20", 1.0)) >= 1.8
+                    and float(r.get("clv", 0.5)) >= 0.65
+                )
+            ]
+            if not rocket_pool:
+                rocket_pool = [r for r in all_candidates if float(r.get("dist_ema200_pct", 0.0)) >= 15.0]
+            rocket_pool.sort(
+                key=lambda x: (
+                    float(x.get("composite_rs", 0.0)) * 0.7
+                    + float(x.get("dist_ema200_pct", 0.0)) * 0.3
+                ),
+                reverse=True,
+            )
+            chosen = self._prepare_shortlist_pool(
+                account,
+                rocket_pool if rocket_pool else all_candidates,
+                fallback_pool=all_candidates,
+                preserve_order=bool(rocket_pool),
+            )
 
         for rank_idx, a in enumerate(chosen):
             cur_px = float(a.get("current_price") or 0.0)
@@ -676,7 +798,32 @@ class SuperchargedMonthlySwingStrategy(BaseStrategy):
         is_td: bool,
         now_time: dtime,
     ) -> None:
-        chosen = self._prepare_shortlist_pool(account, tier1_picks + tier2_radar, legacy_limit=self.max_slots)
+        all_candidates = tier1_picks + tier2_radar
+        if self.shortlist_mode == "eda":
+            # Track 9 DNA: Sustained Stage-2 Accumulation Swing (moderate extension 5-25%, strong volume asymmetry, non-spike RVOL)
+            swing_pool = [
+                r for r in all_candidates
+                if 5.0 <= float(r.get("dist_ema200_pct", 0.0)) <= 25.0
+                and float(r.get("vol_asym_20", 1.0)) >= 1.7
+                and float(r.get("rvol", 1.0)) < 2.5
+                and float(r.get("clv", 0.5)) >= 0.50
+            ]
+            swing_pool.sort(
+                key=lambda x: (
+                    float(x.get("vol_asym_20", 1.0)) * 3.0
+                    + float(x.get("composite_rs", 0.0)) * 0.6
+                    + (8.0 if x.get("sector_status") == "LEADING" else 0.0)
+                ),
+                reverse=True,
+            )
+            chosen = self._prepare_shortlist_pool(
+                account,
+                swing_pool if swing_pool else all_candidates,
+                fallback_pool=all_candidates,
+                preserve_order=bool(swing_pool),
+            )
+        else:
+            chosen = self._prepare_shortlist_pool(account, all_candidates, legacy_limit=self.max_slots)
 
         for a in chosen:
             cur_px = float(a.get("current_price") or 0.0)

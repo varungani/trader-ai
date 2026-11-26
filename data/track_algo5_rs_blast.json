@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-26 19:36:45",
+  "updated_at": "2026-11-26 20:12:43",
   "track": {
     "name": "Track 3: Algo 5 - High-RS 52W Breakaway Blast [Momentum Runner]",
     "description": "High-RS leaders within 10% of 52W High surging on morning gap with RVOL >= 2.0x. Sells 50% at +5% T1, trails stop to breakeven (+0.6%), target +12%. Audited +33.0% 5Y CAGR, 60.2% Win Rate.",
@@ -96,28 +96,6 @@
         "market_breadth_pct": 51.0
       },
       {
-        "ticker": "VIJAYA.NS",
-        "name": "VIJAYA",
-        "shortlist_date": "2026-11-25",
-        "log_date": "2026-11-25",
-        "fill_date": "",
-        "scan_price": 1572.3,
-        "pivot_trigger": 1661.7,
-        "target_price": 1861.1,
-        "stop_loss": 1595.23,
-        "breakeven_lock": 1744.79,
-        "shares": 12,
-        "planned_rupees": 19940.4,
-        "status": "PENDING_BREAKOUT_TRIGGER",
-        "pattern": "INSTITUTIONAL_BLAST",
-        "readiness": "BLASTING",
-        "sector": "General",
-        "composite_rs": 17.65,
-        "clv": 0.741,
-        "vol_asym": 3.09,
-        "market_breadth_pct": 49.8
-      },
-      {
         "ticker": "KFINTECH.NS",
         "name": "KFINTECH",
         "shortlist_date": "2026-11-26",
@@ -138,28 +116,6 @@
         "clv": 0.898,
         "vol_asym": 2.7,
         "market_breadth_pct": 51.0
-      },
-      {
-        "ticker": "LGEINDIA.NS",
-        "name": "LGEINDIA",
-        "shortlist_date": "2026-11-25",
-        "log_date": "2026-11-25",
-        "fill_date": "",
-        "scan_price": 1740.7,
-        "pivot_trigger": 1836.25,
-        "target_price": 2056.6,
-        "stop_loss": 1762.8,
-        "breakeven_lock": 1928.06,
-        "shares": 10,
-        "planned_rupees": 18362.5,
-        "status": "PENDING_BREAKOUT_TRIGGER",
-        "pattern": "INSTITUTIONAL_BLAST",
-        "readiness": "BLASTING",
-        "sector": "General",
-        "composite_rs": 14.45,
-        "clv": 0.745,
-        "vol_asym": 2.94,
-        "market_breadth_pct": 49.8
       },
       {
         "ticker": "SUNTECK.NS",
