@@ -33,6 +33,7 @@ def score_stock(
     timeframe: str = "short_term",
     macro_score: Optional[dict] = None,
     macro_news: Optional[list] = None,
+    force_live: bool = False,
 ) -> dict:
     """
     Full multi-factor score for one ticker and timeframe (Pure Swing Trading Focus).
@@ -48,8 +49,8 @@ def score_stock(
 
     # Market / fundamentals
     period = _period_for_timeframe(timeframe)
-    history = fetch_stock_history(ticker, period=period)
-    info = fetch_stock_info(ticker)
+    history = fetch_stock_history(ticker, period=period, force_live=force_live)
+    info = fetch_stock_info(ticker, force_live=force_live)
     company_name = info.get("name") or ""
 
     technical = compute_technical_score(history, ticker=ticker)

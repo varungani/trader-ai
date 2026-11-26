@@ -79,6 +79,14 @@ jobs:
         run: |
           FAST_SEC="${{ github.event.inputs.fast_interval || '20' }}"
           TARGET="${{ github.event.inputs.session_target || 'auto' }}"
+          if [ "$TARGET" = "auto" ]; then
+            IST_HHMM_NOW=$(TZ='Asia/Kolkata' date +%H%M)
+            if [ "$((10#$IST_HHMM_NOW))" -lt 1230 ]; then
+              TARGET="12:30"
+            else
+              TARGET="15:30"
+            fi
+          fi
           MAX_C="${{ github.event.inputs.max_cycles }}"
           if [ -n "$MAX_C" ]; then
             python engine/auto_paper_runner.py --hawk --session-mode --session-target "$TARGET" --fast-interval "$FAST_SEC" --max-cycles "$MAX_C"

@@ -51,13 +51,22 @@ jobs:
           python -c "import app; print('Streamlit app syntax verified.')"
           python -c "import config; print('Config verified.')"
 
-      - name: Run Apex High-Velocity Scanner
+      - name: Catch Up EOD Open Positions & Recap (If Hawk Afternoon Delayed)
+        if: steps.day_check.outputs.is_trading_day == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          TELEGRAM_ENABLED: ${{ secrets.TELEGRAM_ENABLED }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python engine/auto_paper_runner.py --eod-catchup
+
+      - name: Run Apex High-Velocity Scanner & Queue Next-Day Picks
         if: steps.day_check.outputs.is_trading_day == 'true' || github.event_name == 'workflow_dispatch'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           KOTAK_CONSUMER_KEY: ${{ secrets.KOTAK_CONSUMER_KEY }}
         run: |
-          python engine/apex_engine.py > daily_scan_output.txt
+          python engine/apex_engine.py --queue-picks > daily_scan_output.txt
           cat daily_scan_output.txt
 
       - name: Archive Evening Tournament Snapshot (No Post-Close Re-Triggers)

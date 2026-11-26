@@ -323,16 +323,18 @@ def test_slippage_applied_on_entry_and_breakeven_lock_buffer(monkeypatch):
 def test_t1_partial_harvest_locks_profit_and_moves_stop(monkeypatch):
     """Verify that when price reaches +5.0%, 50% shares are sold and stop is locked at breakeven + friction."""
     import engine.dual_tracker as dt
+    from data.market_calendar import get_ist_now
     from engine.dual_tracker import _save_tracker, _load_tracker, audit_and_update_dual_tracker
 
+    today_str = get_ist_now().strftime("%Y-%m-%d")
     tracker = _load_tracker()
     tracker["option_3"]["open_trades"] = [
         {
             "ticker": "HARVEST.NS",
             "name": "HARVEST",
-            "entry_date": "2026-11-16",
-            "shortlist_date": "2026-11-16",
-            "fill_date": "2026-11-16 09:30",
+            "entry_date": today_str,
+            "shortlist_date": today_str,
+            "fill_date": f"{today_str} 09:30",
             "entry_price": 100.0,
             "current_price": 100.0,
             "target_price": 112.0,

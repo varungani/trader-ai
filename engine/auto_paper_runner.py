@@ -98,6 +98,55 @@ def run_daemon(interval_seconds: int = 300) -> None:
         time.sleep(interval_seconds)
 
 
+def resolve_session_target(session_target: str, start_time) -> tuple:
+    """Resolve (target_time, is_eod) once at session start so 'auto' never flips past 12:30."""
+    from datetime import time as dtime
+    from data.market_calendar import NORMAL_MARKET_CLOSE
+
+    midday_boundary = dtime(12, 30)
+    if session_target == "12:30":
+        return midday_boundary, False
+    if session_target == "15:30":
+        return NORMAL_MARKET_CLOSE, True
+    if start_time < midday_boundary:
+        return midday_boundary, False
+    return NORMAL_MARKET_CLOSE, True
+
+
+def run_eod_catchup(send_recap: bool = False) -> dict:
+    """
+    Post-close EOD catch-up for missed afternoon Hawk relays:
+      - Audits all open positions using today's 15:30 IST close/high/low (pending GTT buys stay blocked).
+      - Sends Daily Recap once only when run near close (<= 16:30 IST) or explicitly requested.
+      - Archives the evening snapshot and analytics CSVs.
+    """
+    from datetime import time as dtime
+    from bot.telegram_notifier import default_telegram_notifier
+    from engine.dual_tracker import _load_tracker, _save_tracker
+    from engine.analytics.evening_collector import archive_evening_snapshot
+
+    now_ist = get_ist_now()
+    today_str = now_ist.strftime("%Y-%m-%d")
+    is_td, reason = is_trading_day(now_ist.date())
+    if not is_td or now_ist.time() < dtime(15, 30):
+        logger.info(f"⏸️ [EOD Catch-Up Skipped] {now_ist.strftime('%Y-%m-%d %H:%M IST')} ({reason}).")
+        return compute_dual_summary()
+
+    logger.info("📊 [EOD Catch-Up] Updating open positions across all 18 tracks with today's 15:30 close...")
+    summary = run_once(market_hours_only=False)
+
+    latest_tracker = _load_tracker()
+    within_recap_window = now_ist.time() <= dtime(16, 30)
+    if latest_tracker.get("daily_recap_sent_date") != today_str and (send_recap or within_recap_window):
+        sent = default_telegram_notifier.notify_daily_recap(summary)
+        if sent:
+            latest_tracker["daily_recap_sent_date"] = today_str
+            _save_tracker(latest_tracker)
+
+    archive_evening_snapshot(perform_audit=False)
+    return summary
+
+
 def run_hawk_surveillance(
     fast_interval_sec: int = 20,
     scan_interval_min: int = 15,
@@ -129,6 +178,7 @@ def run_hawk_surveillance(
     alerted_signals = tracker.setdefault("alerted_buy_signals", {})
     alerted_today: set[str] = {t for t, d in alerted_signals.items() if d == today_str}
 
+    target_time, is_eod = resolve_session_target(session_target, get_ist_now().time())
     last_scan_time = 0.0
     cycles_run = 0
 
@@ -144,23 +194,6 @@ def run_hawk_surveillance(
                 if not is_td:
                     logger.info("Today is not a trading day. Exiting without running live audit.")
                     break
-
-                midday_boundary = dtime(12, 30)
-                eod_boundary = NORMAL_MARKET_CLOSE  # 15:30
-
-                if session_target == "12:30":
-                    target_time = midday_boundary
-                    is_eod = False
-                elif session_target == "15:30":
-                    target_time = eod_boundary
-                    is_eod = True
-                else:  # auto
-                    if now_ist.time() < midday_boundary:
-                        target_time = midday_boundary
-                        is_eod = False
-                    else:
-                        target_time = eod_boundary
-                        is_eod = True
 
                 if now_ist.time() >= target_time:
                     if is_eod:
@@ -277,6 +310,8 @@ if __name__ == "__main__":
     parser.add_argument("--max-cycles", type=int, default=None, help="Optional max loop iterations")
     parser.add_argument("--archive", action="store_true", help="Run audit and immediately archive evening snapshot")
     parser.add_argument("--market-hours-only", action="store_true", help="Skip live audit if outside NSE continuous session/close window")
+    parser.add_argument("--eod-catchup", action="store_true", help="Post-close EOD open-position audit & snapshot catch-up")
+    parser.add_argument("--send-recap", action="store_true", help="Allow Telegram daily recap even after 16:30 IST during --eod-catchup")
     args = parser.parse_args()
 
     if args.hawk:
@@ -287,6 +322,8 @@ if __name__ == "__main__":
             session_target=args.session_target,
             max_cycles=args.max_cycles,
         )
+    elif args.eod_catchup:
+        run_eod_catchup(send_recap=args.send_recap)
     elif args.daemon:
         run_daemon(args.interval)
     else:

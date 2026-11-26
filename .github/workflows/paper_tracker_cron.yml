@@ -1,11 +1,12 @@
-name: 5-Min Automated Paper Tracker
+name: 30-Min Backup Paper Tracker
 
 on:
   schedule:
-    # Strict NSE trading window: 09:15 AM IST (03:45 UTC) to 03:35 PM IST (10:05 UTC), Mon-Fri
-    - cron: '45,50,55 3 * * 1-5'
-    - cron: '*/5 4-9 * * 1-5'
-    - cron: '0,5 10 * * 1-5'
+    # Lightweight 30-min fallback inside NSE window (09:30-15:30 IST, Mon-Fri)
+    # Reduces GitHub Actions cron queue congestion while Hawk polls every 20s
+    - cron: "30 3 * * 1-5"
+    - cron: "0,30 4-9 * * 1-5"
+    - cron: "0 10 * * 1-5"
   workflow_dispatch: # Allows manual 1-click trigger from GitHub Actions
 
 # Cancel stale queued cron runs instead of piling up a backlog that fires hours after close

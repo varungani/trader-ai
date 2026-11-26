@@ -97,9 +97,14 @@ def archive_evening_snapshot(
     ]
 
     # 3. Update track_daily_equity.csv
+    tracks_map = summary.get("tracks", {})
     equity_rows = []
     for track_id, track_key, track_name in track_meta:
-        t_data = summary.get(track_key, summary.get(f"track_{track_id}", {}))
+        t_data = (
+            tracks_map.get(track_key)
+            or summary.get(track_key)
+            or summary.get(f"track_{track_id}", {})
+        )
         equity_rows.append({
             "date": today_str,
             "track_id": track_id,

@@ -35,3 +35,21 @@ date,track_id,track_key,track_name,available_cash,capital_deployed,floating_mtm_
 2026-11-25,17,track_conviction_2slot_legacy,Track 7A (Legacy): 2-Slot Conviction Compounder [53.5% CAGR] [Silent],100000.0,0.0,0.0,0.0,0.0,0.0,0.0,0,0,0,0.0,1.0
 2026-11-25,18,track_apex_1slot_legacy,Track 8A (Legacy): 1-Slot Apex Leader Rocket [66.9% CAGR] [Silent],100000.0,0.0,0.0,0.0,0.0,0.0,0.0,0,0,0,0.0,1.0
 2026-11-25,19,track_monthly_swing_legacy,Track 9A (Legacy): Active 1-to-2 Month Swing Engine [25.6% CAGR] [Silent],100000.0,0.0,0.0,0.0,0.0,0.0,0.0,0,0,0,0.0,1.0
+2026-11-26,1,track_algo4,Track 1: Algo 4 - Confirmed 20-EMA Bounce Pivot [Alpha Leader],14621.93,85378.07,-215.07,0.0,-215.07,-0.22,-0.25,5,35,0,0.0,1.0
+2026-11-26,2,option_3,Track 2: Algo 1 - Morning Ignition Thrust (Option 3) [Alpha Rocket],14621.93,85378.07,-215.07,0.0,-215.07,-0.22,-0.25,5,35,0,0.0,1.0
+2026-11-26,3,track_algo5,Track 3: Algo 5 - High-RS 52W Breakaway Blast [Momentum Runner],100000.0,0,0,0,0,0.0,0.0,0,10,0,0.0,1.0
+2026-11-26,4,option_2,Track 4: Algo 2 - Minervini VCP Squeeze (Option 2) [Silent Benchmark],10723.47,89276.53,-45.93,0.0,-45.93,-0.05,-0.05,5,29,0,0.0,1.0
+2026-11-26,5,track_c,Track 5: Algo 3 - Benchmark Velocity Sniper [Silent Benchmark],14621.93,85378.07,-215.07,0.0,-215.07,-0.22,-0.25,5,35,0,0.0,1.0
+2026-11-26,6,track_apex_compounder,Track 6: Apex 3-Slot Compounder [57.9% CAGR],6853.19,93146.81,-163.71,0.0,-163.71,-0.16,-0.18,3,21,0,0.0,1.0
+2026-11-26,7,track_conviction_2slot,Track 7: 2-Slot Conviction Compounder [53.5% CAGR],4508.2,95491.8,-9.0,0.0,-9.0,-0.01,-0.01,2,22,0,0.0,1.0
+2026-11-26,8,track_apex_1slot,Track 8: 1-Slot Apex Leader Rocket [66.9% CAGR],5892.88,94107.12,-1059.12,0.0,-1059.12,-1.06,-1.13,1,23,0,0.0,1.0
+2026-11-26,9,track_monthly_swing,Track 9: Active 1-to-2 Month Swing Engine [25.6% CAGR],2749.4,97250.6,141.6,0.0,141.6,0.14,0.15,4,28,0,0.0,1.0
+2026-11-26,11,track_algo4_legacy,Track 1A (Legacy): Algo 4 - Confirmed 20-EMA Bounce Pivot [Alpha Leader] [Silent],1920.53,97185.1,141.57,-894.37,-752.8,-0.75,-0.77,5,27,1,0.0,0.0
+2026-11-26,12,option_3_legacy,Track 2A (Legacy): Algo 1 - Morning Ignition Thrust (Option 3) [Alpha Rocket] [Silent],1920.53,97185.1,141.57,-894.37,-752.8,-0.75,-0.77,5,42,1,0.0,0.0
+2026-11-26,13,track_algo5_legacy,Track 3A (Legacy): Algo 5 - High-RS 52W Breakaway Blast [Momentum Runner] [Silent],69125.82,29385.96,651.84,-1488.22,-836.38,-0.84,-2.85,2,4,2,0.0,0.2
+2026-11-26,14,option_2_legacy,Track 4A (Legacy): Algo 2 - Minervini VCP Squeeze (Option 2) [Silent Benchmark] [Silent],22472.19,76952.77,-710.27,-575.04,-1285.31,-1.29,-1.67,4,7,2,50.0,0.37
+2026-11-26,15,track_c_legacy,Track 5A (Legacy): Algo 3 - Benchmark Velocity Sniper [Silent Benchmark] [Silent],1920.53,97185.1,141.57,-894.37,-752.8,-0.75,-0.77,5,31,1,0.0,0.0
+2026-11-26,16,track_apex_compounder_legacy,Track 6A (Legacy): Apex 3-Slot Compounder [57.9% CAGR] [Silent],1568.74,98431.26,-483.46,0.0,-483.46,-0.48,-0.49,3,28,0,0.0,1.0
+2026-11-26,17,track_conviction_2slot_legacy,Track 7A (Legacy): 2-Slot Conviction Compounder [53.5% CAGR] [Silent],1030.77,98969.23,-507.33,0.0,-507.33,-0.51,-0.51,2,19,0,0.0,1.0
+2026-11-26,18,track_apex_1slot_legacy,Track 8A (Legacy): 1-Slot Apex Leader Rocket [66.9% CAGR] [Silent],115.95,99884.05,-1737.55,0.0,-1737.55,-1.74,-1.74,1,9,0,0.0,1.0
+2026-11-26,19,track_monthly_swing_legacy,Track 9A (Legacy): Active 1-to-2 Month Swing Engine [25.6% CAGR] [Silent],1907.85,98092.15,-1290.75,0.0,-1290.75,-1.29,-1.32,4,37,0,0.0,1.0

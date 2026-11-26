@@ -73,3 +73,39 @@ def test_upsert_equity_does_not_duplicate_same_day(temp_analytics_dir):
     df2 = load_equity_df(temp_analytics_dir)
     # Must still have exactly num_tracks rows (updated, not duplicated!)
     assert len(df2) == num_tracks
+
+
+def test_legacy_tracks_equity_populated_and_hawk_target_locked(temp_analytics_dir, monkeypatch):
+    """Regression: legacy track stats must not log as 0s in daily equity CSV, and 'auto' Hawk target stays locked."""
+    from datetime import time as dtime
+    from engine.auto_paper_runner import resolve_session_target
+
+    assert resolve_session_target("auto", dtime(9, 25)) == (dtime(12, 30), False)
+    assert resolve_session_target("auto", dtime(12, 31)) == (dtime(15, 30), True)
+    assert resolve_session_target("12:30", dtime(12, 35)) == (dtime(12, 30), False)
+
+    fake_summary = {
+        "tracks": {
+            "track_algo4_legacy": {
+                "cash_free": 42000.0,
+                "capital_deployed": 58000.0,
+                "floating_pnl_inr": 1250.0,
+                "realized_pnl_inr": -447.0,
+                "total_pnl_inr": 803.0,
+                "total_pnl_pct": 0.8,
+                "roc_deployed_pct": 1.38,
+                "open_count": 3,
+                "pending_count": 12,
+                "closed_count": 1,
+                "win_rate": 0.0,
+                "profit_factor": 1.0,
+            }
+        }
+    }
+    monkeypatch.setattr("engine.analytics.evening_collector.compute_dual_summary", lambda: fake_summary)
+    archive_evening_snapshot(output_dir=temp_analytics_dir, perform_audit=False, custom_date="2026-11-26")
+    df_eq = load_equity_df(temp_analytics_dir)
+    leg_row = df_eq[df_eq["track_key"] == "track_algo4_legacy"].iloc[0]
+    assert float(leg_row["capital_deployed"]) == 58000.0
+    assert int(leg_row["open_positions_count"]) == 3
+    assert float(leg_row["total_net_pnl_inr"]) == 803.0

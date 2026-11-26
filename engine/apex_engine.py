@@ -106,8 +106,10 @@ def run_apex_scan(
     for hit in screen_hits[:60]:
         ticker = hit["ticker"]
         try:
-            score_data = score_stock(ticker, timeframe="short_term", macro_score=macro)
+            score_data = score_stock(ticker, timeframe="short_term", macro_score=macro, force_live=True)
             rec = build_recommendation(score_data)
+            if hit.get("price"):
+                rec["current_price"] = float(hit["price"])
             
             # Enrich with screener patterns, empirical IC/EDA features & sector metadata
             rec["setup_pattern"] = hit.get("setup_pattern") or "NONE"
@@ -330,10 +332,15 @@ def run_apex_scan(
 
 
 if __name__ == "__main__":
+    import argparse
     import json
     logging.basicConfig(level=logging.INFO)
+    parser = argparse.ArgumentParser(description="TraderAI Apex High-Velocity Scanner")
+    parser.add_argument("--queue-picks", action="store_true", help="Route scanned picks & radar into all 18 tournament tracks")
+    args = parser.parse_args()
+
     res = run_apex_scan(capital=100000.0, top_slots=5, radar_slots=20)
-    
+
     # Persist latest scan to data/latest_scan.json for instantaneous dashboard load
     try:
         scan_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "latest_scan.json")
@@ -342,6 +349,14 @@ if __name__ == "__main__":
         print(f"✅ Successfully cached latest scan to {scan_path}")
     except Exception as e:
         print(f"Warning: could not save latest_scan.json: {e}")
+
+    if args.queue_picks:
+        try:
+            from engine.dual_tracker import log_today_picks
+            log_today_picks(res.get("picks", []), res.get("radar_watchlist", []))
+            print("✅ Queued picks & radar across all 18 A/B tournament tracks.")
+        except Exception as q_err:
+            print(f"Warning: could not queue picks into dual tracker: {q_err}")
 
     print("\n================ APEX HIGH-VELOCITY SCAN RESULTS ================")
     print(f"Market Regime: {res['regime']} (Nifty Cleared: {res['nifty_cleared']})")
