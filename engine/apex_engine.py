@@ -342,6 +342,8 @@ def run_apex_scan(
 
     return {
         "status": "OK",
+        "generated_at": pd.Timestamp.now(tz="Asia/Kolkata").strftime("%Y-%m-%d %H:%M IST"),
+        "universe": universe_preset,
         "regime": regime,
         "nifty_cleared": nifty_cleared,
         "regime_desc": regime_desc,
@@ -393,11 +395,11 @@ if __name__ == "__main__":
     for s in res.get("leading_sectors", []):
         print(f"  • {s['sector']}: Rank #{s.get('sector_rank', 1)} | Composite RS: {s.get('composite_rs', 0):+.2f}% ({s.get('status')})")
 
-    print("\n⚡ TIER 1: ACTIVE 3-SLOT EXECUTION CARDS (33.3% Capital Each):")
+    print(f"\n⚡ TIER 1: ACTIVE {len(res['picks'])}-SLOT EXECUTION CARDS:")
     for i, p in enumerate(res["picks"], 1):
         print(f"Slot {i}: [{p['ticker']}] - {p['pattern']} | Sector: {p['sector']} ({p['sector_status']})")
         print(f"  Score: {p['final_score']} | RVOL: {p['rvol']}x | RS vs Nifty: {p.get('rs_vs_nifty', 0.0):+.1f}% | Delivery: {p.get('est_delivery_pct', 0)}%")
-        print(f"  Entry: ₹{p['current_price']:,.2f} | Target (+20%): ₹{p['target_price']:,.2f} | Stop (-7% Close): ₹{p['stop_loss']:,.2f}")
+        print(f"  Entry: ₹{p['current_price']:,.2f} | Target (+{p.get('target_pct', 12.0):.1f}%): ₹{p['target_price']:,.2f} | Stop (-{p.get('stop_loss_pct', 4.0):.1f}%): ₹{p['stop_loss']:,.2f}")
         print(f"  Position: {p['shares']} shares = ₹{p['allocated_rupees']:,.2f} ({p['weight_pct']}% of portfolio)\n")
 
     print(f"📡 TIER 2: HIGH-VELOCITY RADAR WATCHLIST ({len(res['radar_watchlist'])} Stocks):")
