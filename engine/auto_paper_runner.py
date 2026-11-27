@@ -179,7 +179,8 @@ def run_hawk_surveillance(
     alerted_today: set[str] = {t for t, d in alerted_signals.items() if d == today_str}
 
     target_time, is_eod = resolve_session_target(session_target, get_ist_now().time())
-    last_scan_time = 0.0
+    # Delay Gear 2's heavy 500-stock sweep until Gear 1 has completed immediate open/trigger audits
+    last_scan_time = time.time()
     cycles_run = 0
 
     while True:

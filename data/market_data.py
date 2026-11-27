@@ -16,7 +16,7 @@ _CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
 _LOADED_CACHE: dict[str, pd.DataFrame] | None = None
 _LIVE_NETWORK_AVAILABLE: bool | None = None
 _QUOTE_CACHE: dict[str, tuple[float, dict]] = {}
-_QUOTE_CACHE_TTL_SEC = 15.0
+_QUOTE_CACHE_TTL_SEC = 45.0
 _HISTORY_CACHE: dict[tuple[str, str], tuple[float, pd.DataFrame]] = {}
 _HISTORY_CACHE_TTL_SEC = 60.0
 
@@ -303,10 +303,79 @@ def fetch_commodity_data(commodity_symbol: str, period: str = "1y") -> pd.DataFr
     return df
 
 
+def batch_prefetch_quotes(tickers: list[str], ttl_sec: float = _QUOTE_CACHE_TTL_SEC) -> int:
+    """
+    Prefetch today's live OHLCV quotes in ONE parallel yf.download call and seed _QUOTE_CACHE.
+    Eliminates 70+ serial HTTP requests during multi-track Hawk/EOD audits.
+    """
+    now_ts = time.time()
+    unique = []
+    seen = set()
+    for t in tickers:
+        if not t or t in seen:
+            continue
+        seen.add(t)
+        cached = _QUOTE_CACHE.get(t)
+        if not cached or (now_ts - cached[0]) >= ttl_sec:
+            unique.append(t)
+
+    if not unique or _LIVE_NETWORK_AVAILABLE is False:
+        return 0
+
+    try:
+        data = yf.download(unique, period="5d", interval="1d", group_by="ticker", auto_adjust=True, progress=False, threads=True)
+    except Exception as e:
+        logger.debug(f"Batch quote prefetch failed: {e}")
+        return 0
+
+    if data is None or data.empty:
+        return 0
+
+    seeded = 0
+    multi = isinstance(data.columns, pd.MultiIndex)
+    for t in unique:
+        try:
+            if multi:
+                if t not in data.columns.get_level_values(0):
+                    continue
+                df = data[t].dropna(subset=["Close"])
+            else:
+                df = data.dropna(subset=["Close"]) if len(unique) == 1 else pd.DataFrame()
+            if df is None or df.empty:
+                continue
+            df.columns = [str(c).title() for c in df.columns]
+            last_close = float(df["Close"].iloc[-1])
+            if last_close <= 0:
+                continue
+            prev_close = float(df["Close"].iloc[-2]) if len(df) > 1 else last_close
+            open_px = float(df["Open"].iloc[-1]) if "Open" in df.columns else last_close
+            high_px = float(df["High"].iloc[-1]) if "High" in df.columns else last_close
+            low_px = float(df["Low"].iloc[-1]) if "Low" in df.columns else last_close
+            vol = float(df["Volume"].iloc[-1]) if "Volume" in df.columns else 0.0
+            quote = {
+                "symbol": t,
+                "price": last_close,
+                "previous_close": prev_close,
+                "open": open_px,
+                "high": high_px,
+                "low": low_px,
+                "day_high": high_px,
+                "day_low": low_px,
+                "volume": int(vol) if pd.notna(vol) else 0,
+                "market_cap": int(last_close * (vol if pd.notna(vol) else 0) * 50),
+            }
+            _QUOTE_CACHE[t] = (now_ts, quote)
+            seeded += 1
+        except Exception:
+            continue
+    return seeded
+
+
 def fetch_batch_quotes(tickers: list[str]) -> list[dict]:
     """
-    Fetch live quotes for multiple tickers efficiently.
+    Fetch live quotes for multiple tickers efficiently via batch prefetch.
     """
+    batch_prefetch_quotes(tickers)
     return [fetch_live_quote(t) for t in tickers]
 
 

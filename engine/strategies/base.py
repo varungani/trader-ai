@@ -126,7 +126,13 @@ class BaseStrategy(ABC):
             | {t.ticker for t in account.pending_confirmations}
             | {p.ticker for p in account.positions}
         )
-        filtered = [r for r in pool_src if r.get("ticker") and r.get("ticker") not in existing]
+        seen_in_pool = set(existing)
+        filtered = []
+        for r in pool_src:
+            tkr = r.get("ticker")
+            if tkr and tkr not in seen_in_pool:
+                seen_in_pool.add(tkr)
+                filtered.append(r)
         if self.shortlist_mode == "eda":
             if not preserve_order:
                 filtered.sort(

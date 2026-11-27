@@ -19,8 +19,10 @@ from typing import Optional, Dict, Any, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import TOURNAMENT_CONFIG
-from data.market_data import fetch_live_quote, _get_cached_history
+from data.market_data import fetch_live_quote, _get_cached_history, batch_prefetch_quotes
 from engine.domain.models import PortfolioAccount, GTTOrder, Position
+
+_ORIG_FETCH_LIVE_QUOTE = fetch_live_quote
 from engine.strategies.base import can_trigger_breakout
 from engine.strategies.registry import StrategyRegistry, default_registry
 from engine.execution.tournament_service import TournamentService
@@ -152,6 +154,18 @@ def audit_and_update_dual_tracker(force_market_open: bool = False) -> dict:
     service = TournamentService(default_registry)
     current_data = _load_tracker()
     service.load_from_dict(current_data)
+
+    import data.market_data as md_mod
+    if fetch_live_quote is _ORIG_FETCH_LIVE_QUOTE and getattr(md_mod, "fetch_live_quote", None) is _ORIG_FETCH_LIVE_QUOTE:
+        unique_tickers = list({
+            item.ticker
+            for acc in service.accounts.values()
+            for item in (acc.positions + acc.pending_triggers + acc.pending_confirmations)
+            if getattr(item, "ticker", "")
+        })
+        if unique_tickers:
+            batch_prefetch_quotes(unique_tickers)
+
     service.audit_all(force_market_open=force_market_open, alert_callback=_send_telegram_alert)
     service.save_to_files(TRACKER_FILE)
     return service.compute_summary()
